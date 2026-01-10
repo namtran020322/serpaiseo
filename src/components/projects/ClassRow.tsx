@@ -61,8 +61,6 @@ export function ClassRow({ projectClass, projectId }: ClassRowProps) {
 
   const lastUpdated = projectClass.last_checked_at || projectClass.updated_at;
 
-  const lastUpdated = projectClass.last_checked_at || projectClass.updated_at;
-
   return (
     <>
       <TableRow className="hover:bg-accent/50">
