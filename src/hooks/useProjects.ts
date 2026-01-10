@@ -653,13 +653,25 @@ export function useAddKeywords() {
       if (!user) throw new Error("Not authenticated");
 
       const uniqueKeywords = [...new Set(input.keywords.map((k) => k.trim().toLowerCase()))];
-      const keywordsToInsert = uniqueKeywords
-        .filter((k) => k.length > 0)
+      const filteredKeywords = uniqueKeywords.filter((k) => k.length > 0);
+      
+      // Check for existing keywords in this class
+      const { data: existingKeywords } = await supabase
+        .from("project_keywords")
+        .select("keyword")
+        .eq("class_id", input.classId);
+      
+      const existingSet = new Set(existingKeywords?.map(k => k.keyword.toLowerCase()) || []);
+      
+      const keywordsToInsert = filteredKeywords
+        .filter((keyword) => !existingSet.has(keyword))
         .map((keyword) => ({
           class_id: input.classId,
           user_id: user.id,
           keyword,
         }));
+      
+      const skippedCount = filteredKeywords.length - keywordsToInsert.length;
 
       if (keywordsToInsert.length > 0) {
         const { error } = await supabase
@@ -668,16 +680,21 @@ export function useAddKeywords() {
         if (error) throw error;
       }
 
-      return { added: keywordsToInsert.length };
+      return { added: keywordsToInsert.length, skipped: skippedCount };
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["projectClass", variables.classId] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["project"] });
-      toast({ title: "Success", description: `Added ${data.added} keywords` });
+      
+      let message = `Added ${data.added} keyword${data.added !== 1 ? 's' : ''}`;
+      if (data.skipped > 0) {
+        message += `. ${data.skipped} duplicate${data.skipped !== 1 ? 's' : ''} skipped.`;
+      }
+      toast({ title: "Success", description: message });
     },
     onError: (error) => {
-      toast({ variant: "destructive", title: "Error", description: error.message });
+      toast({ variant: "destructive", title: "Error adding keywords", description: error.message });
     },
   });
 }
