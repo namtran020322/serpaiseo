@@ -1,7 +1,9 @@
 import { Table } from "@tanstack/react-table";
-import { X, Trash2, RefreshCw, Search, SlidersHorizontal, FileText } from "lucide-react";
+import { X, Trash2, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -86,15 +88,16 @@ export function DataTableToolbar<TData>({
           </DropdownMenuContent>
         </DropdownMenu>
         {onToggleSerpTitles !== undefined && (
-          <Button
-            variant={showSerpTitles ? "default" : "outline"}
-            size="sm"
-            className="h-9 gap-1"
-            onClick={onToggleSerpTitles}
-          >
-            <FileText className="h-4 w-4" />
-            SERP Titles
-          </Button>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="serp-titles"
+              checked={showSerpTitles}
+              onCheckedChange={onToggleSerpTitles}
+            />
+            <Label htmlFor="serp-titles" className="text-sm font-medium cursor-pointer">
+              SERP Titles
+            </Label>
+          </div>
         )}
       </div>
       {selectedCount > 0 && (
