@@ -6,14 +6,14 @@ import { useAuthContext } from "@/contexts/AuthContext";
 
 export default function Dashboard() {
   const { user } = useAuthContext();
-  const userName = user?.user_metadata?.full_name || "bạn";
+  const userName = user?.user_metadata?.full_name || "there";
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Xin chào, {userName}!</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Hello, {userName}!</h1>
         <p className="text-muted-foreground mt-2">
-          Chào mừng bạn đến với RankChecker - công cụ kiểm tra thứ hạng từ khóa trên Google.
+          Welcome to RankChecker - your keyword ranking checker tool for Google.
         </p>
       </div>
 
@@ -23,15 +23,15 @@ export default function Dashboard() {
             <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
               <Search className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle>Kiểm tra thứ hạng</CardTitle>
+            <CardTitle>Check Ranking</CardTitle>
             <CardDescription>
-              Nhập từ khóa và URL để kiểm tra vị trí trên Google SERP
+              Enter keyword and URL to check position on Google SERP
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild className="w-full group">
               <Link to="/dashboard/rank-checker">
-                Bắt đầu kiểm tra
+                Start Checking
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
@@ -43,15 +43,15 @@ export default function Dashboard() {
             <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
               <History className="h-6 w-6 text-blue-600" />
             </div>
-            <CardTitle>Lịch sử kiểm tra</CardTitle>
+            <CardTitle>Check History</CardTitle>
             <CardDescription>
-              Xem lại các kết quả kiểm tra thứ hạng trước đó
+              Review previous ranking check results
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" asChild className="w-full group">
               <Link to="/dashboard/history">
-                Xem lịch sử
+                View History
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
@@ -63,15 +63,15 @@ export default function Dashboard() {
             <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center mb-4">
               <BarChart3 className="h-6 w-6 text-green-600" />
             </div>
-            <CardTitle>Thống kê</CardTitle>
+            <CardTitle>Analytics</CardTitle>
             <CardDescription>
-              Phân tích xu hướng thứ hạng từ khóa theo thời gian
+              Analyze keyword ranking trends over time
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" asChild className="w-full group">
               <Link to="/dashboard/analytics">
-                Xem thống kê
+                View Analytics
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
@@ -81,7 +81,7 @@ export default function Dashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Hướng dẫn sử dụng</CardTitle>
+          <CardTitle>How to Use</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-4 items-start">
@@ -89,9 +89,9 @@ export default function Dashboard() {
               1
             </div>
             <div>
-              <h4 className="font-medium">Nhập từ khóa cần kiểm tra</h4>
+              <h4 className="font-medium">Enter the keyword to check</h4>
               <p className="text-sm text-muted-foreground">
-                Nhập từ khóa bạn muốn kiểm tra thứ hạng trên Google
+                Enter the keyword you want to check ranking for on Google
               </p>
             </div>
           </div>
@@ -100,9 +100,9 @@ export default function Dashboard() {
               2
             </div>
             <div>
-              <h4 className="font-medium">Chọn vị trí và ngôn ngữ</h4>
+              <h4 className="font-medium">Select location and language</h4>
               <p className="text-sm text-muted-foreground">
-                Chọn quốc gia, thành phố và ngôn ngữ để có kết quả chính xác nhất
+                Choose country, city and language for the most accurate results
               </p>
             </div>
           </div>
@@ -111,9 +111,9 @@ export default function Dashboard() {
               3
             </div>
             <div>
-              <h4 className="font-medium">Nhập URL cần tìm (tùy chọn)</h4>
+              <h4 className="font-medium">Enter target URL (optional)</h4>
               <p className="text-sm text-muted-foreground">
-                Nhập domain hoặc URL cụ thể để tìm vị trí trong kết quả tìm kiếm
+                Enter domain or specific URL to find position in search results
               </p>
             </div>
           </div>
@@ -122,9 +122,9 @@ export default function Dashboard() {
               4
             </div>
             <div>
-              <h4 className="font-medium">Xem kết quả</h4>
+              <h4 className="font-medium">View results</h4>
               <p className="text-sm text-muted-foreground">
-                Nhận kết quả chi tiết về thứ hạng và các trang web xếp hạng cao
+                Get detailed results about ranking and top-ranking websites
               </p>
             </div>
           </div>

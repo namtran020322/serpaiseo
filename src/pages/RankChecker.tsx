@@ -48,8 +48,8 @@ export default function RankChecker() {
     if (!keyword.trim()) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Vui lòng nhập từ khóa cần kiểm tra",
+        title: "Error",
+        description: "Please enter a keyword to check",
       });
       return;
     }
@@ -57,8 +57,8 @@ export default function RankChecker() {
     if (!country) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Vui lòng chọn quốc gia",
+        title: "Error",
+        description: "Please select a country",
       });
       return;
     }
@@ -66,8 +66,8 @@ export default function RankChecker() {
     if (!language) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Vui lòng chọn ngôn ngữ",
+        title: "Error",
+        description: "Please select a language",
       });
       return;
     }
@@ -83,7 +83,7 @@ export default function RankChecker() {
       const selectedLocation = filteredLocations.find((l) => l.id === location);
 
       if (!selectedCountry || !selectedLanguage) {
-        throw new Error("Không tìm thấy thông tin quốc gia hoặc ngôn ngữ");
+        throw new Error("Country or language information not found");
       }
 
       // Call edge function
@@ -103,11 +103,11 @@ export default function RankChecker() {
       });
 
       if (error) {
-        throw new Error(error.message || "Lỗi khi gọi API");
+        throw new Error(error.message || "API call failed");
       }
 
       if (!data.success) {
-        throw new Error(data.error || "Lỗi không xác định");
+        throw new Error(data.error || "Unknown error");
       }
 
       setResults(data.results);
@@ -117,15 +117,15 @@ export default function RankChecker() {
         if (data.targetRanking) {
           setTargetRanking(data.targetRanking);
           toast({
-            title: "Tìm thấy!",
-            description: `URL của bạn đang xếp hạng #${data.targetRanking}`,
+            title: "Found!",
+            description: `Your URL is ranking #${data.targetRanking}`,
           });
         } else {
           setTargetRanking(-1);
           toast({
             variant: "destructive",
-            title: "Không tìm thấy",
-            description: `URL không xuất hiện trong top ${topResults} kết quả`,
+            title: "Not found",
+            description: `URL not found in top ${topResults} results`,
           });
         }
       }
@@ -133,8 +133,8 @@ export default function RankChecker() {
       console.error("Error checking ranking:", error);
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi kiểm tra thứ hạng",
+        title: "Error",
+        description: error instanceof Error ? error.message : "An error occurred while checking ranking",
       });
     } finally {
       setIsLoading(false);
@@ -144,9 +144,9 @@ export default function RankChecker() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Kiểm tra thứ hạng từ khóa</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Keyword Rank Checker</h1>
         <p className="text-muted-foreground mt-2">
-          Nhập từ khóa và thông tin để kiểm tra vị trí trên Google SERP
+          Enter keyword and details to check position on Google SERP
         </p>
       </div>
 
@@ -156,39 +156,39 @@ export default function RankChecker() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5" />
-              Thông tin tìm kiếm
+              Search Details
             </CardTitle>
             <CardDescription>
-              Điền đầy đủ thông tin để có kết quả chính xác nhất
+              Fill in all details for the most accurate results
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="keyword">Từ khóa *</Label>
+                <Label htmlFor="keyword">Keyword *</Label>
                 <Input
                   id="keyword"
-                  placeholder="Ví dụ: marketing là gì"
+                  placeholder="e.g. what is marketing"
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="targetUrl">URL cần tìm (tùy chọn)</Label>
+                <Label htmlFor="targetUrl">Target URL (optional)</Label>
                 <Input
                   id="targetUrl"
-                  placeholder="example.com hoặc https://example.com/page"
+                  placeholder="example.com or https://example.com/page"
                   value={targetUrl}
                   onChange={(e) => setTargetUrl(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="country">Quốc gia *</Label>
+                <Label htmlFor="country">Country *</Label>
                 <Select value={country} onValueChange={setCountry}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Chọn quốc gia" />
+                    <SelectValue placeholder="Select country" />
                   </SelectTrigger>
                   <SelectContent>
                     {countries.map((c) => (
@@ -201,10 +201,10 @@ export default function RankChecker() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="location">Vị trí cụ thể (tùy chọn)</Label>
+                <Label htmlFor="location">Specific location (optional)</Label>
                 <Select value={location} onValueChange={setLocation}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Chọn vị trí" />
+                    <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent>
                     {filteredLocations.map((loc) => (
@@ -217,10 +217,10 @@ export default function RankChecker() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="language">Ngôn ngữ *</Label>
+                <Label htmlFor="language">Language *</Label>
                 <Select value={language} onValueChange={setLanguage}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Chọn ngôn ngữ" />
+                    <SelectValue placeholder="Select language" />
                   </SelectTrigger>
                   <SelectContent>
                     {languages.map((lang) => (
@@ -233,7 +233,7 @@ export default function RankChecker() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="device">Thiết bị</Label>
+                <Label htmlFor="device">Device</Label>
                 <Select value={device} onValueChange={setDevice}>
                   <SelectTrigger>
                     <SelectValue />
@@ -247,7 +247,7 @@ export default function RankChecker() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="topResults">Số kết quả kiểm tra</Label>
+                <Label htmlFor="topResults">Number of results to check</Label>
                 <Select value={topResults} onValueChange={setTopResults}>
                   <SelectTrigger>
                     <SelectValue />
@@ -266,12 +266,12 @@ export default function RankChecker() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Đang kiểm tra...
+                    Checking...
                   </>
                 ) : (
                   <>
                     <Search className="mr-2 h-4 w-4" />
-                    Kiểm tra thứ hạng
+                    Check Ranking
                   </>
                 )}
               </Button>
@@ -283,11 +283,11 @@ export default function RankChecker() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Kết quả tìm kiếm</CardTitle>
+                <CardTitle>Search Results</CardTitle>
                 <CardDescription>
                   {results.length > 0
-                    ? `Hiển thị ${results.length} kết quả`
-                    : "Nhập thông tin và nhấn kiểm tra để xem kết quả"}
+                    ? `Showing ${results.length} results`
+                    : "Enter details and click check to see results"}
                 </CardDescription>
               </div>
               {targetRanking !== null && (
@@ -295,7 +295,7 @@ export default function RankChecker() {
                   variant={targetRanking > 0 ? "default" : "destructive"}
                   className="text-lg px-4 py-2"
                 >
-                  {targetRanking > 0 ? `#${targetRanking}` : "Không tìm thấy"}
+                  {targetRanking > 0 ? `#${targetRanking}` : "Not found"}
                 </Badge>
               )}
             </div>
@@ -304,15 +304,15 @@ export default function RankChecker() {
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-12 space-y-4">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="text-muted-foreground">Đang tìm kiếm kết quả...</p>
+                <p className="text-muted-foreground">Searching for results...</p>
               </div>
             ) : results.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-16">#</TableHead>
-                    <TableHead>Tiêu đề</TableHead>
-                    <TableHead className="w-24">Hành động</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead className="w-24">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -362,9 +362,9 @@ export default function RankChecker() {
                   <Search className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="font-medium">Chưa có kết quả</p>
+                  <p className="font-medium">No results yet</p>
                   <p className="text-sm text-muted-foreground">
-                    Điền thông tin và nhấn "Kiểm tra thứ hạng" để bắt đầu
+                    Fill in the details and click "Check Ranking" to start
                   </p>
                 </div>
               </div>

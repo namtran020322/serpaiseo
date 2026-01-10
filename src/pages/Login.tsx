@@ -25,13 +25,13 @@ export default function Login() {
     if (error) {
       toast({
         variant: "destructive",
-        title: "Đăng nhập thất bại",
+        title: "Login failed",
         description: error.message,
       });
     } else {
       toast({
-        title: "Đăng nhập thành công",
-        description: "Chào mừng bạn quay trở lại!",
+        title: "Login successful",
+        description: "Welcome back!",
       });
       navigate("/dashboard");
     }
@@ -46,9 +46,9 @@ export default function Login() {
           <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
             <Search className="h-6 w-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">Đăng nhập</CardTitle>
+          <CardTitle className="text-2xl font-bold">Sign In</CardTitle>
           <CardDescription>
-            Đăng nhập để kiểm tra thứ hạng từ khóa của bạn
+            Sign in to check your keyword rankings
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -65,7 +65,7 @@ export default function Login() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu</Label>
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -79,12 +79,12 @@ export default function Login() {
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Đăng nhập
+              Sign In
             </Button>
             <p className="text-sm text-muted-foreground text-center">
-              Chưa có tài khoản?{" "}
+              Don't have an account?{" "}
               <Link to="/register" className="text-primary hover:underline font-medium">
-                Đăng ký ngay
+                Sign up now
               </Link>
             </p>
           </CardFooter>
