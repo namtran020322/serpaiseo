@@ -637,3 +637,47 @@ export function useDeleteKeywords() {
     },
   });
 }
+
+export interface AddKeywordsInput {
+  classId: string;
+  keywords: string[];
+}
+
+export function useAddKeywords() {
+  const { user } = useAuthContext();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (input: AddKeywordsInput) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const uniqueKeywords = [...new Set(input.keywords.map((k) => k.trim().toLowerCase()))];
+      const keywordsToInsert = uniqueKeywords
+        .filter((k) => k.length > 0)
+        .map((keyword) => ({
+          class_id: input.classId,
+          user_id: user.id,
+          keyword,
+        }));
+
+      if (keywordsToInsert.length > 0) {
+        const { error } = await supabase
+          .from("project_keywords")
+          .insert(keywordsToInsert);
+        if (error) throw error;
+      }
+
+      return { added: keywordsToInsert.length };
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["projectClass", variables.classId] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project"] });
+      toast({ title: "Success", description: `Added ${data.added} keywords` });
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    },
+  });
+}

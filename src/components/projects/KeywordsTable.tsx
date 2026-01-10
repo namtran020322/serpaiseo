@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -22,7 +22,8 @@ import { DataTableToolbar } from "@/components/ui/data-table-toolbar";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
-import { format } from "date-fns";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { format, formatDistanceToNowStrict, differenceInDays } from "date-fns";
 
 interface KeywordsTableProps {
   keywords: ProjectKeyword[];
@@ -74,6 +75,20 @@ const extractSlug = (url: string | null) => {
   }
 };
 
+const formatRelativeTime = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const daysDiff = differenceInDays(now, date);
+  
+  // If > 7 days, show date format dd/MM/yyyy
+  if (daysDiff > 7) {
+    return format(date, "dd/MM/yyyy");
+  }
+  
+  // Otherwise, show relative time like "3d ago", "11h ago"
+  return formatDistanceToNowStrict(date, { addSuffix: true });
+};
+
 export function KeywordsTable({ 
   keywords, 
   competitorDomains,
@@ -84,6 +99,7 @@ export function KeywordsTable({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [expanded, setExpanded] = useState<ExpandedState>({});
+  const [showSerpTitles, setShowSerpTitles] = useState(false);
 
   const columns = useMemo<ColumnDef<ProjectKeyword>[]>(() => [
     {
@@ -132,6 +148,7 @@ export function KeywordsTable({
       accessorKey: "keyword",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Keyword" />,
       cell: ({ row }) => <span className="font-medium">{row.getValue("keyword")}</span>,
+      enableHiding: false, // Keyword column cannot be hidden
     },
     {
       accessorKey: "ranking_position",
@@ -193,9 +210,16 @@ export function KeywordsTable({
         const date = row.getValue("last_checked_at") as string | null;
         if (!date) return <span className="text-muted-foreground">-</span>;
         return (
-          <span className="text-sm text-muted-foreground whitespace-nowrap">
-            {format(new Date(date), "HH:mm:ss dd/MM/yyyy")}
-          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-sm text-muted-foreground cursor-default">
+                {formatRelativeTime(date)}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {format(new Date(date), "HH:mm dd/MM/yyyy")}
+            </TooltipContent>
+          </Tooltip>
         );
       },
     },
@@ -241,6 +265,8 @@ export function KeywordsTable({
         selectedCount={selectedIds.length}
         onDeleteSelected={onDeleteKeywords ? () => onDeleteKeywords(selectedIds) : undefined}
         onRefreshSelected={onRefreshKeywords ? () => onRefreshKeywords(selectedIds) : undefined}
+        showSerpTitles={showSerpTitles}
+        onToggleSerpTitles={() => setShowSerpTitles(!showSerpTitles)}
       />
       <div className="rounded-md border">
         <Table>
@@ -262,19 +288,40 @@ export function KeywordsTable({
               table.getRowModel().rows.map((row) => {
                 const rankings = row.original.competitor_rankings as Record<string, any> | null;
                 const lastChecked = row.original.last_checked_at;
+                const serpResults = row.original.serp_results as { title?: string } | null;
+                const visibleColumnIds = table.getVisibleLeafColumns().map(c => c.id);
                 
                 return (
-                  <>
-                    <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                  <React.Fragment key={row.id}>
+                    <TableRow data-state={row.getIsSelected() && "selected"}>
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </TableCell>
                       ))}
                     </TableRow>
+                    
+                    {/* SERP Title row - only show when toggle is ON */}
+                    {showSerpTitles && serpResults?.title && (
+                      <TableRow className="bg-muted/30 border-0 hover:bg-muted/40">
+                        <TableCell></TableCell>
+                        <TableCell></TableCell>
+                        <TableCell colSpan={visibleColumnIds.length - 2}>
+                          <div className="text-sm text-primary truncate font-medium">
+                            {serpResults.title}
+                          </div>
+                          {row.original.found_url && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {row.original.found_url}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    
                     {/* Expanded Competitor Rankings - rendered as rows in same table */}
                     {row.getIsExpanded() && competitorDomains.length > 0 && 
-                      competitorDomains.map((domain, index) => {
+                      competitorDomains.map((domain) => {
                         const data = rankings?.[domain];
                         const position = typeof data === "object" ? data?.position : data;
                         const firstPos = typeof data === "object" ? data?.first_position : null;
@@ -287,60 +334,81 @@ export function KeywordsTable({
                             key={`${row.id}-competitor-${domain}`} 
                             className="bg-primary/5 hover:bg-primary/10 border-l-4 border-l-primary"
                           >
-                            {/* Checkbox cell - empty */}
+                            {/* Checkbox cell - always visible */}
                             <TableCell></TableCell>
                             
-                            {/* Expand cell - empty for alignment */}
+                            {/* Expand cell - always visible */}
                             <TableCell></TableCell>
                             
-                            {/* Domain (aligned with Keyword column) */}
+                            {/* Domain (aligned with Keyword column) - always visible */}
                             <TableCell>
                               <DomainWithFavicon domain={domain} showFullDomain size="sm" />
                             </TableCell>
                             
-                            {/* Last (aligned with Last column) */}
-                            <TableCell>
-                              <span className={`font-medium ${getPositionColor(position ?? null)}`}>
-                                {position ?? "-"}
-                              </span>
-                            </TableCell>
+                            {/* Last - conditionally visible */}
+                            {visibleColumnIds.includes("ranking_position") && (
+                              <TableCell>
+                                <span className={`font-medium ${getPositionColor(position ?? null)}`}>
+                                  {position ?? "-"}
+                                </span>
+                              </TableCell>
+                            )}
                             
-                            {/* First (aligned with First column) */}
-                            <TableCell className="text-muted-foreground">
-                              {firstPos ?? "-"}
-                            </TableCell>
+                            {/* First - conditionally visible */}
+                            {visibleColumnIds.includes("first_position") && (
+                              <TableCell className="text-muted-foreground">
+                                {firstPos ?? "-"}
+                              </TableCell>
+                            )}
                             
-                            {/* Best (aligned with Best column) */}
-                            <TableCell>
-                              <span className={`font-medium ${getPositionColor(bestPos ?? null)}`}>
-                                {bestPos ?? "-"}
-                              </span>
-                            </TableCell>
+                            {/* Best - conditionally visible */}
+                            {visibleColumnIds.includes("best_position") && (
+                              <TableCell>
+                                <span className={`font-medium ${getPositionColor(bestPos ?? null)}`}>
+                                  {bestPos ?? "-"}
+                                </span>
+                              </TableCell>
+                            )}
                             
-                            {/* Change (aligned with Change column) */}
-                            <TableCell>
-                              {getChangeIndicator(position ?? null, prevPos ?? null)}
-                            </TableCell>
+                            {/* Change - conditionally visible */}
+                            {visibleColumnIds.includes("change") && (
+                              <TableCell>
+                                {getChangeIndicator(position ?? null, prevPos ?? null)}
+                              </TableCell>
+                            )}
                             
-                            {/* URL (aligned with URL column) */}
-                            <TableCell>
-                              <span className="text-sm text-muted-foreground truncate" title={url || ""}>
-                                {extractSlug(url)}
-                              </span>
-                            </TableCell>
+                            {/* URL - conditionally visible */}
+                            {visibleColumnIds.includes("found_url") && (
+                              <TableCell>
+                                <span className="text-sm text-muted-foreground truncate" title={url || ""}>
+                                  {extractSlug(url)}
+                                </span>
+                              </TableCell>
+                            )}
                             
-                            {/* Updated (aligned with Updated column) */}
-                            <TableCell>
-                              <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                {lastChecked ? format(new Date(lastChecked), "HH:mm:ss dd/MM/yyyy") : "-"}
-                              </span>
-                            </TableCell>
+                            {/* Updated - conditionally visible */}
+                            {visibleColumnIds.includes("last_checked_at") && (
+                              <TableCell>
+                                {lastChecked ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-sm text-muted-foreground cursor-default">
+                                        {formatRelativeTime(lastChecked)}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {format(new Date(lastChecked), "HH:mm dd/MM/yyyy")}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ) : "-"}
+                              </TableCell>
+                            )}
                             
                           </TableRow>
                         );
                       })
                     }
-                  </>
+                  </React.Fragment>
                 );
               })
             ) : (

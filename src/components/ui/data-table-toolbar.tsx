@@ -1,5 +1,5 @@
 import { Table } from "@tanstack/react-table";
-import { X, Trash2, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
+import { X, Trash2, RefreshCw, Search, SlidersHorizontal, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,6 +18,8 @@ interface DataTableToolbarProps<TData> {
   selectedCount?: number;
   onDeleteSelected?: () => void;
   onRefreshSelected?: () => void;
+  showSerpTitles?: boolean;
+  onToggleSerpTitles?: () => void;
 }
 
 export function DataTableToolbar<TData>({
@@ -27,11 +29,13 @@ export function DataTableToolbar<TData>({
   selectedCount = 0,
   onDeleteSelected,
   onRefreshSelected,
+  showSerpTitles,
+  onToggleSerpTitles,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0;
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between gap-2">
       <div className="flex flex-1 items-center space-x-2">
         {searchKey && (
           <div className="relative">
@@ -81,6 +85,17 @@ export function DataTableToolbar<TData>({
               ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        {onToggleSerpTitles !== undefined && (
+          <Button
+            variant={showSerpTitles ? "default" : "outline"}
+            size="sm"
+            className="h-9 gap-1"
+            onClick={onToggleSerpTitles}
+          >
+            <FileText className="h-4 w-4" />
+            SERP Titles
+          </Button>
+        )}
       </div>
       {selectedCount > 0 && (
         <div className="flex items-center gap-2">
