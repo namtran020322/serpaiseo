@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProjectClass, useProject, useCheckRankings, useDeleteKeywords } from "@/hooks/useProjects";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+
 import { KeywordsTable } from "@/components/projects/KeywordsTable";
 import { CheckProgressDialog } from "@/components/projects/CheckProgressDialog";
 import { ExportButton } from "@/components/projects/ExportButton";
@@ -109,29 +109,6 @@ export default function ClassDetail() {
             </Link>
           </Button>
           <div className="space-y-1">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/dashboard/projects" className="text-muted-foreground hover:text-foreground">
-                      Projects
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to={`/dashboard/projects/${projectId}`} className="text-muted-foreground hover:text-foreground">
-                      {project?.name}
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="font-medium">{projectClass.name}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
             <h1 className="text-2xl font-semibold tracking-tight">{projectClass.name}</h1>
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 flex-wrap">
               <DomainWithFavicon domain={projectClass.domain} showFullDomain />
