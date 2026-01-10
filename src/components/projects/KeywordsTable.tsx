@@ -157,36 +157,14 @@ export function KeywordsTable({
       header: ({ column }) => <DataTableColumnHeader column={column} title="Keyword" />,
       cell: ({ row }) => {
         const hasCompetitors = competitorDomains.length > 0;
-        const isExpanded = row.getIsExpanded();
         
         return (
-          <div className="flex items-center gap-1">
-            {hasCompetitors ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 p-0 shrink-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  row.toggleExpanded();
-                }}
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            ) : (
-              <span className="w-5 shrink-0" />
-            )}
-            <span 
-              className={`font-medium ${hasCompetitors ? 'cursor-pointer hover:text-primary' : ''}`}
-              onClick={() => hasCompetitors && row.toggleExpanded()}
-            >
-              {row.getValue("keyword")}
-            </span>
-          </div>
+          <span 
+            className={`font-medium ${hasCompetitors ? 'cursor-pointer hover:text-primary hover:underline' : ''}`}
+            onClick={() => hasCompetitors && row.toggleExpanded()}
+          >
+            {row.getValue("keyword")}
+          </span>
         );
       },
       enableHiding: false,
@@ -239,12 +217,12 @@ export function KeywordsTable({
     {
       accessorKey: "found_url",
       header: "URL",
-      size: 320,
-      maxSize: 320,
+      size: 400,
+      maxSize: 400,
       cell: ({ row }) => {
         const url = row.getValue("found_url") as string | null;
         return (
-          <span className="text-sm text-muted-foreground truncate block max-w-[320px]" title={url || ""}>
+          <span className="text-sm text-muted-foreground truncate block max-w-[400px]" title={url || ""}>
             {extractSlug(url)}
           </span>
         );
@@ -378,9 +356,9 @@ export function KeywordsTable({
                           const url = row.original.found_url;
                           return (
                             <TableCell key={cell.id}>
-                              <div className="space-y-0.5 max-w-[320px]">
+                              <div className="space-y-0.5 max-w-[400px]">
                                 <div className="text-sm text-primary font-medium truncate" title={serpTitle}>
-                                  {truncateText(serpTitle, 70)}
+                                  {truncateText(serpTitle, 100)}
                                 </div>
                                 <span className="text-xs text-muted-foreground truncate block" title={url || ""}>
                                   {extractSlug(url)}
@@ -420,10 +398,7 @@ export function KeywordsTable({
                             
                             {/* Domain (aligned with Keyword column) - always visible */}
                             <TableCell>
-                              <div className="flex items-center gap-1">
-                                <span className="w-5 shrink-0" />
-                                <DomainWithFavicon domain={domain} showFullDomain size="sm" />
-                              </div>
+                              <DomainWithFavicon domain={domain} showFullDomain size="sm" />
                             </TableCell>
                             
                             {/* Last - conditionally visible */}
