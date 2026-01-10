@@ -7,6 +7,7 @@ export interface Project {
   id: string;
   user_id: string;
   name: string;
+  domain: string;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +31,14 @@ export interface ProjectClass {
   last_checked_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface CompetitorRanking {
+  position: number | null;
+  url: string | null;
+  first_position: number | null;
+  best_position: number | null;
+  previous_position: number | null;
 }
 
 export interface ProjectKeyword {
@@ -98,6 +107,22 @@ function calculateRankingStats(keywords: ProjectKeyword[]): RankingStats {
   return stats;
 }
 
+// Cache configuration
+const CACHE_TIME = {
+  projects: {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  },
+  project: {
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
+  },
+  projectClass: {
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  },
+};
+
 export function useProjects() {
   const { user } = useAuthContext();
 
@@ -154,6 +179,7 @@ export function useProjects() {
 
         return {
           ...project,
+          domain: project.domain || "",
           classes: projectClasses,
         };
       });
@@ -161,6 +187,8 @@ export function useProjects() {
       return projectsWithClasses;
     },
     enabled: !!user,
+    staleTime: CACHE_TIME.projects.staleTime,
+    gcTime: CACHE_TIME.projects.gcTime,
   });
 }
 
@@ -215,10 +243,13 @@ export function useProject(projectId: string | undefined) {
 
       return {
         ...project,
+        domain: project.domain || "",
         classes: projectClasses,
       } as ProjectWithClasses;
     },
     enabled: !!user && !!projectId,
+    staleTime: CACHE_TIME.project.staleTime,
+    gcTime: CACHE_TIME.project.gcTime,
   });
 }
 
@@ -261,7 +292,14 @@ export function useProjectClass(classId: string | undefined) {
       } as ProjectClassWithKeywords;
     },
     enabled: !!user && !!classId,
+    staleTime: CACHE_TIME.projectClass.staleTime,
+    gcTime: CACHE_TIME.projectClass.gcTime,
   });
+}
+
+export interface CreateProjectInput {
+  name: string;
+  domain: string;
 }
 
 export function useCreateProject() {
@@ -270,12 +308,12 @@ export function useCreateProject() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (input: CreateProjectInput) => {
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
         .from("projects")
-        .insert({ name, user_id: user.id })
+        .insert({ name: input.name, domain: input.domain, user_id: user.id })
         .select()
         .single();
 
@@ -296,15 +334,25 @@ export function useCreateProject() {
   });
 }
 
+export interface UpdateProjectInput {
+  id: string;
+  name?: string;
+  domain?: string;
+}
+
 export function useUpdateProject() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+    mutationFn: async ({ id, name, domain }: UpdateProjectInput) => {
+      const updateData: Record<string, string> = {};
+      if (name !== undefined) updateData.name = name;
+      if (domain !== undefined) updateData.domain = domain;
+
       const { data, error } = await supabase
         .from("projects")
-        .update({ name })
+        .update(updateData)
         .eq("id", id)
         .select()
         .single();
@@ -312,8 +360,9 @@ export function useUpdateProject() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project", variables.id] });
       toast({ title: "Success", description: "Project updated successfully" });
     },
     onError: (error) => {
@@ -419,9 +468,71 @@ export function useCreateClass() {
 
       return cls;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project", variables.projectId] });
       toast({ title: "Success", description: "Class created successfully" });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
+}
+
+export interface UpdateClassInput {
+  id: string;
+  name?: string;
+  competitorDomains?: string[];
+  countryId?: string;
+  countryName?: string;
+  locationId?: string | null;
+  locationName?: string | null;
+  languageCode?: string;
+  languageName?: string;
+  device?: string;
+  topResults?: number;
+  schedule?: string | null;
+}
+
+export function useUpdateClass() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (input: UpdateClassInput) => {
+      const updateData: Record<string, any> = {};
+      
+      if (input.name !== undefined) updateData.name = input.name;
+      if (input.competitorDomains !== undefined) updateData.competitor_domains = input.competitorDomains;
+      if (input.countryId !== undefined) updateData.country_id = input.countryId;
+      if (input.countryName !== undefined) updateData.country_name = input.countryName;
+      if (input.locationId !== undefined) updateData.location_id = input.locationId;
+      if (input.locationName !== undefined) updateData.location_name = input.locationName;
+      if (input.languageCode !== undefined) updateData.language_code = input.languageCode;
+      if (input.languageName !== undefined) updateData.language_name = input.languageName;
+      if (input.device !== undefined) updateData.device = input.device;
+      if (input.topResults !== undefined) updateData.top_results = input.topResults;
+      if (input.schedule !== undefined) updateData.schedule = input.schedule;
+
+      const { data, error } = await supabase
+        .from("project_classes")
+        .update(updateData)
+        .eq("id", input.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project", data.project_id] });
+      queryClient.invalidateQueries({ queryKey: ["projectClass", data.id] });
+      toast({ title: "Success", description: "Class updated successfully" });
     },
     onError: (error) => {
       toast({
@@ -444,6 +555,7 @@ export function useDeleteClass() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project"] });
       toast({ title: "Success", description: "Class deleted successfully" });
     },
     onError: (error) => {

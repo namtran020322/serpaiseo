@@ -26,6 +26,7 @@ import { ClassRow } from "./ClassRow";
 import { formatDistanceToNow } from "date-fns";
 import { AddClassDialog } from "./AddClassDialog";
 import { EditProjectDialog } from "./EditProjectDialog";
+import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 
 interface ProjectRowProps {
   project: ProjectWithClasses;
@@ -96,7 +97,13 @@ export function ProjectRow({ project, isExpanded, onToggle }: ProjectRowProps) {
             </Badge>
           </div>
         </TableCell>
-        <TableCell className="text-muted-foreground">-</TableCell>
+        <TableCell>
+          {project.domain ? (
+            <DomainWithFavicon domain={project.domain} maxLength={15} />
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
+        </TableCell>
         <TableCell className="text-muted-foreground">-</TableCell>
         <TableCell className="text-muted-foreground">-</TableCell>
         <TableCell className="text-center">

@@ -37,14 +37,14 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
   const [step, setStep] = useState<Step>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Step 1: Project selection
+  // Step 1: Project selection & Domain
   const [projectType, setProjectType] = useState<"new" | "existing">("new");
   const [newProjectName, setNewProjectName] = useState("");
+  const [projectDomain, setProjectDomain] = useState("");
   const [existingProjectId, setExistingProjectId] = useState("");
 
-  // Step 2: Class & Domain
+  // Step 2: Class & Competitors
   const [className, setClassName] = useState("");
-  const [domain, setDomain] = useState("");
   const [competitorDomains, setCompetitorDomains] = useState<string[]>([]);
   const [newCompetitor, setNewCompetitor] = useState("");
 
@@ -68,13 +68,25 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
     return getLocationsByCountry(selectedCountry.code);
   }, [country, getLocationsByCountry]);
 
+  // Get domain from existing project if selected
+  const selectedExistingProject = useMemo(() => {
+    return existingProjects?.find(p => p.id === existingProjectId);
+  }, [existingProjects, existingProjectId]);
+
+  const effectiveDomain = useMemo(() => {
+    if (projectType === "existing" && selectedExistingProject) {
+      return selectedExistingProject.domain;
+    }
+    return projectDomain;
+  }, [projectType, selectedExistingProject, projectDomain]);
+
   const resetForm = () => {
     setStep(1);
     setProjectType("new");
     setNewProjectName("");
+    setProjectDomain("");
     setExistingProjectId("");
     setClassName("");
-    setDomain("");
     setCompetitorDomains([]);
     setNewCompetitor("");
     setKeywordsText("");
@@ -112,9 +124,12 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
   const canProceed = () => {
     switch (step) {
       case 1:
-        return projectType === "new" ? newProjectName.trim().length > 0 : existingProjectId.length > 0;
+        if (projectType === "new") {
+          return newProjectName.trim().length > 0 && projectDomain.trim().length > 0;
+        }
+        return existingProjectId.length > 0;
       case 2:
-        return className.trim().length > 0 && domain.trim().length > 0;
+        return className.trim().length > 0;
       case 3:
         return parseKeywords().length > 0;
       case 4:
@@ -133,10 +148,15 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
 
     try {
       let projectId = existingProjectId;
+      let domain = effectiveDomain;
 
       if (projectType === "new") {
-        const newProject = await createProject.mutateAsync(newProjectName.trim());
+        const newProject = await createProject.mutateAsync({
+          name: newProjectName.trim(),
+          domain: projectDomain.trim(),
+        });
         projectId = newProject.id;
+        domain = projectDomain.trim();
       }
 
       const selectedCountry = countries.find((c) => c.id === country);
@@ -146,7 +166,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
       const newClass = await createClass.mutateAsync({
         projectId,
         name: className.trim(),
-        domain: domain.trim(),
+        domain: domain,
         competitorDomains,
         countryId: country,
         countryName: selectedCountry?.name || "",
@@ -186,8 +206,8 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
   };
 
   const stepTitles: Record<Step, string> = {
-    1: "Select Project",
-    2: "Class & Domain",
+    1: "Project & Domain",
+    2: "Class & Competitors",
     3: "Keywords",
     4: "Search Settings",
     5: "Schedule",
@@ -197,7 +217,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Add New Class</DialogTitle>
+          <DialogTitle>Add New Project</DialogTitle>
           <DialogDescription>
             Step {step} of 5: {stepTitles[step]}
           </DialogDescription>
@@ -240,15 +260,29 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
               </div>
 
               {projectType === "new" ? (
-                <div className="space-y-2">
-                  <Label htmlFor="projectName">Project Name</Label>
-                  <Input
-                    id="projectName"
-                    placeholder="e.g. iPhone Products"
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                  />
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="projectName">Project Name *</Label>
+                    <Input
+                      id="projectName"
+                      placeholder="e.g. iPhone Products"
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="projectDomain">Your Domain *</Label>
+                    <Input
+                      id="projectDomain"
+                      placeholder="e.g. example.com"
+                      value={projectDomain}
+                      onChange={(e) => setProjectDomain(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This domain will be used to track rankings across all classes in this project.
+                    </p>
+                  </div>
+                </>
               ) : (
                 <div className="space-y-2">
                   <Label>Select Project</Label>
@@ -259,11 +293,16 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
                     <SelectContent>
                       {existingProjects?.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.name}
+                          {p.name} ({p.domain || "no domain"})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {selectedExistingProject?.domain && (
+                    <p className="text-sm text-muted-foreground">
+                      Domain: <span className="font-medium">{selectedExistingProject.domain}</span>
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -272,23 +311,16 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
           {step === 2 && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="className">Class Name</Label>
+                <Label htmlFor="className">Class Name *</Label>
                 <Input
                   id="className"
                   placeholder="e.g. iPhone 16 Pro Max"
                   value={className}
                   onChange={(e) => setClassName(e.target.value)}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="domain">Your Domain</Label>
-                <Input
-                  id="domain"
-                  placeholder="e.g. example.com"
-                  value={domain}
-                  onChange={(e) => setDomain(e.target.value)}
-                />
+                <p className="text-xs text-muted-foreground">
+                  A class groups keywords with the same search settings (country, language, device).
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -462,11 +494,11 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
                 <h4 className="font-medium">Summary</h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="text-muted-foreground">Project:</span>
-                  <span>{projectType === "new" ? newProjectName : existingProjects?.find((p) => p.id === existingProjectId)?.name}</span>
+                  <span>{projectType === "new" ? newProjectName : selectedExistingProject?.name}</span>
+                  <span className="text-muted-foreground">Domain:</span>
+                  <span>{effectiveDomain}</span>
                   <span className="text-muted-foreground">Class:</span>
                   <span>{className}</span>
-                  <span className="text-muted-foreground">Domain:</span>
-                  <span>{domain}</span>
                   <span className="text-muted-foreground">Competitors:</span>
                   <span>{competitorDomains.length || "None"}</span>
                   <span className="text-muted-foreground">Keywords:</span>
@@ -505,7 +537,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
               </Button>
             ) : (
               <Button onClick={handleSubmit} disabled={!canProceed() || isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Class"}
+                {isSubmitting ? "Creating..." : "Create"}
               </Button>
             )}
           </div>

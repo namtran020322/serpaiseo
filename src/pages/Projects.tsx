@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Plus, FolderOpen, Loader2 } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProjects } from "@/hooks/useProjects";
 import { ProjectsTable } from "@/components/projects/ProjectsTable";
 import { AddProjectDialog } from "@/components/projects/AddProjectDialog";
@@ -25,46 +24,27 @@ export default function Projects() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FolderOpen className="h-5 w-5" />
-            All Projects
-          </CardTitle>
-          <CardDescription>
-            {projects?.length
-              ? `${projects.length} project${projects.length > 1 ? "s" : ""} with ${projects.reduce((acc, p) => acc + p.classes.length, 0)} classes`
-              : "No projects yet. Create your first project to start tracking keywords."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-muted-foreground">Loading projects...</p>
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-              <p className="text-destructive">Error loading projects</p>
-              <p className="text-sm text-muted-foreground">{error.message}</p>
-            </div>
-          ) : projects && projects.length > 0 ? (
-            <ProjectsTable projects={projects} />
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                <FolderOpen className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-medium">No projects yet</p>
-                <p className="text-sm text-muted-foreground">
-                  Click "Add Project" to create your first project
-                </p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading projects...</p>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+          <p className="text-destructive">Error loading projects</p>
+          <p className="text-sm text-muted-foreground">{error.message}</p>
+        </div>
+      ) : projects && projects.length > 0 ? (
+        <ProjectsTable projects={projects} />
+      ) : (
+        <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+          <p className="text-muted-foreground">No projects yet</p>
+          <Button onClick={() => setAddDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Project
+          </Button>
+        </div>
+      )}
 
       <AddProjectDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
     </div>
