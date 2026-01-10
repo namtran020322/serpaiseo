@@ -1,4 +1,4 @@
-import { Search, History, Settings, LogOut, User, BarChart3, Home, FolderOpen } from "lucide-react";
+import { Settings, LogOut, Home, FolderOpen } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -19,10 +19,7 @@ import { Button } from "@/components/ui/button";
 
 const menuItems = [
   { title: "Home", url: "/dashboard", icon: Home },
-  { title: "Rank Checker", url: "/dashboard/rank-checker", icon: Search },
   { title: "Projects", url: "/dashboard/projects", icon: FolderOpen },
-  { title: "History", url: "/dashboard/history", icon: History },
-  { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
 ];
 
 const settingsItems = [
@@ -61,11 +58,11 @@ export function AppSidebar() {
       <SidebarHeader className="px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-            <Search className="h-5 w-5 text-primary-foreground" />
+            <FolderOpen className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
             <h1 className="font-bold text-lg text-sidebar-foreground">RankChecker</h1>
-            <p className="text-xs text-sidebar-foreground/60">Keyword Rank Checker</p>
+            <p className="text-xs text-sidebar-foreground/60">Keyword Rank Tracker</p>
           </div>
         </div>
       </SidebarHeader>

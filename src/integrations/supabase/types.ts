@@ -236,63 +236,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ranking_checks: {
-        Row: {
-          country_id: string
-          country_name: string
-          created_at: string
-          device: string
-          found_url: string | null
-          id: string
-          keyword: string
-          language_code: string
-          language_name: string
-          location_id: string | null
-          location_name: string | null
-          ranking_position: number | null
-          serp_results: Json | null
-          target_url: string | null
-          top_results: number
-          user_id: string
-        }
-        Insert: {
-          country_id: string
-          country_name: string
-          created_at?: string
-          device?: string
-          found_url?: string | null
-          id?: string
-          keyword: string
-          language_code: string
-          language_name: string
-          location_id?: string | null
-          location_name?: string | null
-          ranking_position?: number | null
-          serp_results?: Json | null
-          target_url?: string | null
-          top_results?: number
-          user_id: string
-        }
-        Update: {
-          country_id?: string
-          country_name?: string
-          created_at?: string
-          device?: string
-          found_url?: string | null
-          id?: string
-          keyword?: string
-          language_code?: string
-          language_name?: string
-          location_id?: string | null
-          location_name?: string | null
-          ranking_position?: number | null
-          serp_results?: Json | null
-          target_url?: string | null
-          top_results?: number
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never

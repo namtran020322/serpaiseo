@@ -16,10 +16,7 @@ import { Fragment } from "react";
 
 const routeLabels: Record<string, string> = {
   "dashboard": "Home",
-  "rank-checker": "Rank Checker",
   "projects": "Projects",
-  "history": "History",
-  "analytics": "Analytics",
   "settings": "Settings",
 };
 
