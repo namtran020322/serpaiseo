@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, RefreshCw, Download, Settings, Globe, Monitor, Smartphone, Tablet, Calendar, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, RefreshCw, Globe, Monitor, Smartphone, Tablet, Calendar, Loader2, Plus, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useProjectClass, useProject, useCheckRankings } from "@/hooks/useProjects";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
 import { KeywordsTable } from "@/components/projects/KeywordsTable";
 import { CheckProgressDialog } from "@/components/projects/CheckProgressDialog";
 import { ExportButton } from "@/components/projects/ExportButton";
+import { ClassSettingsDialog } from "@/components/projects/ClassSettingsDialog";
+import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { formatDistanceToNow } from "date-fns";
 
 const deviceIcons = {
@@ -25,6 +26,7 @@ export default function ClassDetail() {
   const checkRankings = useCheckRankings();
   const [isChecking, setIsChecking] = useState(false);
   const [checkProgress, setCheckProgress] = useState({ current: 0, total: 0, keyword: "" });
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -82,10 +84,7 @@ export default function ClassDetail() {
               <h1 className="text-3xl font-bold tracking-tight">{projectClass.name}</h1>
             </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-              <span className="flex items-center gap-1">
-                <Globe className="h-3 w-3" />
-                {projectClass.domain}
-              </span>
+              <DomainWithFavicon domain={projectClass.domain} showFullDomain />
               <span>{projectClass.country_name}</span>
               <span>{projectClass.language_name}</span>
               <span className="flex items-center gap-1">
@@ -108,6 +107,10 @@ export default function ClassDetail() {
         </div>
         <div className="flex gap-2">
           <ExportButton projectClass={projectClass} />
+          <Button variant="outline" onClick={() => setSettingsOpen(true)}>
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </Button>
           <Button onClick={handleRefresh} disabled={isChecking}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isChecking ? "animate-spin" : ""}`} />
             {isChecking ? "Checking..." : "Refresh Rankings"}
@@ -119,9 +122,9 @@ export default function ClassDetail() {
       {projectClass.competitor_domains && projectClass.competitor_domains.length > 0 && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Competitors:</span>
-          {projectClass.competitor_domains.map((domain) => (
-            <Badge key={domain} variant="outline">
-              {domain}
+          {projectClass.competitor_domains.map((d) => (
+            <Badge key={d} variant="outline" className="gap-1">
+              <DomainWithFavicon domain={d} showFullDomain />
             </Badge>
           ))}
         </div>
@@ -130,29 +133,25 @@ export default function ClassDetail() {
       {/* Stats Cards */}
       <RankingStatsCards stats={projectClass.rankingStats} />
 
-      {/* Keywords Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Keywords</CardTitle>
-              <CardDescription>
-                {projectClass.keywordCount} keywords tracked
-              </CardDescription>
-            </div>
-            <Button variant="outline" size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Keywords
-            </Button>
+      {/* Keywords Section - No Card wrapper */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Keywords</h2>
+            <p className="text-sm text-muted-foreground">
+              {projectClass.keywordCount} keywords tracked
+            </p>
           </div>
-        </CardHeader>
-        <CardContent>
-          <KeywordsTable 
-            keywords={projectClass.keywords} 
-            competitorDomains={projectClass.competitor_domains}
-          />
-        </CardContent>
-      </Card>
+          <Button variant="outline" size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Keywords
+          </Button>
+        </div>
+        <KeywordsTable 
+          keywords={projectClass.keywords} 
+          competitorDomains={projectClass.competitor_domains}
+        />
+      </div>
 
       {/* Check Progress Dialog */}
       <CheckProgressDialog
@@ -161,6 +160,13 @@ export default function ClassDetail() {
         className={projectClass.name}
         progress={checkProgress}
         onComplete={handleCheckComplete}
+      />
+
+      {/* Settings Dialog */}
+      <ClassSettingsDialog
+        projectClass={projectClass}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
       />
     </div>
   );

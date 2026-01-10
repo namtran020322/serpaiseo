@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, RefreshCw, Settings, Globe, Monitor, Smartphone, Tablet, Calendar, Loader2 } from "lucide-react";
+import { ArrowLeft, RefreshCw, Settings, Globe, Monitor, Smartphone, Tablet, Calendar, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useProject } from "@/hooks/useProjects";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
 import { RankingDistributionChart } from "@/components/projects/RankingDistributionChart";
 import { TopOverviewTable } from "@/components/projects/TopOverviewTable";
+import { ProjectSettingsDialog } from "@/components/projects/ProjectSettingsDialog";
+import { AddClassDialog } from "@/components/projects/AddClassDialog";
+import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { formatDistanceToNow } from "date-fns";
 
 const deviceIcons = {
@@ -19,6 +22,7 @@ export default function ProjectDetail() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { data: project, isLoading, error } = useProject(projectId);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -65,10 +69,15 @@ export default function ProjectDetail() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
-            <p className="text-muted-foreground mt-1">
-              {project.classes.length} class{project.classes.length !== 1 ? "es" : ""} · {totalKeywords} keywords
-            </p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+              <DomainWithFavicon domain={project.domain} showFullDomain />
+              <span>
+                {project.classes.length} class{project.classes.length !== 1 ? "es" : ""} · {totalKeywords} keywords
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex gap-2">
@@ -76,7 +85,7 @@ export default function ProjectDetail() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh All
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setSettingsOpen(true)}>
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </Button>
@@ -92,61 +101,74 @@ export default function ProjectDetail() {
         <TopOverviewTable classes={project.classes} />
       </div>
 
-      {/* Classes List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Classes</CardTitle>
-          <CardDescription>Click on a class to view detailed keyword rankings</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {project.classes.map((cls) => {
-              const DeviceIcon = deviceIcons[cls.device as keyof typeof deviceIcons] || Monitor;
-              return (
-                <Link
-                  key={cls.id}
-                  to={`/dashboard/projects/${projectId}/classes/${cls.id}`}
-                  className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="font-medium">{cls.name}</p>
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                        <span className="flex items-center gap-1">
-                          <Globe className="h-3 w-3" />
-                          {cls.domain}
-                        </span>
-                        <span>{cls.country_name}</span>
-                        <span className="flex items-center gap-1">
-                          <DeviceIcon className="h-3 w-3" />
-                          {cls.device}
-                        </span>
-                        {cls.schedule && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {cls.schedule}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{cls.keywordCount} KWs</Badge>
-                      <span className="text-emerald-600 font-medium">{cls.rankingStats.top3}</span>
-                      <span className="text-blue-600 font-medium">{cls.rankingStats.top10}</span>
-                      <span className="text-amber-600 font-medium">{cls.rankingStats.top30}</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      {formatDistanceToNow(new Date(cls.last_checked_at || cls.updated_at), { addSuffix: true })}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
+      {/* Classes Section - No Card wrapper */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Classes</h2>
+            <p className="text-sm text-muted-foreground">Click on a class to view detailed keyword rankings</p>
           </div>
-        </CardContent>
-      </Card>
+          <AddClassDialog projectId={projectId!} projectDomain={project.domain} />
+        </div>
+        <div className="rounded-md border">
+          {project.classes.map((cls, index) => {
+            const DeviceIcon = deviceIcons[cls.device as keyof typeof deviceIcons] || Monitor;
+            return (
+              <Link
+                key={cls.id}
+                to={`/dashboard/projects/${projectId}/classes/${cls.id}`}
+                className={`flex items-center justify-between p-4 hover:bg-accent/50 transition-colors ${
+                  index !== project.classes.length - 1 ? "border-b" : ""
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="font-medium">{cls.name}</p>
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                      <DomainWithFavicon domain={cls.domain} />
+                      <span>{cls.country_name}</span>
+                      <span className="flex items-center gap-1">
+                        <DeviceIcon className="h-3 w-3" />
+                        {cls.device}
+                      </span>
+                      {cls.schedule && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {cls.schedule}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{cls.keywordCount} KWs</Badge>
+                    <span className="text-emerald-600 font-medium">{cls.rankingStats.top3}</span>
+                    <span className="text-blue-600 font-medium">{cls.rankingStats.top10}</span>
+                    <span className="text-amber-600 font-medium">{cls.rankingStats.top30}</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {formatDistanceToNow(new Date(cls.last_checked_at || cls.updated_at), { addSuffix: true })}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
+          {project.classes.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-muted-foreground">No classes yet</p>
+              <p className="text-sm text-muted-foreground mt-1">Add a class to start tracking keywords</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Settings Dialog */}
+      <ProjectSettingsDialog
+        project={project}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+      />
     </div>
   );
 }

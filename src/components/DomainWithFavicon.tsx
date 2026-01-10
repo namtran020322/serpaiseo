@@ -7,6 +7,7 @@ interface DomainWithFaviconProps {
   className?: string;
   showFullDomain?: boolean;
   maxLength?: number;
+  size?: "sm" | "md";
 }
 
 const getFaviconUrl = (domain: string) => {
@@ -35,20 +36,22 @@ export function DomainWithFavicon({
   className,
   showFullDomain = false,
   maxLength = 20,
+  size = "md",
 }: DomainWithFaviconProps) {
   const [imgError, setImgError] = useState(false);
+  const iconSize = size === "sm" ? "h-3 w-3" : "h-4 w-4";
 
   const displayDomain = showFullDomain ? domain : extractDomain(domain, maxLength);
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
       {imgError ? (
-        <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <Globe className={cn(iconSize, "text-muted-foreground flex-shrink-0")} />
       ) : (
         <img
           src={getFaviconUrl(domain)}
           alt=""
-          className="h-4 w-4 flex-shrink-0"
+          className={cn(iconSize, "flex-shrink-0")}
           onError={() => setImgError(true)}
         />
       )}
