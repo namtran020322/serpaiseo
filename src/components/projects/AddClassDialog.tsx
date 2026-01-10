@@ -6,6 +6,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,25 +22,30 @@ import { useGeoData } from "@/hooks/useGeoData";
 import { LocationCombobox } from "@/components/LocationCombobox";
 
 interface AddClassDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   projectId: string;
-  projectName: string;
+  projectName?: string;
+  projectDomain?: string;
 }
 
 type Step = 1 | 2 | 3 | 4;
 
-export function AddClassDialog({ open, onOpenChange, projectId, projectName }: AddClassDialogProps) {
+export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledOnOpenChange, projectId, projectName, projectDomain }: AddClassDialogProps) {
   const createClass = useCreateClass();
   const checkRankings = useCheckRankings();
   const { getLocationsByCountry } = useGeoData();
+
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const onOpenChange = controlledOnOpenChange ?? setInternalOpen;
 
   const [step, setStep] = useState<Step>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Step 1: Class & Domain
   const [className, setClassName] = useState("");
-  const [domain, setDomain] = useState("");
+  const [domain, setDomain] = useState(projectDomain || "");
   const [competitorDomains, setCompetitorDomains] = useState<string[]>([]);
   const [newCompetitor, setNewCompetitor] = useState("");
 
@@ -176,9 +182,15 @@ export function AddClassDialog({ open, onOpenChange, projectId, projectName }: A
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Plus className="mr-2 h-4 w-4" />
+          Add Class
+        </Button>
+      </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Add Class to "{projectName}"</DialogTitle>
+          <DialogTitle>Add Class{projectName ? ` to "${projectName}"` : ""}</DialogTitle>
           <DialogDescription>
             Step {step} of 4: {stepTitles[step]}
           </DialogDescription>
