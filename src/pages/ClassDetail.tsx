@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProjectClass, useProject, useCheckRankings, useDeleteKeywords } from "@/hooks/useProjects";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
-
 import { KeywordsTable } from "@/components/projects/KeywordsTable";
 import { CheckProgressDialog } from "@/components/projects/CheckProgressDialog";
 import { ExportButton } from "@/components/projects/ExportButton";
@@ -108,8 +107,11 @@ export default function ClassDetail() {
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight">{projectClass.name}</h1>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">{project?.name} /</span>
+              <h1 className="text-3xl font-bold tracking-tight">{projectClass.name}</h1>
+            </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 flex-wrap">
               <DomainWithFavicon domain={projectClass.domain} showFullDomain />
               <span className="text-muted-foreground/50">•</span>
