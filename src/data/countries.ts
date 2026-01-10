@@ -1,4 +1,4 @@
-// Countries data from XMLRiver
+// Countries data for SERP API
 // Users will see 'name', API calls use 'id' (country parameter)
 export interface Country {
   id: string;

@@ -18,14 +18,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 const menuItems = [
-  { title: "Trang chủ", url: "/dashboard", icon: Home },
-  { title: "Kiểm tra thứ hạng", url: "/dashboard/rank-checker", icon: Search },
-  { title: "Lịch sử kiểm tra", url: "/dashboard/history", icon: History },
-  { title: "Thống kê", url: "/dashboard/analytics", icon: BarChart3 },
+  { title: "Home", url: "/dashboard", icon: Home },
+  { title: "Rank Checker", url: "/dashboard/rank-checker", icon: Search },
+  { title: "History", url: "/dashboard/history", icon: History },
+  { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
 ];
 
 const settingsItems = [
-  { title: "Cài đặt", url: "/dashboard/settings", icon: Settings },
+  { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -38,13 +38,13 @@ export function AppSidebar() {
     if (error) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể đăng xuất",
+        title: "Error",
+        description: "Unable to sign out",
       });
     } else {
       toast({
-        title: "Đã đăng xuất",
-        description: "Hẹn gặp lại!",
+        title: "Signed out",
+        description: "See you soon!",
       });
       navigate("/login");
     }
@@ -64,14 +64,14 @@ export function AppSidebar() {
           </div>
           <div>
             <h1 className="font-bold text-lg text-sidebar-foreground">RankChecker</h1>
-            <p className="text-xs text-sidebar-foreground/60">Kiểm tra thứ hạng từ khóa</p>
+            <p className="text-xs text-sidebar-foreground/60">Keyword Rank Checker</p>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu chính</SidebarGroupLabel>
+          <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
@@ -99,7 +99,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Tùy chọn</SidebarGroupLabel>
+          <SidebarGroupLabel>Options</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsItems.map((item) => (
@@ -150,7 +150,7 @@ export function AppSidebar() {
           onClick={handleSignOut}
         >
           <LogOut className="h-4 w-4 mr-2" />
-          Đăng xuất
+          Sign Out
         </Button>
       </SidebarFooter>
     </Sidebar>

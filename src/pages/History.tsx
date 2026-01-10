@@ -8,7 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { vi } from "date-fns/locale";
 
 interface RankingCheck {
   id: string;
@@ -46,8 +45,8 @@ export default function History() {
     if (error) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể tải lịch sử kiểm tra",
+        title: "Error",
+        description: "Unable to load check history",
       });
     } else {
       setChecks(data || []);
@@ -62,14 +61,14 @@ export default function History() {
     if (error) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể xóa mục này",
+        title: "Error",
+        description: "Unable to delete this item",
       });
     } else {
       setChecks(checks.filter((c) => c.id !== id));
       toast({
-        title: "Đã xóa",
-        description: "Đã xóa mục khỏi lịch sử",
+        title: "Deleted",
+        description: "Item removed from history",
       });
     }
     setDeletingId(null);
@@ -86,9 +85,9 @@ export default function History() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Lịch sử kiểm tra</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Check History</h1>
         <p className="text-muted-foreground mt-2">
-          Xem lại các kết quả kiểm tra thứ hạng trước đó
+          Review previous ranking check results
         </p>
       </div>
 
@@ -96,12 +95,12 @@ export default function History() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <HistoryIcon className="h-5 w-5" />
-            <CardTitle>Lịch sử gần đây</CardTitle>
+            <CardTitle>Recent History</CardTitle>
           </div>
           <CardDescription>
             {checks.length > 0
-              ? `Có ${checks.length} lần kiểm tra`
-              : "Chưa có lịch sử kiểm tra"}
+              ? `${checks.length} checks found`
+              : "No check history yet"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -113,11 +112,11 @@ export default function History() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Từ khóa</TableHead>
-                  <TableHead>Vị trí</TableHead>
-                  <TableHead>Quốc gia</TableHead>
-                  <TableHead>Thiết bị</TableHead>
-                  <TableHead>Thời gian</TableHead>
+                  <TableHead>Keyword</TableHead>
+                  <TableHead>Position</TableHead>
+                  <TableHead>Country</TableHead>
+                  <TableHead>Device</TableHead>
+                  <TableHead>Time</TableHead>
                   <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -152,9 +151,7 @@ export default function History() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {format(new Date(check.created_at), "dd/MM/yyyy HH:mm", {
-                        locale: vi,
-                      })}
+                      {format(new Date(check.created_at), "MMM dd, yyyy HH:mm")}
                     </TableCell>
                     <TableCell>
                       <Button
@@ -180,9 +177,9 @@ export default function History() {
                 <HistoryIcon className="h-8 w-8 text-muted-foreground" />
               </div>
               <div>
-                <p className="font-medium">Chưa có lịch sử</p>
+                <p className="font-medium">No history yet</p>
                 <p className="text-sm text-muted-foreground">
-                  Bắt đầu kiểm tra thứ hạng để xem lịch sử tại đây
+                  Start checking rankings to see history here
                 </p>
               </div>
             </div>

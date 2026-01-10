@@ -1,4 +1,4 @@
-// Languages data from XMLRiver
+// Languages data for SERP API
 // Users will see 'name', API calls use 'lang' (lr parameter)
 export interface Language {
   lang: string;
@@ -8,9 +8,9 @@ export interface Language {
 export const languages: Language[] = [
   { lang: "vi", name: "Vietnamese" },
   { lang: "en", name: "English" },
-  { lang: "zh-CN", name: "Китайский (КНР)" },
-  { lang: "zh-TW", name: "Китайский (Тайвань)" },
-  { lang: "zh-HK", name: "Китайский (Гонконг)" },
+  { lang: "zh-CN", name: "Chinese (Simplified)" },
+  { lang: "zh-TW", name: "Chinese (Traditional)" },
+  { lang: "zh-HK", name: "Chinese (Hong Kong)" },
   { lang: "ja", name: "Japanese" },
   { lang: "ko", name: "Korean" },
   { lang: "th", name: "Thai" },
@@ -56,7 +56,7 @@ export const languages: Language[] = [
   { lang: "ka", name: "Georgian" },
   { lang: "hy", name: "Armenian" },
   { lang: "az", name: "Azerbaijani" },
-  { lang: "kk", name: "Казахский" },
+  { lang: "kk", name: "Kazakh" },
   { lang: "uz", name: "Uzbek" },
   { lang: "fa", name: "Persian" },
   { lang: "ur", name: "Urdu" },
@@ -64,7 +64,7 @@ export const languages: Language[] = [
   { lang: "ta", name: "Tamil" },
   { lang: "te", name: "Telugu" },
   { lang: "kn", name: "Kannada" },
-  { lang: "ml", name: "Malayam" },
+  { lang: "ml", name: "Malayalam" },
   { lang: "mr", name: "Marathi" },
   { lang: "gu", name: "Gujarati" },
   { lang: "pa", name: "Punjabi" },
@@ -84,7 +84,7 @@ export const languages: Language[] = [
   { lang: "eo", name: "Esperanto" },
   { lang: "la", name: "Latin" },
   { lang: "jw", name: "Javanese" },
-  { lang: "su", name: "Sudanese" },
+  { lang: "su", name: "Sundanese" },
   { lang: "xh", name: "Xhosa" },
   { lang: "zu", name: "Zulu" },
 ];

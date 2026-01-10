@@ -26,31 +26,31 @@ interface RequestBody {
   topResults: number
 }
 
-// XMLRiver error messages mapping
-const XMLRIVER_ERRORS: Record<string, string> = {
-  '2': 'Keyword rỗng',
-  '15': 'Không có kết quả cho từ khóa này',
-  '31': 'User XMLRiver chưa đăng ký',
-  '42': 'API Key không hợp lệ',
-  '45': 'IP bị cấm truy cập',
-  '101': 'Service đang bảo trì, vui lòng thử lại sau',
-  '102': 'Tham số groupby không hợp lệ'
+// SERP API error messages mapping
+const SERP_API_ERRORS: Record<string, string> = {
+  '2': 'Empty keyword',
+  '15': 'No results for this keyword',
+  '31': 'API user not registered',
+  '42': 'Invalid API key',
+  '45': 'IP address blocked',
+  '101': 'Service under maintenance, please try again later',
+  '102': 'Invalid groupby parameter'
 }
 
-// Check for XMLRiver API errors in response
-function checkXmlRiverError(xmlText: string): void {
-  // XMLRiver returns errors like: <error code="42">Invalid API key</error>
+// Check for API errors in response
+function checkApiError(xmlText: string): void {
+  // API returns errors like: <error code="42">Invalid API key</error>
   const errorMatch = xmlText.match(/<error\s+code="(\d+)"[^>]*>([\s\S]*?)<\/error>/i)
   if (errorMatch) {
     const errorCode = errorMatch[1]
-    const errorMessage = XMLRIVER_ERRORS[errorCode] || `XMLRiver error ${errorCode}: ${errorMatch[2].trim()}`
+    const errorMessage = SERP_API_ERRORS[errorCode] || `API error ${errorCode}: ${errorMatch[2].trim()}`
     throw new Error(errorMessage)
   }
   
   // Also check for simple error format
   const simpleErrorMatch = xmlText.match(/<error>([\s\S]*?)<\/error>/i)
   if (simpleErrorMatch) {
-    throw new Error(`XMLRiver error: ${simpleErrorMatch[1].trim()}`)
+    throw new Error(`API error: ${simpleErrorMatch[1].trim()}`)
   }
 }
 
@@ -70,7 +70,7 @@ function cleanText(text: string): string {
     .trim()
 }
 
-// Parse XML results from XMLRiver API
+// Parse XML results from SERP API
 function parseXmlResults(xmlText: string, startPosition: number): SerpResult[] {
   const results: SerpResult[] = []
   
@@ -78,7 +78,7 @@ function parseXmlResults(xmlText: string, startPosition: number): SerpResult[] {
   console.log(`[DEBUG] First 1000 chars: ${xmlText.substring(0, 1000)}`)
   
   // Check for API errors first
-  checkXmlRiverError(xmlText)
+  checkApiError(xmlText)
   
   // Match all <doc>...</doc> blocks within <group> elements
   const docRegex = /<doc>([\s\S]*?)<\/doc>/gi
@@ -176,7 +176,7 @@ function findTargetRanking(results: SerpResult[], targetUrl: string): { position
   return { position: null, foundUrl: null }
 }
 
-// Fetch with timeout - XMLRiver can take up to 1 minute
+// Fetch with timeout - API can take up to 1 minute
 async function fetchWithTimeout(url: string, timeoutMs: number = 90000): Promise<Response> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
@@ -189,7 +189,7 @@ async function fetchWithTimeout(url: string, timeoutMs: number = 90000): Promise
     clearTimeout(timeoutId)
     const error = err as Error
     if (error.name === 'AbortError') {
-      throw new Error('XMLRiver API timeout - vui lòng thử lại sau')
+      throw new Error('API timeout - please try again later')
     }
     throw error
   }
@@ -252,13 +252,13 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get XMLRiver credentials
-    const xmlRiverUserId = Deno.env.get('XMLRIVER_USER_ID')
-    const xmlRiverApiKey = Deno.env.get('XMLRIVER_API_KEY')
+    // Get SERP API credentials
+    const serpApiUserId = Deno.env.get('XMLRIVER_USER_ID')
+    const serpApiKey = Deno.env.get('XMLRIVER_API_KEY')
 
-    if (!xmlRiverUserId || !xmlRiverApiKey) {
+    if (!serpApiUserId || !serpApiKey) {
       return new Response(
-        JSON.stringify({ error: 'XMLRiver API credentials not configured' }),
+        JSON.stringify({ error: 'SERP API credentials not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -271,13 +271,12 @@ Deno.serve(async (req) => {
     
     let allResults: SerpResult[] = []
 
-    // Fetch results from XMLRiver API - page by page
-    for (let page = 0; page < totalPages; page++) {
+    // Fetch results from SERP API - page by page (1-based indexing)
+    for (let page = 1; page <= totalPages; page++) {
       // Build API URL
-      // XMLRiver Google Organic endpoint
       const apiUrl = new URL('https://xmlriver.com/search/xml')
-      apiUrl.searchParams.set('user', xmlRiverUserId)
-      apiUrl.searchParams.set('key', xmlRiverApiKey)
+      apiUrl.searchParams.set('user', serpApiUserId)
+      apiUrl.searchParams.set('key', serpApiKey)
       apiUrl.searchParams.set('query', keyword)
       apiUrl.searchParams.set('country', countryId)
       apiUrl.searchParams.set('lr', languageCode)
@@ -291,26 +290,26 @@ Deno.serve(async (req) => {
         apiUrl.searchParams.set('loc', locationId)
       }
 
-      console.log(`[INFO] Fetching page ${page + 1}/${totalPages} from XMLRiver...`)
-      console.log(`[DEBUG] API URL: ${apiUrl.toString().replace(xmlRiverApiKey, '***')}`)
+      console.log(`[INFO] Fetching page ${page}/${totalPages} from SERP API...`)
+      console.log(`[DEBUG] API URL: ${apiUrl.toString().replace(serpApiKey, '***')}`)
 
       try {
         // Fetch with 90 second timeout
         const response = await fetchWithTimeout(apiUrl.toString(), 90000)
         
         if (!response.ok) {
-          console.error(`[ERROR] XMLRiver API returned status ${response.status}`)
-          throw new Error(`XMLRiver API error: HTTP ${response.status}`)
+          console.error(`[ERROR] SERP API returned status ${response.status}`)
+          throw new Error(`SERP API error: HTTP ${response.status}`)
         }
 
         const xmlText = await response.text()
         
-        // Parse results from this page
-        const startPosition = page * resultsPerPage + 1
+        // Parse results from this page (calculate start position based on 1-based page)
+        const startPosition = (page - 1) * resultsPerPage + 1
         const pageResults = parseXmlResults(xmlText, startPosition)
         allResults = allResults.concat(pageResults)
 
-        console.log(`[INFO] Page ${page + 1}: Got ${pageResults.length} results, total: ${allResults.length}`)
+        console.log(`[INFO] Page ${page}: Got ${pageResults.length} results, total: ${allResults.length}`)
 
         // Stop if we have enough results
         if (allResults.length >= topResults) {
@@ -318,14 +317,14 @@ Deno.serve(async (req) => {
         }
 
         // Small delay between pages to avoid rate limiting
-        if (page < totalPages - 1) {
+        if (page < totalPages) {
           await new Promise(resolve => setTimeout(resolve, 500))
         }
       } catch (err) {
         const error = err as Error
-        console.error(`[ERROR] Failed to fetch page ${page + 1}:`, error.message)
+        console.error(`[ERROR] Failed to fetch page ${page}:`, error.message)
         // If first page fails, throw error. Otherwise return what we have
-        if (page === 0) {
+        if (page === 1) {
           throw error
         }
         break

@@ -24,8 +24,8 @@ export default function Register() {
     if (password !== confirmPassword) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Mật khẩu xác nhận không khớp",
+        title: "Error",
+        description: "Passwords do not match",
       });
       return;
     }
@@ -33,8 +33,8 @@ export default function Register() {
     if (password.length < 6) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Mật khẩu phải có ít nhất 6 ký tự",
+        title: "Error",
+        description: "Password must be at least 6 characters",
       });
       return;
     }
@@ -46,13 +46,13 @@ export default function Register() {
     if (error) {
       toast({
         variant: "destructive",
-        title: "Đăng ký thất bại",
+        title: "Registration failed",
         description: error.message,
       });
     } else {
       toast({
-        title: "Đăng ký thành công",
-        description: "Chào mừng bạn đến với RankChecker!",
+        title: "Registration successful",
+        description: "Welcome to RankChecker!",
       });
       navigate("/dashboard");
     }
@@ -67,19 +67,19 @@ export default function Register() {
           <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
             <Search className="h-6 w-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">Tạo tài khoản</CardTitle>
+          <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
           <CardDescription>
-            Đăng ký để bắt đầu kiểm tra thứ hạng từ khóa
+            Sign up to start checking keyword rankings
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Họ và tên</Label>
+              <Label htmlFor="fullName">Full Name</Label>
               <Input
                 id="fullName"
                 type="text"
-                placeholder="Nguyễn Văn A"
+                placeholder="John Doe"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
               />
@@ -96,7 +96,7 @@ export default function Register() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu</Label>
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -107,7 +107,7 @@ export default function Register() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -121,12 +121,12 @@ export default function Register() {
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Đăng ký
+              Sign Up
             </Button>
             <p className="text-sm text-muted-foreground text-center">
-              Đã có tài khoản?{" "}
+              Already have an account?{" "}
               <Link to="/login" className="text-primary hover:underline font-medium">
-                Đăng nhập
+                Sign in
               </Link>
             </p>
           </CardFooter>

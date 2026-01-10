@@ -5,21 +5,21 @@ export default function Analytics() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Thống kê</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
         <p className="text-muted-foreground mt-2">
-          Phân tích xu hướng thứ hạng từ khóa theo thời gian
+          Analyze keyword ranking trends over time
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng kiểm tra</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Checks</CardTitle>
             <Search className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">Tổng số lần kiểm tra</p>
+            <p className="text-xs text-muted-foreground">Total number of checks</p>
           </CardContent>
         </Card>
 
@@ -30,38 +30,38 @@ export default function Analytics() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">Từ khóa trong top 10</p>
+            <p className="text-xs text-muted-foreground">Keywords in top 10</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tăng hạng</CardTitle>
+            <CardTitle className="text-sm font-medium">Improved</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">Từ khóa tăng hạng</p>
+            <p className="text-xs text-muted-foreground">Keywords improved ranking</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Trung bình</CardTitle>
+            <CardTitle className="text-sm font-medium">Average</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Vị trí trung bình</p>
+            <p className="text-xs text-muted-foreground">Average position</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Biểu đồ thứ hạng</CardTitle>
+          <CardTitle>Ranking Chart</CardTitle>
           <CardDescription>
-            Theo dõi sự thay đổi thứ hạng từ khóa theo thời gian
+            Track keyword ranking changes over time
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -70,9 +70,9 @@ export default function Analytics() {
               <BarChart3 className="h-8 w-8 text-muted-foreground" />
             </div>
             <div>
-              <p className="font-medium">Chưa có dữ liệu</p>
+              <p className="font-medium">No data yet</p>
               <p className="text-sm text-muted-foreground">
-                Bắt đầu kiểm tra thứ hạng để xem biểu đồ thống kê
+                Start checking rankings to see analytics chart
               </p>
             </div>
           </div>

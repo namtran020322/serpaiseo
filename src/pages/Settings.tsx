@@ -25,13 +25,13 @@ export default function Settings() {
     if (error) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể cập nhật thông tin",
+        title: "Error",
+        description: "Unable to update information",
       });
     } else {
       toast({
-        title: "Thành công",
-        description: "Đã cập nhật thông tin cá nhân",
+        title: "Success",
+        description: "Personal information updated",
       });
     }
 
@@ -41,9 +41,9 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Cài đặt</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground mt-2">
-          Quản lý thông tin tài khoản và cài đặt ứng dụng
+          Manage your account information and app settings
         </p>
       </div>
 
@@ -52,10 +52,10 @@ export default function Settings() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <User className="h-5 w-5" />
-              <CardTitle>Thông tin cá nhân</CardTitle>
+              <CardTitle>Personal Information</CardTitle>
             </div>
             <CardDescription>
-              Cập nhật thông tin tài khoản của bạn
+              Update your account information
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -71,12 +71,12 @@ export default function Settings() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="fullName">Họ và tên</Label>
+                <Label htmlFor="fullName">Full Name</Label>
                 <Input
                   id="fullName"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Nhập họ và tên"
+                  placeholder="Enter your full name"
                 />
               </div>
               <Button type="submit" disabled={isLoading}>
@@ -85,7 +85,7 @@ export default function Settings() {
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                Lưu thay đổi
+                Save Changes
               </Button>
             </form>
           </CardContent>
@@ -95,18 +95,18 @@ export default function Settings() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Key className="h-5 w-5" />
-              <CardTitle>API Credentials</CardTitle>
+              <CardTitle>API Configuration</CardTitle>
             </div>
             <CardDescription>
-              Cấu hình API key để sử dụng tính năng kiểm tra thứ hạng thực
+              Configure API for real ranking check features
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">
-                  Để sử dụng tính năng kiểm tra thứ hạng với dữ liệu thực từ Google,
-                  bạn cần có tài khoản XMLRiver API. Liên hệ admin để được cấu hình.
+                  To use real-time ranking data from Google, API configuration is required.
+                  Contact admin for setup.
                 </p>
               </div>
             </div>
