@@ -126,9 +126,10 @@ export function KeywordsTable({
   const [showSerpTitles, setShowSerpTitles] = useState(false);
 
   const columns = useMemo<ColumnDef<ProjectKeyword>[]>(() => [
-    {
-      id: "select",
-      header: ({ table }) => (
+  {
+    id: "select",
+    size: 40,
+    header: ({ table }) => (
         <Checkbox
           checked={table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? "indeterminate" : false}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
@@ -145,10 +146,11 @@ export function KeywordsTable({
       enableSorting: false,
       enableHiding: false,
     },
-    {
-      id: "expand",
-      header: "",
-      cell: ({ row }) => {
+  {
+    id: "expand",
+    size: 40,
+    header: "",
+    cell: ({ row }) => {
         const hasCompetitors = competitorDomains.length > 0;
         if (!hasCompetitors) return null;
         return (
