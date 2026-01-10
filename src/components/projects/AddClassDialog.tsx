@@ -89,9 +89,21 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
     onOpenChange(false);
   };
 
+  // Extract root domain from URL
+  const extractRootDomain = (input: string): string => {
+    try {
+      const urlString = input.includes("://") ? input : `https://${input}`;
+      const url = new URL(urlString);
+      return url.hostname.replace(/^www\./, "");
+    } catch {
+      return input.trim().replace(/^www\./, "");
+    }
+  };
+
   const addCompetitor = () => {
-    if (newCompetitor.trim() && !competitorDomains.includes(newCompetitor.trim())) {
-      setCompetitorDomains([...competitorDomains, newCompetitor.trim()]);
+    const cleanDomain = extractRootDomain(newCompetitor);
+    if (cleanDomain && !competitorDomains.includes(cleanDomain)) {
+      setCompetitorDomains([...competitorDomains, cleanDomain]);
       setNewCompetitor("");
     }
   };
@@ -227,6 +239,7 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
                   placeholder="e.g. example.com"
                   value={domain}
                   onChange={(e) => setDomain(e.target.value)}
+                  onBlur={(e) => setDomain(extractRootDomain(e.target.value))}
                 />
               </div>
 

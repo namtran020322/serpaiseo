@@ -103,9 +103,21 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
     onOpenChange(false);
   };
 
+  // Extract root domain from URL
+  const extractRootDomain = (input: string): string => {
+    try {
+      const urlString = input.includes("://") ? input : `https://${input}`;
+      const url = new URL(urlString);
+      return url.hostname.replace(/^www\./, "");
+    } catch {
+      return input.trim().replace(/^www\./, "");
+    }
+  };
+
   const addCompetitor = () => {
-    if (newCompetitor.trim() && !competitorDomains.includes(newCompetitor.trim())) {
-      setCompetitorDomains([...competitorDomains, newCompetitor.trim()]);
+    const cleanDomain = extractRootDomain(newCompetitor);
+    if (cleanDomain && !competitorDomains.includes(cleanDomain)) {
+      setCompetitorDomains([...competitorDomains, cleanDomain]);
       setNewCompetitor("");
     }
   };
@@ -277,6 +289,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
                       placeholder="e.g. example.com"
                       value={projectDomain}
                       onChange={(e) => setProjectDomain(e.target.value)}
+                      onBlur={(e) => setProjectDomain(extractRootDomain(e.target.value))}
                     />
                     <p className="text-xs text-muted-foreground">
                       This domain will be used to track rankings across all classes in this project.

@@ -131,8 +131,19 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
     }
   };
 
+  // Extract root domain from URL
+  const extractRootDomain = (input: string): string => {
+    try {
+      const urlString = input.includes("://") ? input : `https://${input}`;
+      const url = new URL(urlString);
+      return url.hostname.replace(/^www\./, "").toLowerCase();
+    } catch {
+      return input.trim().replace(/^www\./, "").toLowerCase();
+    }
+  };
+
   const addCompetitor = () => {
-    const domain = newCompetitor.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    const domain = extractRootDomain(newCompetitor);
     if (domain && !competitorDomains.includes(domain)) {
       setCompetitorDomains([...competitorDomains, domain]);
       setNewCompetitor("");
