@@ -16,7 +16,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronRight, ChevronDown, ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ChevronRight, ChevronDown, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { ProjectKeyword } from "@/hooks/useProjects";
 import { DataTableToolbar } from "@/components/ui/data-table-toolbar";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
@@ -199,20 +199,6 @@ export function KeywordsTable({
         );
       },
     },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        const url = row.original.found_url;
-        if (!url) return null;
-        return (
-          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-            <a href={url} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </Button>
-        );
-      },
-    },
   ], [competitorDomains.length]);
 
   const table = useReactTable({
@@ -299,15 +285,13 @@ export function KeywordsTable({
                         return (
                           <TableRow 
                             key={`${row.id}-competitor-${domain}`} 
-                            className="bg-muted/20 hover:bg-muted/30 border-l-2 border-l-primary/30"
+                            className="bg-primary/5 hover:bg-primary/10 border-l-4 border-l-primary"
                           >
                             {/* Checkbox cell - empty */}
                             <TableCell></TableCell>
                             
-                            {/* Expand cell - show label on first row */}
-                            <TableCell className="text-xs text-muted-foreground">
-                              {index === 0 && "Competitors"}
-                            </TableCell>
+                            {/* Expand cell - empty for alignment */}
+                            <TableCell></TableCell>
                             
                             {/* Domain (aligned with Keyword column) */}
                             <TableCell>
@@ -352,16 +336,6 @@ export function KeywordsTable({
                               </span>
                             </TableCell>
                             
-                            {/* Actions (aligned with Actions column) */}
-                            <TableCell>
-                              {url && (
-                                <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                                  <a href={url} target="_blank" rel="noopener noreferrer">
-                                    <ExternalLink className="h-4 w-4" />
-                                  </a>
-                                </Button>
-                              )}
-                            </TableCell>
                           </TableRow>
                         );
                       })
