@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, RefreshCw, Globe, Monitor, Smartphone, Tablet, Calendar, Loader2, Plus, Settings } from "lucide-react";
+import { ArrowLeft, RefreshCw, Globe, Monitor, Smartphone, Tablet, Calendar, Loader2, Plus, Settings, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProjectClass, useProject, useCheckRankings, useDeleteKeywords } from "@/hooks/useProjects";
@@ -11,6 +11,7 @@ import { ExportButton } from "@/components/projects/ExportButton";
 import { ClassSettingsDialog } from "@/components/projects/ClassSettingsDialog";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { CompetitorsFaviconList } from "@/components/projects/CompetitorsFaviconList";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDistanceToNow } from "date-fns";
 
 const deviceIcons = {
@@ -111,24 +112,43 @@ export default function ClassDetail() {
               <span className="text-muted-foreground">{project?.name} /</span>
               <h1 className="text-3xl font-bold tracking-tight">{projectClass.name}</h1>
             </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 flex-wrap">
               <DomainWithFavicon domain={projectClass.domain} showFullDomain />
-              <span>{projectClass.country_name}</span>
-              <span>{projectClass.language_name}</span>
-              <span className="flex items-center gap-1">
-                <DeviceIcon className="h-3 w-3" />
-                {projectClass.device}
-              </span>
+              <span className="text-muted-foreground/50">•</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="gap-1 font-normal">
+                    <Globe className="h-3 w-3" />
+                    {projectClass.country_name}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>{projectClass.language_name}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="gap-1 font-normal">
+                    <DeviceIcon className="h-3 w-3" />
+                    {projectClass.device}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>Device type</TooltipContent>
+              </Tooltip>
               {projectClass.schedule && (
-                <Badge variant="secondary" className="flex items-center gap-1">
+                <Badge variant="secondary" className="gap-1 font-normal">
                   <Calendar className="h-3 w-3" />
                   {projectClass.schedule}
                 </Badge>
               )}
               {projectClass.last_checked_at && (
-                <span>
-                  Last checked {formatDistanceToNow(new Date(projectClass.last_checked_at), { addSuffix: true })}
-                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="gap-1 font-normal text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      {formatDistanceToNow(new Date(projectClass.last_checked_at), { addSuffix: true })}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>Last checked</TooltipContent>
+                </Tooltip>
               )}
             </div>
           </div>
