@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, Loader2, ExternalLink, AlertCircle } from "lucide-react";
 import { countries } from "@/data/countries";
 import { languages } from "@/data/languages";
-import { locations } from "@/data/locations";
+import { useGeoData } from "@/hooks/useGeoData";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -33,13 +33,15 @@ export default function RankChecker() {
   const [targetRanking, setTargetRanking] = useState<number | null>(null);
   const [showApiWarning, setShowApiWarning] = useState(true);
   const { toast } = useToast();
+  const { getLocationsByCountry, isLoading: isLoadingGeo } = useGeoData();
 
-  // Filter locations by selected country
-  const filteredLocations = locations.filter((loc) => {
-    if (!country) return true;
+  // Get locations filtered by selected country
+  const filteredLocations = useMemo(() => {
+    if (!country) return [];
     const selectedCountry = countries.find((c) => c.id === country);
-    return selectedCountry && loc.canonicalName.includes(selectedCountry.name);
-  });
+    if (!selectedCountry) return [];
+    return getLocationsByCountry(selectedCountry.code);
+  }, [country, getLocationsByCountry]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
