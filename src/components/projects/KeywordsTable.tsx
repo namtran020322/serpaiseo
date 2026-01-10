@@ -152,35 +152,44 @@ export function KeywordsTable({
       enableSorting: false,
       enableHiding: false,
     },
-  {
-    id: "expand",
-    size: 40,
-    header: "",
-    cell: ({ row }) => {
-        const hasCompetitors = competitorDomains.length > 0;
-        if (!hasCompetitors) return null;
-        return (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={() => row.toggleExpanded()}
-          >
-            {row.getIsExpanded() ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-          </Button>
-        );
-      },
-      enableSorting: false,
-    },
     {
       accessorKey: "keyword",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Keyword" />,
-      cell: ({ row }) => <span className="font-medium">{row.getValue("keyword")}</span>,
-      enableHiding: false, // Keyword column cannot be hidden
+      cell: ({ row }) => {
+        const hasCompetitors = competitorDomains.length > 0;
+        const isExpanded = row.getIsExpanded();
+        
+        return (
+          <div className="flex items-center gap-1">
+            {hasCompetitors ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 p-0 shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  row.toggleExpanded();
+                }}
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            ) : (
+              <span className="w-5 shrink-0" />
+            )}
+            <span 
+              className={`font-medium ${hasCompetitors ? 'cursor-pointer hover:text-primary' : ''}`}
+              onClick={() => hasCompetitors && row.toggleExpanded()}
+            >
+              {row.getValue("keyword")}
+            </span>
+          </div>
+        );
+      },
+      enableHiding: false,
     },
     {
       accessorKey: "ranking_position",
@@ -329,7 +338,7 @@ export function KeywordsTable({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
-                  const isFixedWidth = header.id === "select" || header.id === "expand";
+                  const isFixedWidth = header.id === "select";
                   const isActions = header.id === "actions";
                   const columnSize = header.column.columnDef.size;
                   
@@ -406,15 +415,15 @@ export function KeywordsTable({
                             key={`${row.id}-competitor-${domain}`} 
                             className="bg-primary/5 hover:bg-primary/10 border-l-4 border-l-primary"
                           >
-                            {/* Checkbox cell - always visible */}
-                            <TableCell></TableCell>
-                            
-                            {/* Expand cell - always visible */}
+                          {/* Checkbox cell - always visible */}
                             <TableCell></TableCell>
                             
                             {/* Domain (aligned with Keyword column) - always visible */}
                             <TableCell>
-                              <DomainWithFavicon domain={domain} showFullDomain size="sm" />
+                              <div className="flex items-center gap-1">
+                                <span className="w-5 shrink-0" />
+                                <DomainWithFavicon domain={domain} showFullDomain size="sm" />
+                              </div>
                             </TableCell>
                             
                             {/* Last - conditionally visible */}
