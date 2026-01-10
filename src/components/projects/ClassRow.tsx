@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CornerDownRight, MoreHorizontal, Eye, RefreshCw, Pencil, Trash2, Globe, Monitor, Smartphone, Tablet } from "lucide-react";
+import { CornerDownRight, MoreHorizontal, Eye, RefreshCw, Pencil, Trash2, Monitor, Smartphone, Tablet } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -58,14 +59,7 @@ export function ClassRow({ projectClass, projectId }: ClassRowProps) {
     setDeleteDialogOpen(false);
   };
 
-  const extractDomain = (url: string) => {
-    try {
-      const domain = url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-      return domain.length > 15 ? domain.substring(0, 15) + "..." : domain;
-    } catch {
-      return url.substring(0, 15);
-    }
-  };
+  const lastUpdated = projectClass.last_checked_at || projectClass.updated_at;
 
   const lastUpdated = projectClass.last_checked_at || projectClass.updated_at;
 
@@ -77,12 +71,7 @@ export function ClassRow({ projectClass, projectId }: ClassRowProps) {
         </TableCell>
         <TableCell className="font-medium">{projectClass.name}</TableCell>
         <TableCell>
-          <div className="flex items-center gap-1">
-            <Globe className="h-3 w-3 text-muted-foreground" />
-            <span className="text-sm" title={projectClass.domain}>
-              {extractDomain(projectClass.domain)}
-            </span>
-          </div>
+          <DomainWithFavicon domain={projectClass.domain} maxLength={15} />
         </TableCell>
         <TableCell>
           <span className="text-sm">{projectClass.country_name}</span>
