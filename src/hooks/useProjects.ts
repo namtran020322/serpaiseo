@@ -455,3 +455,45 @@ export function useDeleteClass() {
     },
   });
 }
+
+export interface CheckRankingsResult {
+  success: boolean;
+  processed: number;
+  found: number;
+  notFound: number;
+}
+
+export function useCheckRankings() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ classId, projectId }: { classId?: string; projectId?: string }): Promise<CheckRankingsResult> => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await supabase.functions.invoke('check-project-keywords', {
+        body: { classId, projectId }
+      });
+
+      if (response.error) throw response.error;
+      return response.data as CheckRankingsResult;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project"] });
+      queryClient.invalidateQueries({ queryKey: ["projectClass"] });
+      toast({
+        title: "Ranking Check Complete",
+        description: `Processed ${data.processed} keywords. Found: ${data.found}, Not found: ${data.notFound}`
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error checking rankings",
+        description: error.message
+      });
+    },
+  });
+}

@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ProjectClassWithKeywords, useDeleteClass } from "@/hooks/useProjects";
+import { ProjectClassWithKeywords, useDeleteClass, useCheckRankings } from "@/hooks/useProjects";
 import { formatDistanceToNow } from "date-fns";
 
 interface ClassRowProps {
@@ -38,7 +38,18 @@ const deviceIcons = {
 export function ClassRow({ projectClass, projectId }: ClassRowProps) {
   const navigate = useNavigate();
   const deleteClass = useDeleteClass();
+  const checkRankings = useCheckRankings();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+
+  const handleRefreshRankings = async () => {
+    setIsChecking(true);
+    try {
+      await checkRankings.mutateAsync({ classId: projectClass.id });
+    } finally {
+      setIsChecking(false);
+    }
+  };
 
   const DeviceIcon = deviceIcons[projectClass.device as keyof typeof deviceIcons] || Monitor;
 
@@ -116,9 +127,9 @@ export function ClassRow({ projectClass, projectId }: ClassRowProps) {
                 <Eye className="mr-2 h-4 w-4" />
                 View Details
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Refresh Rankings
+              <DropdownMenuItem onClick={handleRefreshRankings} disabled={isChecking}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+                {isChecking ? 'Checking...' : 'Refresh Rankings'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem>

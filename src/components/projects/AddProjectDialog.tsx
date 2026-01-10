@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { X, ChevronLeft, ChevronRight, Plus, Upload } from "lucide-react";
-import { useProjects, useCreateProject, useCreateClass } from "@/hooks/useProjects";
+import { useProjects, useCreateProject, useCreateClass, useCheckRankings } from "@/hooks/useProjects";
 import { countries } from "@/data/countries";
 import { languages } from "@/data/languages";
 import { useGeoData } from "@/hooks/useGeoData";
@@ -31,6 +31,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
   const { data: existingProjects } = useProjects();
   const createProject = useCreateProject();
   const createClass = useCreateClass();
+  const checkRankings = useCheckRankings();
   const { getLocationsByCountry } = useGeoData();
 
   const [step, setStep] = useState<Step>(1);
@@ -142,7 +143,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
       const selectedLanguage = languages.find((l) => l.lang === language);
       const selectedLocation = filteredLocations.find((l) => l.id === location);
 
-      await createClass.mutateAsync({
+      const newClass = await createClass.mutateAsync({
         projectId,
         name: className.trim(),
         domain: domain.trim(),
@@ -160,6 +161,9 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
       });
 
       handleClose();
+      
+      // Auto-trigger ranking check (non-blocking)
+      checkRankings.mutate({ classId: newClass.id });
     } catch (error) {
       console.error("Error creating project/class:", error);
     } finally {
