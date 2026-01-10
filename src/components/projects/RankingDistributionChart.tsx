@@ -1,26 +1,42 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, Legend } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { RankingStats } from "@/hooks/useProjects";
 
 interface RankingDistributionChartProps {
   stats: RankingStats;
 }
 
-const COLORS = [
-  "hsl(160, 84%, 39%)", // emerald - top 1-3
-  "hsl(217, 91%, 60%)", // blue - top 4-10
-  "hsl(38, 92%, 50%)",  // amber - top 11-30
-  "hsl(24, 95%, 53%)",  // orange - top 31-100
-  "hsl(0, 84%, 60%)",   // red - not found
-];
+const chartConfig = {
+  top3: {
+    label: "Top 1-3",
+    color: "hsl(160, 84%, 39%)",
+  },
+  top10: {
+    label: "Top 4-10",
+    color: "hsl(217, 91%, 60%)",
+  },
+  top30: {
+    label: "Top 11-30",
+    color: "hsl(38, 92%, 50%)",
+  },
+  top100: {
+    label: "Top 31-100",
+    color: "hsl(24, 95%, 53%)",
+  },
+  notFound: {
+    label: "Not Found",
+    color: "hsl(0, 84%, 60%)",
+  },
+} satisfies ChartConfig;
 
 export function RankingDistributionChart({ stats }: RankingDistributionChartProps) {
   const data = [
-    { name: "Top 1-3", value: stats.top3, color: COLORS[0] },
-    { name: "Top 4-10", value: stats.top10, color: COLORS[1] },
-    { name: "Top 11-30", value: stats.top30, color: COLORS[2] },
-    { name: "Top 31-100", value: stats.top100, color: COLORS[3] },
-    { name: "Not Found", value: stats.notFound, color: COLORS[4] },
+    { name: "top3", label: "Top 1-3", value: stats.top3, fill: "var(--color-top3)" },
+    { name: "top10", label: "Top 4-10", value: stats.top10, fill: "var(--color-top10)" },
+    { name: "top30", label: "Top 11-30", value: stats.top30, fill: "var(--color-top30)" },
+    { name: "top100", label: "Top 31-100", value: stats.top100, fill: "var(--color-top100)" },
+    { name: "notFound", label: "Not Found", value: stats.notFound, fill: "var(--color-notFound)" },
   ].filter((d) => d.value > 0);
 
   const total = stats.total || 1;
@@ -33,7 +49,7 @@ export function RankingDistributionChart({ stats }: RankingDistributionChartProp
       </CardHeader>
       <CardContent>
         {data.length > 0 ? (
-          <ResponsiveContainer width="100%" height={250}>
+          <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[250px]">
             <PieChart>
               <Pie
                 data={data}
@@ -43,20 +59,31 @@ export function RankingDistributionChart({ stats }: RankingDistributionChartProp
                 outerRadius={90}
                 paddingAngle={2}
                 dataKey="value"
+                nameKey="label"
               >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+                {data.map((entry) => (
+                  <Cell key={entry.name} fill={entry.fill} />
                 ))}
               </Pie>
-              <Tooltip
-                formatter={(value: number, name: string) => [
-                  `${value} (${Math.round((value / total) * 100)}%)`,
-                  name,
-                ]}
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={(value, name) => (
+                      <span>
+                        {name}: {value} ({Math.round((Number(value) / total) * 100)}%)
+                      </span>
+                    )}
+                  />
+                }
               />
-              <Legend />
+              <Legend
+                formatter={(value, entry) => {
+                  const item = data.find((d) => d.label === value);
+                  return item ? `${item.label} (${item.value})` : value;
+                }}
+              />
             </PieChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         ) : (
           <div className="flex items-center justify-center h-[250px] text-muted-foreground">
             No ranking data available

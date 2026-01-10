@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, History, BarChart3, ArrowRight } from "lucide-react";
+import { FolderOpen, ArrowRight, Plus, TrendingUp, Target } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 export default function Dashboard() {
@@ -13,7 +13,7 @@ export default function Dashboard() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Hello, {userName}!</h1>
         <p className="text-muted-foreground mt-2">
-          Welcome to RankChecker - your keyword ranking checker tool for Google.
+          Welcome to RankChecker - track your keyword rankings on Google.
         </p>
       </div>
 
@@ -21,17 +21,17 @@ export default function Dashboard() {
         <Card className="hover:shadow-lg transition-shadow border-primary/20">
           <CardHeader>
             <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
-              <Search className="h-6 w-6 text-primary" />
+              <FolderOpen className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle>Check Ranking</CardTitle>
+            <CardTitle>Projects</CardTitle>
             <CardDescription>
-              Enter keyword and URL to check position on Google SERP
+              Manage your keyword tracking projects and monitor rankings
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild className="w-full group">
-              <Link to="/dashboard/rank-checker">
-                Start Checking
+              <Link to="/dashboard/projects">
+                View Projects
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
@@ -40,18 +40,18 @@ export default function Dashboard() {
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
-              <History className="h-6 w-6 text-blue-600" />
+            <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-4">
+              <Plus className="h-6 w-6 text-emerald-500" />
             </div>
-            <CardTitle>Check History</CardTitle>
+            <CardTitle>Create Project</CardTitle>
             <CardDescription>
-              Review previous ranking check results
+              Start tracking keywords for a new domain
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" asChild className="w-full group">
-              <Link to="/dashboard/history">
-                View History
+              <Link to="/dashboard/projects">
+                New Project
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
@@ -60,18 +60,18 @@ export default function Dashboard() {
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center mb-4">
-              <BarChart3 className="h-6 w-6 text-green-600" />
+            <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-4">
+              <TrendingUp className="h-6 w-6 text-blue-500" />
             </div>
-            <CardTitle>Analytics</CardTitle>
+            <CardTitle>Track Rankings</CardTitle>
             <CardDescription>
-              Analyze keyword ranking trends over time
+              Monitor position changes and competitor analysis
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" asChild className="w-full group">
-              <Link to="/dashboard/analytics">
-                View Analytics
+              <Link to="/dashboard/projects">
+                Get Started
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
@@ -89,9 +89,9 @@ export default function Dashboard() {
               1
             </div>
             <div>
-              <h4 className="font-medium">Enter the keyword to check</h4>
+              <h4 className="font-medium">Create a Project</h4>
               <p className="text-sm text-muted-foreground">
-                Enter the keyword you want to check ranking for on Google
+                Start by creating a project for your domain to track keyword rankings
               </p>
             </div>
           </div>
@@ -100,9 +100,9 @@ export default function Dashboard() {
               2
             </div>
             <div>
-              <h4 className="font-medium">Select location and language</h4>
+              <h4 className="font-medium">Add Keyword Classes</h4>
               <p className="text-sm text-muted-foreground">
-                Choose country, city and language for the most accurate results
+                Create classes with specific country, language, and device settings
               </p>
             </div>
           </div>
@@ -111,9 +111,9 @@ export default function Dashboard() {
               3
             </div>
             <div>
-              <h4 className="font-medium">Enter target URL (optional)</h4>
+              <h4 className="font-medium">Add Keywords to Track</h4>
               <p className="text-sm text-muted-foreground">
-                Enter domain or specific URL to find position in search results
+                Add the keywords you want to monitor for each class
               </p>
             </div>
           </div>
@@ -122,9 +122,9 @@ export default function Dashboard() {
               4
             </div>
             <div>
-              <h4 className="font-medium">View results</h4>
+              <h4 className="font-medium">Monitor Rankings</h4>
               <p className="text-sm text-muted-foreground">
-                Get detailed results about ranking and top-ranking websites
+                Track your positions, view trends, and analyze competitor rankings
               </p>
             </div>
           </div>
