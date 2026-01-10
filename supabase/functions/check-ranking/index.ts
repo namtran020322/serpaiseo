@@ -54,7 +54,23 @@ function checkXmlRiverError(xmlText: string): void {
   }
 }
 
-// Parse XML results from XMLRiver API - handles XML without CDATA wrappers
+// Clean text by stripping CDATA wrapper and HTML tags
+function cleanText(text: string): string {
+  return text
+    // Strip CDATA wrapper
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    // Strip <hlword> tags (keep content)
+    .replace(/<\/?hlword>/g, '')
+    // Decode HTML entities
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim()
+}
+
+// Parse XML results from XMLRiver API
 function parseXmlResults(xmlText: string, startPosition: number): SerpResult[] {
   const results: SerpResult[] = []
   
@@ -86,13 +102,13 @@ function parseXmlResults(xmlText: string, startPosition: number): SerpResult[] {
     if (!urlMatch) continue
     const url = urlMatch[1].trim()
     
-    // Extract title
+    // Extract title and clean it
     const titleMatch = docContent.match(/<title>\s*([\s\S]*?)\s*<\/title>/i)
-    const title = titleMatch ? titleMatch[1].trim() : ''
+    const title = cleanText(titleMatch ? titleMatch[1] : '')
     
-    // Extract description from passage
+    // Extract description from passage and clean it
     const passageMatch = docContent.match(/<passage>\s*([\s\S]*?)\s*<\/passage>/i)
-    const description = passageMatch ? passageMatch[1].trim() : ''
+    const description = cleanText(passageMatch ? passageMatch[1] : '')
     
     // Extract breadcrumbs
     const breadcrumbMatch = docContent.match(/<breadcrumbs>\s*([\s\S]*?)\s*<\/breadcrumbs>/i)
