@@ -23,6 +23,7 @@ import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { SerpResultsDialog } from "@/components/projects/SerpResultsDialog";
 import { format } from "date-fns";
 
 interface KeywordsTableProps {
@@ -30,6 +31,13 @@ interface KeywordsTableProps {
   competitorDomains: string[];
   onDeleteKeywords?: (ids: string[]) => void;
   onRefreshKeywords?: (ids: string[]) => void;
+}
+
+interface SerpResult {
+  position: number;
+  title?: string;
+  description?: string;
+  url?: string;
 }
 
 const getPositionColor = (position: number | null) => {
@@ -94,6 +102,13 @@ const formatRelativeTime = (dateString: string) => {
   if (diffHours > 0) return `${diffHours}h ago`;
   if (diffMinutes > 0) return `${diffMinutes}m ago`;
   return `${diffSeconds}s ago`;
+};
+
+// Helper to find title from serp_results array by position
+const findSerpTitle = (serpResults: SerpResult[] | null, position: number | null): string | undefined => {
+  if (!serpResults || position === null) return undefined;
+  const match = serpResults.find(r => r.position === position);
+  return match?.title;
 };
 
 export function KeywordsTable({ 
@@ -230,6 +245,21 @@ export function KeywordsTable({
         );
       },
     },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const serpResults = row.original.serp_results as SerpResult[] | null;
+        return (
+          <SerpResultsDialog 
+            keyword={row.original.keyword}
+            serpResults={serpResults}
+          />
+        );
+      },
+      enableSorting: false,
+      enableHiding: false,
+    },
   ], [competitorDomains.length]);
 
   const table = useReactTable({
@@ -281,7 +311,7 @@ export function KeywordsTable({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className={header.id === "select" || header.id === "expand" ? "w-10" : ""}>
+                  <TableHead key={header.id} className={header.id === "select" || header.id === "expand" ? "w-10" : header.id === "actions" ? "w-16" : ""}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -297,43 +327,38 @@ export function KeywordsTable({
                 const lastChecked = row.original.last_checked_at;
                 const visibleColumnIds = table.getVisibleLeafColumns().map(c => c.id);
                 
-                // serp_results is an array - find title matching ranking position
-                const serpResultsArray = row.original.serp_results as Array<{ 
-                  position: number; 
-                  title?: string; 
-                  url?: string 
-                }> | null;
+                // serp_results is an array
+                const serpResultsArray = row.original.serp_results as SerpResult[] | null;
                 const rankingPosition = row.original.ranking_position;
-                const matchingResult = serpResultsArray?.find(r => r.position === rankingPosition);
-                const serpTitle = matchingResult?.title;
+                const serpTitle = findSerpTitle(serpResultsArray, rankingPosition);
                 
                 return (
                   <React.Fragment key={row.id}>
                     <TableRow data-state={row.getIsSelected() && "selected"}>
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
+                      {row.getVisibleCells().map((cell) => {
+                        // Special handling for URL column when SERP Titles is ON
+                        if (cell.column.id === "found_url" && showSerpTitles && serpTitle) {
+                          const url = row.original.found_url;
+                          return (
+                            <TableCell key={cell.id}>
+                              <div className="space-y-0.5">
+                                <div className="text-sm text-primary font-medium truncate max-w-[300px]" title={serpTitle}>
+                                  {serpTitle}
+                                </div>
+                                <span className="text-xs text-muted-foreground truncate block" title={url || ""}>
+                                  {extractSlug(url)}
+                                </span>
+                              </div>
+                            </TableCell>
+                          );
+                        }
+                        return (
+                          <TableCell key={cell.id}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        );
+                      })}
                     </TableRow>
-                    
-                    {/* SERP Title row - only show when toggle is ON */}
-                    {showSerpTitles && serpTitle && (
-                      <TableRow className="bg-muted/30 border-0 hover:bg-muted/40">
-                        <TableCell></TableCell>
-                        <TableCell></TableCell>
-                        <TableCell colSpan={visibleColumnIds.length - 2}>
-                          <div className="text-sm text-primary truncate font-medium">
-                            {serpTitle}
-                          </div>
-                          {row.original.found_url && (
-                            <div className="text-xs text-muted-foreground truncate">
-                              {row.original.found_url}
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )}
                     
                     {/* Expanded Competitor Rankings - rendered as rows in same table */}
                     {row.getIsExpanded() && competitorDomains.length > 0 && 
@@ -344,6 +369,9 @@ export function KeywordsTable({
                         const bestPos = typeof data === "object" ? data?.best_position : null;
                         const prevPos = typeof data === "object" ? data?.previous_position : null;
                         const url = typeof data === "object" ? data?.url : null;
+                        
+                        // Get competitor title from serp_results by their position
+                        const competitorTitle = findSerpTitle(serpResultsArray, position);
 
                         return (
                           <TableRow 
@@ -396,9 +424,20 @@ export function KeywordsTable({
                             {/* URL - conditionally visible */}
                             {visibleColumnIds.includes("found_url") && (
                               <TableCell>
-                                <span className="text-sm text-muted-foreground truncate" title={url || ""}>
-                                  {extractSlug(url)}
-                                </span>
+                                {showSerpTitles && competitorTitle ? (
+                                  <div className="space-y-0.5">
+                                    <div className="text-sm text-primary font-medium truncate max-w-[300px]" title={competitorTitle}>
+                                      {competitorTitle}
+                                    </div>
+                                    <span className="text-xs text-muted-foreground truncate block" title={url || ""}>
+                                      {extractSlug(url)}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-muted-foreground truncate" title={url || ""}>
+                                    {extractSlug(url)}
+                                  </span>
+                                )}
                               </TableCell>
                             )}
                             
@@ -418,6 +457,11 @@ export function KeywordsTable({
                                   </Tooltip>
                                 ) : "-"}
                               </TableCell>
+                            )}
+                            
+                            {/* Actions column - empty for competitor rows */}
+                            {visibleColumnIds.includes("actions") && (
+                              <TableCell></TableCell>
                             )}
                             
                           </TableRow>
