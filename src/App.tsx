@@ -13,6 +13,7 @@ import RankChecker from "./pages/RankChecker";
 import History from "./pages/History";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import Projects from "./pages/Projects";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
             >
               <Route index element={<Dashboard />} />
               <Route path="rank-checker" element={<RankChecker />} />
+              <Route path="projects" element={<Projects />} />
               <Route path="history" element={<History />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="settings" element={<Settings />} />

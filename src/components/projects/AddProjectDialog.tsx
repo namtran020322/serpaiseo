@@ -1,0 +1,512 @@
+import { useState, useMemo } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { X, ChevronLeft, ChevronRight, Plus, Upload } from "lucide-react";
+import { useProjects, useCreateProject, useCreateClass } from "@/hooks/useProjects";
+import { countries } from "@/data/countries";
+import { languages } from "@/data/languages";
+import { useGeoData } from "@/hooks/useGeoData";
+import { LocationCombobox } from "@/components/LocationCombobox";
+
+interface AddProjectDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+type Step = 1 | 2 | 3 | 4 | 5;
+
+export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) {
+  const { data: existingProjects } = useProjects();
+  const createProject = useCreateProject();
+  const createClass = useCreateClass();
+  const { getLocationsByCountry } = useGeoData();
+
+  const [step, setStep] = useState<Step>(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Step 1: Project selection
+  const [projectType, setProjectType] = useState<"new" | "existing">("new");
+  const [newProjectName, setNewProjectName] = useState("");
+  const [existingProjectId, setExistingProjectId] = useState("");
+
+  // Step 2: Class & Domain
+  const [className, setClassName] = useState("");
+  const [domain, setDomain] = useState("");
+  const [competitorDomains, setCompetitorDomains] = useState<string[]>([]);
+  const [newCompetitor, setNewCompetitor] = useState("");
+
+  // Step 3: Keywords
+  const [keywordsText, setKeywordsText] = useState("");
+
+  // Step 4: Search Settings
+  const [country, setCountry] = useState("");
+  const [location, setLocation] = useState("");
+  const [language, setLanguage] = useState("");
+  const [device, setDevice] = useState("desktop");
+  const [topResults, setTopResults] = useState("100");
+
+  // Step 5: Schedule
+  const [schedule, setSchedule] = useState<string | null>(null);
+
+  const filteredLocations = useMemo(() => {
+    if (!country) return [];
+    const selectedCountry = countries.find((c) => c.id === country);
+    if (!selectedCountry) return [];
+    return getLocationsByCountry(selectedCountry.code);
+  }, [country, getLocationsByCountry]);
+
+  const resetForm = () => {
+    setStep(1);
+    setProjectType("new");
+    setNewProjectName("");
+    setExistingProjectId("");
+    setClassName("");
+    setDomain("");
+    setCompetitorDomains([]);
+    setNewCompetitor("");
+    setKeywordsText("");
+    setCountry("");
+    setLocation("");
+    setLanguage("");
+    setDevice("desktop");
+    setTopResults("100");
+    setSchedule(null);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onOpenChange(false);
+  };
+
+  const addCompetitor = () => {
+    if (newCompetitor.trim() && !competitorDomains.includes(newCompetitor.trim())) {
+      setCompetitorDomains([...competitorDomains, newCompetitor.trim()]);
+      setNewCompetitor("");
+    }
+  };
+
+  const removeCompetitor = (domain: string) => {
+    setCompetitorDomains(competitorDomains.filter((d) => d !== domain));
+  };
+
+  const parseKeywords = (): string[] => {
+    return keywordsText
+      .split("\n")
+      .map((k) => k.trim().toLowerCase())
+      .filter((k) => k.length > 0);
+  };
+
+  const canProceed = () => {
+    switch (step) {
+      case 1:
+        return projectType === "new" ? newProjectName.trim().length > 0 : existingProjectId.length > 0;
+      case 2:
+        return className.trim().length > 0 && domain.trim().length > 0;
+      case 3:
+        return parseKeywords().length > 0;
+      case 4:
+        return country.length > 0 && language.length > 0;
+      case 5:
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!canProceed()) return;
+
+    setIsSubmitting(true);
+
+    try {
+      let projectId = existingProjectId;
+
+      if (projectType === "new") {
+        const newProject = await createProject.mutateAsync(newProjectName.trim());
+        projectId = newProject.id;
+      }
+
+      const selectedCountry = countries.find((c) => c.id === country);
+      const selectedLanguage = languages.find((l) => l.lang === language);
+      const selectedLocation = filteredLocations.find((l) => l.id === location);
+
+      await createClass.mutateAsync({
+        projectId,
+        name: className.trim(),
+        domain: domain.trim(),
+        competitorDomains,
+        countryId: country,
+        countryName: selectedCountry?.name || "",
+        locationId: selectedLocation?.id,
+        locationName: selectedLocation?.canonicalName,
+        languageCode: language,
+        languageName: selectedLanguage?.name || "",
+        device,
+        topResults: parseInt(topResults),
+        schedule,
+        keywords: parseKeywords(),
+      });
+
+      handleClose();
+    } catch (error) {
+      console.error("Error creating project/class:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    const lines = text.split(/[\n,]/).map((l) => l.trim()).filter((l) => l.length > 0);
+    const existingKeywords = parseKeywords();
+    const newKeywords = [...new Set([...existingKeywords, ...lines])];
+    setKeywordsText(newKeywords.join("\n"));
+    
+    // Reset file input
+    e.target.value = "";
+  };
+
+  const stepTitles: Record<Step, string> = {
+    1: "Select Project",
+    2: "Class & Domain",
+    3: "Keywords",
+    4: "Search Settings",
+    5: "Schedule",
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Add New Class</DialogTitle>
+          <DialogDescription>
+            Step {step} of 5: {stepTitles[step]}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex gap-1 mb-4">
+          {[1, 2, 3, 4, 5].map((s) => (
+            <div
+              key={s}
+              className={`flex-1 h-1 rounded-full ${
+                s <= step ? "bg-primary" : "bg-muted"
+              }`}
+            />
+          ))}
+        </div>
+
+        <div className="min-h-[300px]">
+          {step === 1 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Project</Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={projectType === "new" ? "default" : "outline"}
+                    onClick={() => setProjectType("new")}
+                    className="flex-1"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Project
+                  </Button>
+                  <Button
+                    variant={projectType === "existing" ? "default" : "outline"}
+                    onClick={() => setProjectType("existing")}
+                    className="flex-1"
+                    disabled={!existingProjects || existingProjects.length === 0}
+                  >
+                    Existing Project
+                  </Button>
+                </div>
+              </div>
+
+              {projectType === "new" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="projectName">Project Name</Label>
+                  <Input
+                    id="projectName"
+                    placeholder="e.g. iPhone Products"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Select Project</Label>
+                  <Select value={existingProjectId} onValueChange={setExistingProjectId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {existingProjects?.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="className">Class Name</Label>
+                <Input
+                  id="className"
+                  placeholder="e.g. iPhone 16 Pro Max"
+                  value={className}
+                  onChange={(e) => setClassName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="domain">Your Domain</Label>
+                <Input
+                  id="domain"
+                  placeholder="e.g. example.com"
+                  value={domain}
+                  onChange={(e) => setDomain(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Competitor Domains (optional)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g. competitor.com"
+                    value={newCompetitor}
+                    onChange={(e) => setNewCompetitor(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCompetitor())}
+                  />
+                  <Button variant="outline" onClick={addCompetitor}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {competitorDomains.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {competitorDomains.map((d) => (
+                      <Badge key={d} variant="secondary" className="gap-1">
+                        {d}
+                        <X
+                          className="h-3 w-3 cursor-pointer"
+                          onClick={() => removeCompetitor(d)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="keywords">Keywords (one per line)</Label>
+                  <label>
+                    <input
+                      type="file"
+                      accept=".csv,.txt,.xlsx"
+                      className="hidden"
+                      onChange={handleImportFile}
+                    />
+                    <Button variant="outline" size="sm" asChild>
+                      <span className="cursor-pointer">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Import
+                      </span>
+                    </Button>
+                  </label>
+                </div>
+                <Textarea
+                  id="keywords"
+                  placeholder="Enter keywords, one per line..."
+                  value={keywordsText}
+                  onChange={(e) => setKeywordsText(e.target.value)}
+                  className="min-h-[200px] font-mono text-sm"
+                />
+                <p className="text-sm text-muted-foreground">
+                  {parseKeywords().length} unique keywords (duplicates will be removed)
+                </p>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Country *</Label>
+                  <Select value={country} onValueChange={(v) => { setCountry(v); setLocation(""); }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Location (optional)</Label>
+                  <LocationCombobox
+                    locations={filteredLocations}
+                    value={location}
+                    onValueChange={setLocation}
+                    placeholder="Select location"
+                    disabled={!country}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Language *</Label>
+                  <Select value={language} onValueChange={setLanguage}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {languages.map((l) => (
+                        <SelectItem key={l.lang} value={l.lang}>
+                          {l.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Device</Label>
+                  <Select value={device} onValueChange={setDevice}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="desktop">Desktop</SelectItem>
+                      <SelectItem value="mobile">Mobile</SelectItem>
+                      <SelectItem value="tablet">Tablet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Number of results to check</Label>
+                <Select value={topResults} onValueChange={setTopResults}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">Top 10</SelectItem>
+                    <SelectItem value="20">Top 20</SelectItem>
+                    <SelectItem value="30">Top 30</SelectItem>
+                    <SelectItem value="50">Top 50</SelectItem>
+                    <SelectItem value="100">Top 100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {step === 5 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Auto-check Schedule (optional)</Label>
+                <Select value={schedule || "none"} onValueChange={(v) => setSchedule(v === "none" ? null : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No schedule" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No schedule (manual only)</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                  {schedule
+                    ? `Rankings will be checked automatically ${schedule}. You'll receive an email notification when complete.`
+                    : "You can manually check rankings at any time."}
+                </p>
+              </div>
+
+              <div className="rounded-lg border p-4 space-y-2 bg-muted/50">
+                <h4 className="font-medium">Summary</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <span className="text-muted-foreground">Project:</span>
+                  <span>{projectType === "new" ? newProjectName : existingProjects?.find((p) => p.id === existingProjectId)?.name}</span>
+                  <span className="text-muted-foreground">Class:</span>
+                  <span>{className}</span>
+                  <span className="text-muted-foreground">Domain:</span>
+                  <span>{domain}</span>
+                  <span className="text-muted-foreground">Competitors:</span>
+                  <span>{competitorDomains.length || "None"}</span>
+                  <span className="text-muted-foreground">Keywords:</span>
+                  <span>{parseKeywords().length}</span>
+                  <span className="text-muted-foreground">Country:</span>
+                  <span>{countries.find((c) => c.id === country)?.name}</span>
+                  <span className="text-muted-foreground">Language:</span>
+                  <span>{languages.find((l) => l.lang === language)?.name}</span>
+                  <span className="text-muted-foreground">Device:</span>
+                  <span className="capitalize">{device}</span>
+                  <span className="text-muted-foreground">Schedule:</span>
+                  <span className="capitalize">{schedule || "Manual"}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex justify-between">
+          <div>
+            {step > 1 && (
+              <Button variant="outline" onClick={() => setStep((s) => (s - 1) as Step)}>
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            {step < 5 ? (
+              <Button onClick={() => setStep((s) => (s + 1) as Step)} disabled={!canProceed()}>
+                Next
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            ) : (
+              <Button onClick={handleSubmit} disabled={!canProceed() || isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Class"}
+              </Button>
+            )}
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
