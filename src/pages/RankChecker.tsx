@@ -6,12 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Loader2, ExternalLink, AlertCircle } from "lucide-react";
+import { Search, Loader2, ExternalLink } from "lucide-react";
 import { countries } from "@/data/countries";
 import { languages } from "@/data/languages";
 import { useGeoData } from "@/hooks/useGeoData";
 import { useToast } from "@/hooks/use-toast";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SerpResult {
   position: number;
@@ -31,9 +31,8 @@ export default function RankChecker() {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<SerpResult[]>([]);
   const [targetRanking, setTargetRanking] = useState<number | null>(null);
-  const [showApiWarning, setShowApiWarning] = useState(true);
   const { toast } = useToast();
-  const { getLocationsByCountry, isLoading: isLoadingGeo } = useGeoData();
+  const { getLocationsByCountry } = useGeoData();
 
   // Get locations filtered by selected country
   const filteredLocations = useMemo(() => {
@@ -77,68 +76,69 @@ export default function RankChecker() {
     setResults([]);
     setTargetRanking(null);
 
-    // Simulate API call with mock data for now
-    // Real implementation will use edge function to call XMLRiver API
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      // Get country and language details
+      const selectedCountry = countries.find((c) => c.id === country);
+      const selectedLanguage = languages.find((l) => l.lang === language);
+      const selectedLocation = filteredLocations.find((l) => l.id === location);
 
-    // Mock results
-    const mockResults: SerpResult[] = [
-      {
-        position: 1,
-        title: "Marketing là gì? Định nghĩa và các loại hình Marketing",
-        url: "https://example.com/marketing-la-gi",
-        description: "Marketing là hoạt động quảng bá sản phẩm, dịch vụ...",
-      },
-      {
-        position: 2,
-        title: "Tổng quan về Marketing - Khái niệm cơ bản",
-        url: "https://marketing.edu.vn/khai-niem",
-        description: "Hiểu rõ về marketing và ứng dụng trong kinh doanh...",
-      },
-      {
-        position: 3,
-        title: "Marketing cho người mới bắt đầu",
-        url: "https://blog.example.org/marketing-101",
-        description: "Hướng dẫn chi tiết về marketing dành cho người mới...",
-      },
-      {
-        position: 4,
-        title: "7P trong Marketing Mix là gì?",
-        url: "https://marketingpro.vn/7p-marketing",
-        description: "Phân tích 7P trong marketing mix hiện đại...",
-      },
-      {
-        position: 5,
-        title: "Chiến lược Marketing hiệu quả 2024",
-        url: "https://business.com/chien-luoc-marketing",
-        description: "Các chiến lược marketing được áp dụng nhiều nhất...",
-      },
-    ];
-
-    setResults(mockResults);
-
-    // Check if target URL is in results
-    if (targetUrl.trim()) {
-      const found = mockResults.find((r) =>
-        r.url.toLowerCase().includes(targetUrl.toLowerCase())
-      );
-      if (found) {
-        setTargetRanking(found.position);
-        toast({
-          title: "Tìm thấy!",
-          description: `URL của bạn đang xếp hạng #${found.position}`,
-        });
-      } else {
-        setTargetRanking(-1);
-        toast({
-          variant: "destructive",
-          title: "Không tìm thấy",
-          description: `URL không xuất hiện trong top ${topResults} kết quả`,
-        });
+      if (!selectedCountry || !selectedLanguage) {
+        throw new Error("Không tìm thấy thông tin quốc gia hoặc ngôn ngữ");
       }
-    }
 
-    setIsLoading(false);
+      // Call edge function
+      const { data, error } = await supabase.functions.invoke("check-ranking", {
+        body: {
+          keyword: keyword.trim(),
+          targetUrl: targetUrl.trim() || undefined,
+          countryId: selectedCountry.id,
+          countryName: selectedCountry.name,
+          locationId: selectedLocation?.id || undefined,
+          locationName: selectedLocation?.canonicalName || undefined,
+          languageCode: selectedLanguage.lang,
+          languageName: selectedLanguage.name,
+          device,
+          topResults: parseInt(topResults),
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Lỗi khi gọi API");
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || "Lỗi không xác định");
+      }
+
+      setResults(data.results);
+
+      // Handle target ranking result
+      if (targetUrl.trim()) {
+        if (data.targetRanking) {
+          setTargetRanking(data.targetRanking);
+          toast({
+            title: "Tìm thấy!",
+            description: `URL của bạn đang xếp hạng #${data.targetRanking}`,
+          });
+        } else {
+          setTargetRanking(-1);
+          toast({
+            variant: "destructive",
+            title: "Không tìm thấy",
+            description: `URL không xuất hiện trong top ${topResults} kết quả`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error checking ranking:", error);
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi kiểm tra thứ hạng",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -150,20 +150,6 @@ export default function RankChecker() {
         </p>
       </div>
 
-      {showApiWarning && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Chế độ Demo</AlertTitle>
-          <AlertDescription className="flex items-center justify-between">
-            <span>
-              Tính năng đang chạy ở chế độ demo. Để sử dụng API thật, cần cấu hình XMLRiver API credentials.
-            </span>
-            <Button variant="ghost" size="sm" onClick={() => setShowApiWarning(false)}>
-              Đóng
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
