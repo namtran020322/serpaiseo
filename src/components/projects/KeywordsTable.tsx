@@ -23,7 +23,7 @@ import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { format, formatDistanceToNowStrict, differenceInDays } from "date-fns";
+import { format } from "date-fns";
 
 interface KeywordsTableProps {
   keywords: ProjectKeyword[];
@@ -78,15 +78,22 @@ const extractSlug = (url: string | null) => {
 const formatRelativeTime = (dateString: string) => {
   const date = new Date(dateString);
   const now = new Date();
-  const daysDiff = differenceInDays(now, date);
-  
+  const diffMs = now.getTime() - date.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
   // If > 7 days, show date format dd/MM/yyyy
-  if (daysDiff > 7) {
+  if (diffDays > 7) {
     return format(date, "dd/MM/yyyy");
   }
   
-  // Otherwise, show relative time like "3d ago", "11h ago"
-  return formatDistanceToNowStrict(date, { addSuffix: true });
+  // Short format: "3d ago", "11h ago", "4m ago", "14s ago"
+  if (diffDays > 0) return `${diffDays}d ago`;
+  if (diffHours > 0) return `${diffHours}h ago`;
+  if (diffMinutes > 0) return `${diffMinutes}m ago`;
+  return `${diffSeconds}s ago`;
 };
 
 export function KeywordsTable({ 
@@ -288,8 +295,17 @@ export function KeywordsTable({
               table.getRowModel().rows.map((row) => {
                 const rankings = row.original.competitor_rankings as Record<string, any> | null;
                 const lastChecked = row.original.last_checked_at;
-                const serpResults = row.original.serp_results as { title?: string } | null;
                 const visibleColumnIds = table.getVisibleLeafColumns().map(c => c.id);
+                
+                // serp_results is an array - find title matching ranking position
+                const serpResultsArray = row.original.serp_results as Array<{ 
+                  position: number; 
+                  title?: string; 
+                  url?: string 
+                }> | null;
+                const rankingPosition = row.original.ranking_position;
+                const matchingResult = serpResultsArray?.find(r => r.position === rankingPosition);
+                const serpTitle = matchingResult?.title;
                 
                 return (
                   <React.Fragment key={row.id}>
@@ -302,13 +318,13 @@ export function KeywordsTable({
                     </TableRow>
                     
                     {/* SERP Title row - only show when toggle is ON */}
-                    {showSerpTitles && serpResults?.title && (
+                    {showSerpTitles && serpTitle && (
                       <TableRow className="bg-muted/30 border-0 hover:bg-muted/40">
                         <TableCell></TableCell>
                         <TableCell></TableCell>
                         <TableCell colSpan={visibleColumnIds.length - 2}>
                           <div className="text-sm text-primary truncate font-medium">
-                            {serpResults.title}
+                            {serpTitle}
                           </div>
                           {row.original.found_url && (
                             <div className="text-xs text-muted-foreground truncate">
