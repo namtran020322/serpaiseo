@@ -2,3 +2,6 @@ project_id = "hzcrlucfyxqxsadbvazi"
 
 [functions.check-ranking]
 verify_jwt = false
+
+[functions.check-project-keywords]
+verify_jwt = false
