@@ -78,10 +78,16 @@ const extractSlug = (url: string | null) => {
   try {
     const parsed = new URL(url.startsWith("http") ? url : `https://${url}`);
     const path = parsed.pathname;
-    return path.length > 30 ? path.substring(0, 30) + "..." : path || "/";
+    return path.length > 50 ? path.substring(0, 50) + "..." : path || "/";
   } catch {
-    return url.substring(0, 30);
+    return url.substring(0, 50);
   }
+};
+
+// Helper to truncate text to max characters
+const truncateText = (text: string | null | undefined, maxChars: number = 70) => {
+  if (!text) return "";
+  return text.length > maxChars ? text.slice(0, maxChars) + "..." : text;
 };
 
 const formatRelativeTime = (dateString: string) => {
@@ -179,7 +185,7 @@ export function KeywordsTable({
     {
       accessorKey: "ranking_position",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Last" />,
-      size: 70,
+      size: 55,
       cell: ({ row }) => {
         const position = row.getValue("ranking_position") as number | null;
         return (
@@ -192,7 +198,7 @@ export function KeywordsTable({
     {
       accessorKey: "first_position",
       header: ({ column }) => <DataTableColumnHeader column={column} title="First" />,
-      size: 70,
+      size: 55,
       cell: ({ row }) => {
         const position = row.getValue("first_position") as number | null;
         return <span className="text-muted-foreground">{position ?? "-"}</span>;
@@ -201,7 +207,7 @@ export function KeywordsTable({
     {
       accessorKey: "best_position",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Best" />,
-      size: 70,
+      size: 55,
       cell: ({ row }) => {
         const position = row.getValue("best_position") as number | null;
         return (
@@ -214,7 +220,7 @@ export function KeywordsTable({
     {
       id: "change",
       header: "Change",
-      size: 80,
+      size: 65,
       cell: ({ row }) => {
         const current = row.original.ranking_position;
         const previous = row.original.previous_position;
@@ -224,10 +230,12 @@ export function KeywordsTable({
     {
       accessorKey: "found_url",
       header: "URL",
+      size: 320,
+      maxSize: 320,
       cell: ({ row }) => {
         const url = row.getValue("found_url") as string | null;
         return (
-          <span className="text-sm text-muted-foreground" title={url || ""}>
+          <span className="text-sm text-muted-foreground truncate block max-w-[320px]" title={url || ""}>
             {extractSlug(url)}
           </span>
         );
@@ -256,6 +264,7 @@ export function KeywordsTable({
     {
       id: "actions",
       header: "",
+      size: 60,
       cell: ({ row }) => {
         const serpResults = row.original.serp_results as SerpResult[] | null;
         return (
@@ -360,9 +369,9 @@ export function KeywordsTable({
                           const url = row.original.found_url;
                           return (
                             <TableCell key={cell.id}>
-                              <div className="space-y-0.5">
-                                <div className="text-sm text-primary font-medium truncate max-w-[300px]" title={serpTitle}>
-                                  {serpTitle}
+                              <div className="space-y-0.5 max-w-[320px]">
+                                <div className="text-sm text-primary font-medium truncate" title={serpTitle}>
+                                  {truncateText(serpTitle, 70)}
                                 </div>
                                 <span className="text-xs text-muted-foreground truncate block" title={url || ""}>
                                   {extractSlug(url)}
@@ -444,16 +453,16 @@ export function KeywordsTable({
                             {visibleColumnIds.includes("found_url") && (
                               <TableCell>
                                 {showSerpTitles && competitorTitle ? (
-                                  <div className="space-y-0.5">
-                                    <div className="text-sm text-primary font-medium truncate max-w-[300px]" title={competitorTitle}>
-                                      {competitorTitle}
+                                  <div className="space-y-0.5 max-w-[320px]">
+                                    <div className="text-sm text-primary font-medium truncate" title={competitorTitle}>
+                                      {truncateText(competitorTitle, 70)}
                                     </div>
                                     <span className="text-xs text-muted-foreground truncate block" title={url || ""}>
                                       {extractSlug(url)}
                                     </span>
                                   </div>
                                 ) : (
-                                  <span className="text-sm text-muted-foreground truncate" title={url || ""}>
+                                  <span className="text-sm text-muted-foreground truncate block max-w-[320px]" title={url || ""}>
                                     {extractSlug(url)}
                                   </span>
                                 )}
