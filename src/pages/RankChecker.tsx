@@ -12,6 +12,7 @@ import { languages } from "@/data/languages";
 import { useGeoData } from "@/hooks/useGeoData";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { LocationCombobox } from "@/components/LocationCombobox";
 
 interface SerpResult {
   position: number;
@@ -202,18 +203,13 @@ export default function RankChecker() {
 
               <div className="space-y-2">
                 <Label htmlFor="location">Specific location (optional)</Label>
-                <Select value={location} onValueChange={setLocation}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredLocations.map((loc) => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.canonicalName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LocationCombobox
+                  locations={filteredLocations}
+                  value={location}
+                  onValueChange={setLocation}
+                  placeholder="Select location"
+                  disabled={!country}
+                />
               </div>
 
               <div className="space-y-2">
