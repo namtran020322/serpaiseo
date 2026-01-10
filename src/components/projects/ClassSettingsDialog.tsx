@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectClassWithKeywords, useUpdateClass, useDeleteClass } from "@/hooks/useProjects";
-import { Loader2, Trash2, X, Plus } from "lucide-react";
+import { Loader2, Trash2, X, Plus, Lock } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   AlertDialog,
@@ -201,103 +201,52 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
               </TabsContent>
 
               <TabsContent value="search" className="space-y-4 pt-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="countryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select country" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {countries.map((country) => (
-                              <SelectItem key={country.id} value={country.id}>
-                                {country.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="languageCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Language</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select language" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {languages.map((lang) => (
-                              <SelectItem key={lang.lang} value={lang.lang}>
-                                {lang.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {/* Read-only search parameters */}
+                <div className="rounded-md bg-muted p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Lock className="h-4 w-4" />
+                    <span>Search parameters cannot be changed after creation to maintain data consistency</span>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Country</p>
+                      <p className="font-medium">{projectClass.country_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Language</p>
+                      <p className="font-medium">{projectClass.language_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Device</p>
+                      <p className="font-medium capitalize">{projectClass.device}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="device"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Device</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select device" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="desktop">Desktop</SelectItem>
-                            <SelectItem value="mobile">Mobile</SelectItem>
-                            <SelectItem value="tablet">Tablet</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="topResults"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Top Results</FormLabel>
-                        <Select onValueChange={(v) => field.onChange(parseInt(v))} value={field.value.toString()}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select top results" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="10">Top 10</SelectItem>
-                            <SelectItem value="30">Top 30</SelectItem>
-                            <SelectItem value="50">Top 50</SelectItem>
-                            <SelectItem value="100">Top 100</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                
+                {/* Editable Top Results */}
+                <FormField
+                  control={form.control}
+                  name="topResults"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Top Results</FormLabel>
+                      <Select onValueChange={(v) => field.onChange(parseInt(v))} value={field.value.toString()}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select top results" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="10">Top 10</SelectItem>
+                          <SelectItem value="30">Top 30</SelectItem>
+                          <SelectItem value="50">Top 50</SelectItem>
+                          <SelectItem value="100">Top 100</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </TabsContent>
 
               <TabsContent value="competitors" className="space-y-4 pt-4">

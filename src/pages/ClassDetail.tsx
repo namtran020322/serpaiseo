@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, RefreshCw, Globe, Monitor, Smartphone, Tablet, Calendar, Loader2, Plus, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useProjectClass, useProject, useCheckRankings } from "@/hooks/useProjects";
+import { useProjectClass, useProject, useCheckRankings, useDeleteKeywords } from "@/hooks/useProjects";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
 import { KeywordsTable } from "@/components/projects/KeywordsTable";
 import { CheckProgressDialog } from "@/components/projects/CheckProgressDialog";
@@ -24,6 +24,7 @@ export default function ClassDetail() {
   const { data: projectClass, isLoading, error, refetch } = useProjectClass(classId);
   const { data: project } = useProject(projectId);
   const checkRankings = useCheckRankings();
+  const deleteKeywords = useDeleteKeywords();
   const [isChecking, setIsChecking] = useState(false);
   const [checkProgress, setCheckProgress] = useState({ current: 0, total: 0, keyword: "" });
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -60,6 +61,32 @@ export default function ClassDetail() {
       console.error("Check failed:", error);
     } finally {
       setIsChecking(false);
+    }
+  };
+
+  // Refresh only selected keywords
+  const handleRefreshSelected = async (keywordIds: string[]) => {
+    if (keywordIds.length === 0) return;
+    setIsChecking(true);
+    setCheckProgress({ current: 0, total: keywordIds.length, keyword: "" });
+    try {
+      await checkRankings.mutateAsync({ classId, keywordIds });
+      refetch();
+    } catch (error) {
+      console.error("Check failed:", error);
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  // Delete selected keywords
+  const handleDeleteKeywords = async (keywordIds: string[]) => {
+    if (keywordIds.length === 0) return;
+    try {
+      await deleteKeywords.mutateAsync(keywordIds);
+      refetch();
+    } catch (error) {
+      console.error("Delete failed:", error);
     }
   };
 
@@ -150,6 +177,8 @@ export default function ClassDetail() {
         <KeywordsTable 
           keywords={projectClass.keywords} 
           competitorDomains={projectClass.competitor_domains}
+          onDeleteKeywords={handleDeleteKeywords}
+          onRefreshKeywords={handleRefreshSelected}
         />
       </div>
 

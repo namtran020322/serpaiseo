@@ -356,11 +356,33 @@ Deno.serve(async (req) => {
           // Find user domain ranking
           const { position: userPosition, foundUrl } = findTargetRanking(results, cls.domain)
 
-          // Find competitor rankings
-          const competitorRankings: Record<string, number | null> = {}
+          // Find competitor rankings with full data
+          const existingCompRankings = (kw.competitor_rankings as Record<string, any>) || {}
+          const competitorRankings: Record<string, {
+            position: number | null;
+            url: string | null;
+            first_position: number | null;
+            best_position: number | null;
+            previous_position: number | null;
+          }> = {}
+          
           for (const compDomain of competitorDomains) {
-            const { position: compPosition } = findTargetRanking(results, compDomain)
-            competitorRankings[compDomain] = compPosition
+            const { position: compPosition, foundUrl: compUrl } = findTargetRanking(results, compDomain)
+            
+            const existingData = existingCompRankings[compDomain]
+            const existingPos = typeof existingData === 'object' ? existingData?.position : existingData
+            const existingFirst = typeof existingData === 'object' ? existingData?.first_position : null
+            const existingBest = typeof existingData === 'object' ? existingData?.best_position : null
+            
+            competitorRankings[compDomain] = {
+              position: compPosition,
+              url: compUrl,
+              first_position: existingFirst ?? compPosition,
+              best_position: compPosition !== null 
+                ? (existingBest !== null ? Math.min(existingBest, compPosition) : compPosition)
+                : existingBest,
+              previous_position: existingPos ?? null
+            }
           }
 
           // Update keyword record

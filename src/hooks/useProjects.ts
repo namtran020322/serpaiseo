@@ -580,12 +580,12 @@ export function useCheckRankings() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ classId, projectId }: { classId?: string; projectId?: string }): Promise<CheckRankingsResult> => {
+    mutationFn: async ({ classId, projectId, keywordIds }: { classId?: string; projectId?: string; keywordIds?: string[] }): Promise<CheckRankingsResult> => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
       const response = await supabase.functions.invoke('check-project-keywords', {
-        body: { classId, projectId }
+        body: { classId, projectId, keywordIds }
       });
 
       if (response.error) throw response.error;
@@ -605,6 +605,34 @@ export function useCheckRankings() {
         variant: "destructive",
         title: "Error checking rankings",
         description: error.message
+      });
+    },
+  });
+}
+
+export function useDeleteKeywords() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (keywordIds: string[]) => {
+      const { error } = await supabase
+        .from("project_keywords")
+        .delete()
+        .in("id", keywordIds);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project"] });
+      queryClient.invalidateQueries({ queryKey: ["projectClass"] });
+      toast({ title: "Success", description: "Keywords deleted successfully" });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
       });
     },
   });

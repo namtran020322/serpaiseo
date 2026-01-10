@@ -22,6 +22,7 @@ import { DataTableToolbar } from "@/components/ui/data-table-toolbar";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
+import { format } from "date-fns";
 
 interface KeywordsTableProps {
   keywords: ProjectKeyword[];
@@ -186,6 +187,19 @@ export function KeywordsTable({
       },
     },
     {
+      accessorKey: "last_checked_at",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" />,
+      cell: ({ row }) => {
+        const date = row.getValue("last_checked_at") as string | null;
+        if (!date) return <span className="text-muted-foreground">-</span>;
+        return (
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {format(new Date(date), "HH:mm:ss dd/MM/yyyy")}
+          </span>
+        );
+      },
+    },
+    {
       id: "actions",
       cell: ({ row }) => {
         const url = row.original.found_url;
@@ -271,19 +285,20 @@ export function KeywordsTable({
                   {/* Expanded Competitor Rankings Table */}
                   {row.getIsExpanded() && competitorDomains.length > 0 && (
                     <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableCell colSpan={columns.length} className="py-3">
-                        <div className="pl-12">
+                      <TableCell colSpan={columns.length} className="py-3 px-0">
+                        <div className="ml-[88px]">
                           <p className="text-sm font-medium mb-2 text-muted-foreground">Competitor Rankings</p>
-                          <div className="rounded-md border bg-background">
+                          <div className="rounded-md border bg-background overflow-hidden">
                             <Table>
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead className="w-48">Domain</TableHead>
-                                  <TableHead className="w-20 text-center">Last</TableHead>
-                                  <TableHead className="w-20 text-center">First</TableHead>
-                                  <TableHead className="w-20 text-center">Best</TableHead>
-                                  <TableHead className="w-24 text-center">Change</TableHead>
-                                  <TableHead>URL</TableHead>
+                                  <TableHead style={{ width: "200px" }}>Domain</TableHead>
+                                  <TableHead style={{ width: "70px" }}>Last</TableHead>
+                                  <TableHead style={{ width: "70px" }}>First</TableHead>
+                                  <TableHead style={{ width: "70px" }}>Best</TableHead>
+                                  <TableHead style={{ width: "90px" }}>Change</TableHead>
+                                  <TableHead style={{ width: "150px" }}>URL</TableHead>
+                                  <TableHead style={{ width: "160px" }}>Updated</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -295,41 +310,47 @@ export function KeywordsTable({
                                   const bestPos = typeof data === "object" ? data?.best_position : null;
                                   const prevPos = typeof data === "object" ? data?.previous_position : null;
                                   const url = typeof data === "object" ? data?.url : null;
+                                  const lastChecked = row.original.last_checked_at;
 
                                   return (
                                     <TableRow key={domain}>
-                                      <TableCell>
+                                      <TableCell style={{ width: "200px" }}>
                                         <DomainWithFavicon domain={domain} showFullDomain />
                                       </TableCell>
-                                      <TableCell className="text-center">
+                                      <TableCell style={{ width: "70px" }}>
                                         <span className={`font-medium ${getPositionColor(position ?? null)}`}>
                                           {position ?? "-"}
                                         </span>
                                       </TableCell>
-                                      <TableCell className="text-center text-muted-foreground">
+                                      <TableCell style={{ width: "70px" }} className="text-muted-foreground">
                                         {firstPos ?? "-"}
                                       </TableCell>
-                                      <TableCell className="text-center">
+                                      <TableCell style={{ width: "70px" }}>
                                         <span className={`font-medium ${getPositionColor(bestPos ?? null)}`}>
                                           {bestPos ?? "-"}
                                         </span>
                                       </TableCell>
-                                      <TableCell className="text-center">
+                                      <TableCell style={{ width: "90px" }}>
                                         {getChangeIndicator(position ?? null, prevPos ?? null)}
                                       </TableCell>
-                                      <TableCell>
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-sm text-muted-foreground" title={url || ""}>
+                                      <TableCell style={{ width: "150px" }}>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-sm text-muted-foreground truncate" title={url || ""}>
                                             {extractSlug(url)}
                                           </span>
                                           {url && (
-                                            <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" asChild>
                                               <a href={url} target="_blank" rel="noopener noreferrer">
                                                 <ExternalLink className="h-3 w-3" />
                                               </a>
                                             </Button>
                                           )}
                                         </div>
+                                      </TableCell>
+                                      <TableCell style={{ width: "160px" }}>
+                                        <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                          {lastChecked ? format(new Date(lastChecked), "HH:mm:ss dd/MM/yyyy") : "-"}
+                                        </span>
                                       </TableCell>
                                     </TableRow>
                                   );
