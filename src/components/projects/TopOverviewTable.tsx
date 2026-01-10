@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 import { ProjectClassWithKeywords } from "@/hooks/useProjects";
@@ -97,33 +96,28 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Domain</TableHead>
-                  <TableHead className="text-center w-16">1-3</TableHead>
-                  <TableHead className="text-center w-16">4-10</TableHead>
-                  <TableHead className="text-center w-16">11-30</TableHead>
-                  <TableHead className="text-center w-16">31-100</TableHead>
+                  <TableHead className="text-center w-20 whitespace-nowrap">1-3</TableHead>
+                  <TableHead className="text-center w-20 whitespace-nowrap">4-10</TableHead>
+                  <TableHead className="text-center w-20 whitespace-nowrap">11-30</TableHead>
+                  <TableHead className="text-center w-20 whitespace-nowrap">31-100</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleDomains.map((entry, index) => renderDomainRow(entry, index, true))}
+                {isExpanded && hiddenDomains.map((entry, index) => renderDomainRow(entry, index))}
               </TableBody>
             </Table>
             
             {hiddenDomains.length > 0 && (
-              <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-                <CollapsibleContent>
-                  <Table>
-                    <TableBody>
-                      {hiddenDomains.map((entry, index) => renderDomainRow(entry, index))}
-                    </TableBody>
-                  </Table>
-                </CollapsibleContent>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="w-full mt-2">
-                    {isExpanded ? "Show less" : `Show ${hiddenDomains.length} more domains`}
-                    <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                  </Button>
-                </CollapsibleTrigger>
-              </Collapsible>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full"
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                {isExpanded ? "Show less" : `Show ${hiddenDomains.length} more domains`}
+                <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+              </Button>
             )}
           </div>
         ) : (
