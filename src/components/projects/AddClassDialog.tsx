@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { X, ChevronLeft, ChevronRight, Plus, Upload } from "lucide-react";
-import { useCreateClass } from "@/hooks/useProjects";
+import { useCreateClass, useCheckRankings } from "@/hooks/useProjects";
 import { countries } from "@/data/countries";
 import { languages } from "@/data/languages";
 import { useGeoData } from "@/hooks/useGeoData";
@@ -31,6 +31,7 @@ type Step = 1 | 2 | 3 | 4;
 
 export function AddClassDialog({ open, onOpenChange, projectId, projectName }: AddClassDialogProps) {
   const createClass = useCreateClass();
+  const checkRankings = useCheckRankings();
   const { getLocationsByCountry } = useGeoData();
 
   const [step, setStep] = useState<Step>(1);
@@ -125,7 +126,7 @@ export function AddClassDialog({ open, onOpenChange, projectId, projectName }: A
       const selectedLanguage = languages.find((l) => l.lang === language);
       const selectedLocation = filteredLocations.find((l) => l.id === location);
 
-      await createClass.mutateAsync({
+      const newClass = await createClass.mutateAsync({
         projectId,
         name: className.trim(),
         domain: domain.trim(),
@@ -143,6 +144,9 @@ export function AddClassDialog({ open, onOpenChange, projectId, projectName }: A
       });
 
       handleClose();
+      
+      // Auto-trigger ranking check (non-blocking)
+      checkRankings.mutate({ classId: newClass.id });
     } catch (error) {
       console.error("Error creating class:", error);
     } finally {

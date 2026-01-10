@@ -4,7 +4,7 @@ import { ArrowLeft, RefreshCw, Download, Settings, Globe, Monitor, Smartphone, T
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useProjectClass, useProject } from "@/hooks/useProjects";
+import { useProjectClass, useProject, useCheckRankings } from "@/hooks/useProjects";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
 import { KeywordsTable } from "@/components/projects/KeywordsTable";
 import { CheckProgressDialog } from "@/components/projects/CheckProgressDialog";
@@ -22,6 +22,7 @@ export default function ClassDetail() {
   const navigate = useNavigate();
   const { data: projectClass, isLoading, error, refetch } = useProjectClass(classId);
   const { data: project } = useProject(projectId);
+  const checkRankings = useCheckRankings();
   const [isChecking, setIsChecking] = useState(false);
   const [checkProgress, setCheckProgress] = useState({ current: 0, total: 0, keyword: "" });
 
@@ -50,7 +51,14 @@ export default function ClassDetail() {
   const handleRefresh = async () => {
     setIsChecking(true);
     setCheckProgress({ current: 0, total: projectClass.keywords.length, keyword: "" });
-    // Will be implemented with edge function
+    try {
+      await checkRankings.mutateAsync({ classId });
+      refetch();
+    } catch (error) {
+      console.error("Check failed:", error);
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   const handleCheckComplete = () => {

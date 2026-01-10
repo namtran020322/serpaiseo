@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ProjectWithClasses, useDeleteProject } from "@/hooks/useProjects";
+import { ProjectWithClasses, useDeleteProject, useCheckRankings } from "@/hooks/useProjects";
 import { ClassRow } from "./ClassRow";
 import { formatDistanceToNow } from "date-fns";
 import { AddClassDialog } from "./AddClassDialog";
@@ -36,9 +36,20 @@ interface ProjectRowProps {
 export function ProjectRow({ project, isExpanded, onToggle }: ProjectRowProps) {
   const navigate = useNavigate();
   const deleteProject = useDeleteProject();
+  const checkRankings = useCheckRankings();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [addClassDialogOpen, setAddClassDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+
+  const handleRefreshAll = async () => {
+    setIsChecking(true);
+    try {
+      await checkRankings.mutateAsync({ projectId: project.id });
+    } finally {
+      setIsChecking(false);
+    }
+  };
 
   // Aggregate stats from all classes
   const totalKeywords = project.classes.reduce((acc, cls) => acc + cls.keywordCount, 0);
@@ -121,6 +132,10 @@ export function ProjectRow({ project, isExpanded, onToggle }: ProjectRowProps) {
               <DropdownMenuItem onClick={() => setAddClassDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Class
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleRefreshAll} disabled={isChecking}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+                {isChecking ? 'Checking...' : 'Refresh All Classes'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>
