@@ -10,6 +10,7 @@ import { CheckProgressDialog } from "@/components/projects/CheckProgressDialog";
 import { ExportButton } from "@/components/projects/ExportButton";
 import { ClassSettingsDialog } from "@/components/projects/ClassSettingsDialog";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
+import { CompetitorsFaviconList } from "@/components/projects/CompetitorsFaviconList";
 import { formatDistanceToNow } from "date-fns";
 
 const deviceIcons = {
@@ -147,14 +148,7 @@ export default function ClassDetail() {
 
       {/* Competitor Domains */}
       {projectClass.competitor_domains && projectClass.competitor_domains.length > 0 && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Competitors:</span>
-          {projectClass.competitor_domains.map((d) => (
-            <Badge key={d} variant="outline" className="gap-1">
-              <DomainWithFavicon domain={d} showFullDomain />
-            </Badge>
-          ))}
-        </div>
+        <CompetitorsFaviconList domains={projectClass.competitor_domains} maxVisible={3} />
       )}
 
       {/* Stats Cards */}
