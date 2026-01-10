@@ -273,97 +273,102 @@ export function KeywordsTable({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <>
-                  <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                  {/* Expanded Competitor Rankings Table */}
-                  {row.getIsExpanded() && competitorDomains.length > 0 && (
-                    <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableCell colSpan={columns.length} className="py-3 px-0">
-                        <div className="ml-[88px]">
-                          <p className="text-sm font-medium mb-2 text-muted-foreground">Competitor Rankings</p>
-                          <div className="rounded-md border bg-background overflow-hidden">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead style={{ width: "200px" }}>Domain</TableHead>
-                                  <TableHead style={{ width: "70px" }}>Last</TableHead>
-                                  <TableHead style={{ width: "70px" }}>First</TableHead>
-                                  <TableHead style={{ width: "70px" }}>Best</TableHead>
-                                  <TableHead style={{ width: "90px" }}>Change</TableHead>
-                                  <TableHead style={{ width: "150px" }}>URL</TableHead>
-                                  <TableHead style={{ width: "160px" }}>Updated</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {competitorDomains.map((domain) => {
-                                  const rankings = row.original.competitor_rankings as Record<string, any> | null;
-                                  const data = rankings?.[domain];
-                                  const position = typeof data === "object" ? data?.position : data;
-                                  const firstPos = typeof data === "object" ? data?.first_position : null;
-                                  const bestPos = typeof data === "object" ? data?.best_position : null;
-                                  const prevPos = typeof data === "object" ? data?.previous_position : null;
-                                  const url = typeof data === "object" ? data?.url : null;
-                                  const lastChecked = row.original.last_checked_at;
-
-                                  return (
-                                    <TableRow key={domain}>
-                                      <TableCell style={{ width: "200px" }}>
-                                        <DomainWithFavicon domain={domain} showFullDomain />
-                                      </TableCell>
-                                      <TableCell style={{ width: "70px" }}>
-                                        <span className={`font-medium ${getPositionColor(position ?? null)}`}>
-                                          {position ?? "-"}
-                                        </span>
-                                      </TableCell>
-                                      <TableCell style={{ width: "70px" }} className="text-muted-foreground">
-                                        {firstPos ?? "-"}
-                                      </TableCell>
-                                      <TableCell style={{ width: "70px" }}>
-                                        <span className={`font-medium ${getPositionColor(bestPos ?? null)}`}>
-                                          {bestPos ?? "-"}
-                                        </span>
-                                      </TableCell>
-                                      <TableCell style={{ width: "90px" }}>
-                                        {getChangeIndicator(position ?? null, prevPos ?? null)}
-                                      </TableCell>
-                                      <TableCell style={{ width: "150px" }}>
-                                        <div className="flex items-center gap-1">
-                                          <span className="text-sm text-muted-foreground truncate" title={url || ""}>
-                                            {extractSlug(url)}
-                                          </span>
-                                          {url && (
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" asChild>
-                                              <a href={url} target="_blank" rel="noopener noreferrer">
-                                                <ExternalLink className="h-3 w-3" />
-                                              </a>
-                                            </Button>
-                                          )}
-                                        </div>
-                                      </TableCell>
-                                      <TableCell style={{ width: "160px" }}>
-                                        <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                          {lastChecked ? format(new Date(lastChecked), "HH:mm:ss dd/MM/yyyy") : "-"}
-                                        </span>
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                })}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        </div>
-                      </TableCell>
+              table.getRowModel().rows.map((row) => {
+                const rankings = row.original.competitor_rankings as Record<string, any> | null;
+                const lastChecked = row.original.last_checked_at;
+                
+                return (
+                  <>
+                    <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
                     </TableRow>
-                  )}
-                </>
-              ))
+                    {/* Expanded Competitor Rankings - rendered as rows in same table */}
+                    {row.getIsExpanded() && competitorDomains.length > 0 && 
+                      competitorDomains.map((domain, index) => {
+                        const data = rankings?.[domain];
+                        const position = typeof data === "object" ? data?.position : data;
+                        const firstPos = typeof data === "object" ? data?.first_position : null;
+                        const bestPos = typeof data === "object" ? data?.best_position : null;
+                        const prevPos = typeof data === "object" ? data?.previous_position : null;
+                        const url = typeof data === "object" ? data?.url : null;
+
+                        return (
+                          <TableRow 
+                            key={`${row.id}-competitor-${domain}`} 
+                            className="bg-muted/20 hover:bg-muted/30 border-l-2 border-l-primary/30"
+                          >
+                            {/* Checkbox cell - empty */}
+                            <TableCell></TableCell>
+                            
+                            {/* Expand cell - show label on first row */}
+                            <TableCell className="text-xs text-muted-foreground">
+                              {index === 0 && "Competitors"}
+                            </TableCell>
+                            
+                            {/* Domain (aligned with Keyword column) */}
+                            <TableCell>
+                              <DomainWithFavicon domain={domain} showFullDomain size="sm" />
+                            </TableCell>
+                            
+                            {/* Last (aligned with Last column) */}
+                            <TableCell>
+                              <span className={`font-medium ${getPositionColor(position ?? null)}`}>
+                                {position ?? "-"}
+                              </span>
+                            </TableCell>
+                            
+                            {/* First (aligned with First column) */}
+                            <TableCell className="text-muted-foreground">
+                              {firstPos ?? "-"}
+                            </TableCell>
+                            
+                            {/* Best (aligned with Best column) */}
+                            <TableCell>
+                              <span className={`font-medium ${getPositionColor(bestPos ?? null)}`}>
+                                {bestPos ?? "-"}
+                              </span>
+                            </TableCell>
+                            
+                            {/* Change (aligned with Change column) */}
+                            <TableCell>
+                              {getChangeIndicator(position ?? null, prevPos ?? null)}
+                            </TableCell>
+                            
+                            {/* URL (aligned with URL column) */}
+                            <TableCell>
+                              <span className="text-sm text-muted-foreground truncate" title={url || ""}>
+                                {extractSlug(url)}
+                              </span>
+                            </TableCell>
+                            
+                            {/* Updated (aligned with Updated column) */}
+                            <TableCell>
+                              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                {lastChecked ? format(new Date(lastChecked), "HH:mm:ss dd/MM/yyyy") : "-"}
+                              </span>
+                            </TableCell>
+                            
+                            {/* Actions (aligned with Actions column) */}
+                            <TableCell>
+                              {url && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                                  <a href={url} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    }
+                  </>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
