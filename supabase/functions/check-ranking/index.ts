@@ -10,7 +10,7 @@ interface SerpResult {
   title: string
   url: string
   description: string
-  breadcrumbs?: string
+  breadcrumbs: string
 }
 
 interface RequestBody {
@@ -22,78 +22,161 @@ interface RequestBody {
   locationName?: string
   languageCode: string
   languageName: string
-  device: 'desktop' | 'mobile' | 'tablet'
+  device: string
   topResults: number
 }
 
+// XMLRiver error messages mapping
+const XMLRIVER_ERRORS: Record<string, string> = {
+  '2': 'Keyword rỗng',
+  '15': 'Không có kết quả cho từ khóa này',
+  '31': 'User XMLRiver chưa đăng ký',
+  '42': 'API Key không hợp lệ',
+  '45': 'IP bị cấm truy cập',
+  '101': 'Service đang bảo trì, vui lòng thử lại sau',
+  '102': 'Tham số groupby không hợp lệ'
+}
+
+// Check for XMLRiver API errors in response
+function checkXmlRiverError(xmlText: string): void {
+  // XMLRiver returns errors like: <error code="42">Invalid API key</error>
+  const errorMatch = xmlText.match(/<error\s+code="(\d+)"[^>]*>([\s\S]*?)<\/error>/i)
+  if (errorMatch) {
+    const errorCode = errorMatch[1]
+    const errorMessage = XMLRIVER_ERRORS[errorCode] || `XMLRiver error ${errorCode}: ${errorMatch[2].trim()}`
+    throw new Error(errorMessage)
+  }
+  
+  // Also check for simple error format
+  const simpleErrorMatch = xmlText.match(/<error>([\s\S]*?)<\/error>/i)
+  if (simpleErrorMatch) {
+    throw new Error(`XMLRiver error: ${simpleErrorMatch[1].trim()}`)
+  }
+}
+
+// Parse XML results from XMLRiver API - handles XML without CDATA wrappers
 function parseXmlResults(xmlText: string, startPosition: number): SerpResult[] {
   const results: SerpResult[] = []
   
-  // Match all <group> elements containing organic results
-  const groupRegex = /<group[^>]*>([\s\S]*?)<\/group>/g
-  let groupMatch
+  console.log(`[DEBUG] Parsing XML, length: ${xmlText.length}`)
+  console.log(`[DEBUG] First 1000 chars: ${xmlText.substring(0, 1000)}`)
+  
+  // Check for API errors first
+  checkXmlRiverError(xmlText)
+  
+  // Match all <doc>...</doc> blocks within <group> elements
+  const docRegex = /<doc>([\s\S]*?)<\/doc>/gi
+  let docMatch
   let position = startPosition
   
-  while ((groupMatch = groupRegex.exec(xmlText)) !== null) {
-    const groupContent = groupMatch[1]
+  while ((docMatch = docRegex.exec(xmlText)) !== null) {
+    const docContent = docMatch[1]
     
-    // Check if this is an organic result (not ads, featured snippets, etc.)
-    if (!groupContent.includes('<feature>')) {
-      // Extract title
-      const titleMatch = groupContent.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/)
-      const title = titleMatch ? titleMatch[1].trim() : ''
-      
-      // Extract URL
-      const urlMatch = groupContent.match(/<url><!\[CDATA\[([\s\S]*?)\]\]><\/url>/)
-      const url = urlMatch ? urlMatch[1].trim() : ''
-      
-      // Extract description (passage/text)
-      const passageMatch = groupContent.match(/<passage><!\[CDATA\[([\s\S]*?)\]\]><\/passage>/)
-      const textMatch = groupContent.match(/<text><!\[CDATA\[([\s\S]*?)\]\]><\/text>/)
-      const description = passageMatch ? passageMatch[1].trim() : (textMatch ? textMatch[1].trim() : '')
-      
-      // Extract breadcrumbs if available
-      const breadcrumbMatch = groupContent.match(/<breadcrumb><!\[CDATA\[([\s\S]*?)\]\]><\/breadcrumb>/)
-      const breadcrumbs = breadcrumbMatch ? breadcrumbMatch[1].trim() : undefined
-      
-      if (url && title) {
-        results.push({
-          position: position++,
-          title,
-          url,
-          description,
-          breadcrumbs
-        })
-      }
+    // Extract contenttype to filter organic results only
+    const contenttypeMatch = docContent.match(/<contenttype>\s*([\s\S]*?)\s*<\/contenttype>/i)
+    const contenttype = contenttypeMatch ? contenttypeMatch[1].trim().toLowerCase() : ''
+    
+    // Only include organic results
+    if (contenttype !== 'organic') {
+      continue
     }
+    
+    // Extract URL - required field
+    const urlMatch = docContent.match(/<url>\s*([\s\S]*?)\s*<\/url>/i)
+    if (!urlMatch) continue
+    const url = urlMatch[1].trim()
+    
+    // Extract title
+    const titleMatch = docContent.match(/<title>\s*([\s\S]*?)\s*<\/title>/i)
+    const title = titleMatch ? titleMatch[1].trim() : ''
+    
+    // Extract description from passage
+    const passageMatch = docContent.match(/<passage>\s*([\s\S]*?)\s*<\/passage>/i)
+    const description = passageMatch ? passageMatch[1].trim() : ''
+    
+    // Extract breadcrumbs
+    const breadcrumbMatch = docContent.match(/<breadcrumbs>\s*([\s\S]*?)\s*<\/breadcrumbs>/i)
+    const breadcrumbs = breadcrumbMatch ? breadcrumbMatch[1].trim() : ''
+    
+    results.push({
+      position: position,
+      title,
+      url,
+      description,
+      breadcrumbs
+    })
+    
+    position++
+  }
+  
+  console.log(`[DEBUG] Parsed ${results.length} organic results starting from position ${startPosition}`)
+  if (results.length > 0) {
+    console.log(`[DEBUG] First result: ${JSON.stringify(results[0])}`)
   }
   
   return results
 }
 
-function findTargetRanking(results: SerpResult[], targetUrl: string): number | null {
-  if (!targetUrl) return null
-  
-  // Normalize target URL for comparison
-  const normalizeUrl = (url: string) => {
-    try {
-      const parsed = new URL(url.startsWith('http') ? url : `https://${url}`)
-      return parsed.hostname.replace('www.', '') + parsed.pathname.replace(/\/$/, '')
-    } catch {
-      return url.toLowerCase().replace('www.', '').replace(/\/$/, '')
-    }
+// Normalize URL/domain for comparison
+function normalizeForComparison(input: string): string {
+  try {
+    // Add protocol if missing
+    const urlString = input.startsWith('http') ? input : `https://${input}`
+    const parsed = new URL(urlString)
+    // Return hostname without www, lowercase
+    return parsed.hostname.replace(/^www\./, '').toLowerCase()
+  } catch {
+    // If URL parsing fails, clean up manually
+    return input
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .split('/')[0] // Get just the domain part
+  }
+}
+
+// Find ranking position of target URL/domain in results
+function findTargetRanking(results: SerpResult[], targetUrl: string): { position: number | null, foundUrl: string | null } {
+  if (!targetUrl || targetUrl.trim() === '') {
+    return { position: null, foundUrl: null }
   }
   
-  const normalizedTarget = normalizeUrl(targetUrl)
+  const targetDomain = normalizeForComparison(targetUrl)
+  console.log(`[DEBUG] Looking for target domain: ${targetDomain}`)
   
   for (const result of results) {
-    const normalizedResult = normalizeUrl(result.url)
-    if (normalizedResult.includes(normalizedTarget) || normalizedTarget.includes(normalizedResult)) {
-      return result.position
+    const resultDomain = normalizeForComparison(result.url)
+    
+    // Check if domains match (either contains the other)
+    if (resultDomain === targetDomain || 
+        resultDomain.includes(targetDomain) || 
+        targetDomain.includes(resultDomain)) {
+      console.log(`[DEBUG] Found match at position ${result.position}: ${result.url}`)
+      return { position: result.position, foundUrl: result.url }
     }
   }
   
-  return null
+  console.log(`[DEBUG] Target domain not found in ${results.length} results`)
+  return { position: null, foundUrl: null }
+}
+
+// Fetch with timeout - XMLRiver can take up to 1 minute
+async function fetchWithTimeout(url: string, timeoutMs: number = 90000): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    clearTimeout(timeoutId)
+    return response
+  } catch (err) {
+    clearTimeout(timeoutId)
+    const error = err as Error
+    if (error.name === 'AbortError') {
+      throw new Error('XMLRiver API timeout - vui lòng thử lại sau')
+    }
+    throw error
+  }
 }
 
 Deno.serve(async (req) => {
@@ -103,7 +186,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Validate authorization
+    // Get auth token
     const authHeader = req.headers.get('Authorization')
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
@@ -112,24 +195,23 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Create Supabase client with user's auth
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    )
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    })
 
     // Verify user
     const token = authHeader.replace('Bearer ', '')
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token)
     if (claimsError || !claimsData?.claims) {
       return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-
-    const userId = claimsData.claims.sub as string
+    const userId = claimsData.claims.sub
 
     // Parse request body
     const body: RequestBody = await req.json()
@@ -137,11 +219,11 @@ Deno.serve(async (req) => {
       keyword, 
       targetUrl, 
       countryId, 
-      countryName, 
+      countryName,
       locationId, 
-      locationName, 
-      languageCode, 
-      languageName, 
+      locationName,
+      languageCode,
+      languageName,
       device, 
       topResults 
     } = body
@@ -165,69 +247,85 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Calculate number of pages needed
+    console.log(`[INFO] Starting rank check for keyword: "${keyword}", topResults: ${topResults}`)
+
+    // Calculate number of pages needed (10 results per page)
     const resultsPerPage = 10
-    const pages = Math.ceil(topResults / resultsPerPage)
+    const totalPages = Math.ceil(topResults / resultsPerPage)
     
-    // Collect all results
     let allResults: SerpResult[] = []
-    
-    // Map device to XMLRiver format
-    const deviceMap: Record<string, string> = {
-      'desktop': 'desktop',
-      'mobile': 'phone',
-      'tablet': 'tablet'
-    }
-    const xmlRiverDevice = deviceMap[device] || 'desktop'
 
-    // Call XMLRiver API for each page
-    for (let page = 1; page <= pages; page++) {
+    // Fetch results from XMLRiver API - page by page
+    for (let page = 0; page < totalPages; page++) {
       // Build API URL
-      let apiUrl = `http://xmlriver.com/search/xml?query=${encodeURIComponent(keyword)}&user=${xmlRiverUserId}&key=${xmlRiverApiKey}&groupby=10&country=${countryId}&lr=${languageCode}&domain=37&device=${xmlRiverDevice}&page=${page}`
-      
-      // Add location if provided
+      // XMLRiver Google Organic endpoint
+      const apiUrl = new URL('https://xmlriver.com/search/xml')
+      apiUrl.searchParams.set('user', xmlRiverUserId)
+      apiUrl.searchParams.set('key', xmlRiverApiKey)
+      apiUrl.searchParams.set('query', keyword)
+      apiUrl.searchParams.set('country', countryId)
+      apiUrl.searchParams.set('lr', languageCode)
+      apiUrl.searchParams.set('device', device === 'mobile' ? 'phone' : 'desktop')
+      apiUrl.searchParams.set('groupby', '10')
+      apiUrl.searchParams.set('page', page.toString())
+      apiUrl.searchParams.set('domain', '37') // google.com domain
+
+      // Add location if specified
       if (locationId) {
-        apiUrl += `&loc=${locationId}`
+        apiUrl.searchParams.set('loc', locationId)
       }
 
-      console.log(`Fetching page ${page}/${pages} from XMLRiver...`)
+      console.log(`[INFO] Fetching page ${page + 1}/${totalPages} from XMLRiver...`)
+      console.log(`[DEBUG] API URL: ${apiUrl.toString().replace(xmlRiverApiKey, '***')}`)
 
-      const response = await fetch(apiUrl)
-      
-      if (!response.ok) {
-        console.error(`XMLRiver API error: ${response.status} ${response.statusText}`)
-        throw new Error(`XMLRiver API returned status ${response.status}`)
-      }
+      try {
+        // Fetch with 90 second timeout
+        const response = await fetchWithTimeout(apiUrl.toString(), 90000)
+        
+        if (!response.ok) {
+          console.error(`[ERROR] XMLRiver API returned status ${response.status}`)
+          throw new Error(`XMLRiver API error: HTTP ${response.status}`)
+        }
 
-      const xmlText = await response.text()
-      
-      // Check for API errors in response
-      if (xmlText.includes('<error>')) {
-        const errorMatch = xmlText.match(/<error><!\[CDATA\[([\s\S]*?)\]\]><\/error>/)
-        const errorMessage = errorMatch ? errorMatch[1] : 'Unknown XMLRiver API error'
-        throw new Error(errorMessage)
-      }
+        const xmlText = await response.text()
+        
+        // Parse results from this page
+        const startPosition = page * resultsPerPage + 1
+        const pageResults = parseXmlResults(xmlText, startPosition)
+        allResults = allResults.concat(pageResults)
 
-      // Parse results from this page
-      const startPosition = (page - 1) * resultsPerPage + 1
-      const pageResults = parseXmlResults(xmlText, startPosition)
-      allResults = allResults.concat(pageResults)
+        console.log(`[INFO] Page ${page + 1}: Got ${pageResults.length} results, total: ${allResults.length}`)
 
-      // Add delay between requests to avoid rate limiting
-      if (page < pages) {
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // Stop if we have enough results
+        if (allResults.length >= topResults) {
+          break
+        }
+
+        // Small delay between pages to avoid rate limiting
+        if (page < totalPages - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      } catch (err) {
+        const error = err as Error
+        console.error(`[ERROR] Failed to fetch page ${page + 1}:`, error.message)
+        // If first page fails, throw error. Otherwise return what we have
+        if (page === 0) {
+          throw error
+        }
+        break
       }
     }
 
-    // Limit to requested number of results
+    // Trim results to requested amount
     allResults = allResults.slice(0, topResults)
 
-    // Find target URL ranking
-    const targetRanking = targetUrl ? findTargetRanking(allResults, targetUrl) : null
-    const foundUrl = targetRanking ? allResults.find(r => r.position === targetRanking)?.url : null
+    console.log(`[INFO] Final results count: ${allResults.length}`)
+
+    // Find target ranking if URL provided
+    const { position: rankingPosition, foundUrl } = findTargetRanking(allResults, targetUrl || '')
 
     // Save to database
-    const { data: savedCheck, error: saveError } = await supabase
+    const { data: checkData, error: dbError } = await supabase
       .from('ranking_checks')
       .insert({
         user_id: userId,
@@ -241,40 +339,37 @@ Deno.serve(async (req) => {
         language_name: languageName,
         device,
         top_results: topResults,
-        ranking_position: targetRanking,
+        ranking_position: rankingPosition,
         found_url: foundUrl,
         serp_results: allResults
       })
       .select('id')
       .single()
 
-    if (saveError) {
-      console.error('Error saving to database:', saveError)
-      // Continue anyway, just log the error
+    if (dbError) {
+      console.error('[ERROR] Database insert failed:', dbError)
+      throw new Error('Failed to save ranking check')
     }
 
-    // Return results
+    console.log(`[INFO] Saved to database with ID: ${checkData.id}`)
+
     return new Response(
       JSON.stringify({
         success: true,
         results: allResults,
-        targetRanking,
-        foundUrl,
+        targetRanking: rankingPosition,
+        foundUrl: foundUrl,
         totalResults: allResults.length,
-        checkId: savedCheck?.id || null
+        checkId: checkData.id
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (error) {
-    console.error('Edge function error:', error)
+  } catch (err) {
+    const error = err as Error
+    console.error('[ERROR] Edge function error:', error.message)
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'An unexpected error occurred' 
-      }),
+      JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
