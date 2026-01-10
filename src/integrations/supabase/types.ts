@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      keyword_ranking_history: {
+        Row: {
+          checked_at: string
+          competitor_rankings: Json | null
+          found_url: string | null
+          id: string
+          keyword_id: string
+          ranking_position: number | null
+          user_id: string
+        }
+        Insert: {
+          checked_at?: string
+          competitor_rankings?: Json | null
+          found_url?: string | null
+          id?: string
+          keyword_id: string
+          ranking_position?: number | null
+          user_id: string
+        }
+        Update: {
+          checked_at?: string
+          competitor_rankings?: Json | null
+          found_url?: string | null
+          id?: string
+          keyword_id?: string
+          ranking_position?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "keyword_ranking_history_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "project_keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -36,6 +74,160 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      project_classes: {
+        Row: {
+          competitor_domains: Json | null
+          country_id: string
+          country_name: string
+          created_at: string
+          device: string
+          domain: string
+          id: string
+          language_code: string
+          language_name: string
+          last_checked_at: string | null
+          location_id: string | null
+          location_name: string | null
+          name: string
+          project_id: string
+          schedule: string | null
+          top_results: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competitor_domains?: Json | null
+          country_id: string
+          country_name: string
+          created_at?: string
+          device?: string
+          domain: string
+          id?: string
+          language_code: string
+          language_name: string
+          last_checked_at?: string | null
+          location_id?: string | null
+          location_name?: string | null
+          name: string
+          project_id: string
+          schedule?: string | null
+          top_results?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competitor_domains?: Json | null
+          country_id?: string
+          country_name?: string
+          created_at?: string
+          device?: string
+          domain?: string
+          id?: string
+          language_code?: string
+          language_name?: string
+          last_checked_at?: string | null
+          location_id?: string | null
+          location_name?: string | null
+          name?: string
+          project_id?: string
+          schedule?: string | null
+          top_results?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_classes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_keywords: {
+        Row: {
+          best_position: number | null
+          class_id: string
+          competitor_rankings: Json | null
+          created_at: string
+          first_position: number | null
+          found_url: string | null
+          id: string
+          keyword: string
+          last_checked_at: string | null
+          previous_position: number | null
+          ranking_position: number | null
+          serp_results: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_position?: number | null
+          class_id: string
+          competitor_rankings?: Json | null
+          created_at?: string
+          first_position?: number | null
+          found_url?: string | null
+          id?: string
+          keyword: string
+          last_checked_at?: string | null
+          previous_position?: number | null
+          ranking_position?: number | null
+          serp_results?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_position?: number | null
+          class_id?: string
+          competitor_rankings?: Json | null
+          created_at?: string
+          first_position?: number | null
+          found_url?: string | null
+          id?: string
+          keyword?: string
+          last_checked_at?: string | null
+          previous_position?: number | null
+          ranking_position?: number | null
+          serp_results?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_keywords_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "project_classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
           updated_at?: string
           user_id?: string
         }

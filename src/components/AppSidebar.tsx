@@ -1,4 +1,4 @@
-import { Search, History, Settings, LogOut, User, BarChart3, Home } from "lucide-react";
+import { Search, History, Settings, LogOut, User, BarChart3, Home, FolderOpen } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 const menuItems = [
   { title: "Home", url: "/dashboard", icon: Home },
   { title: "Rank Checker", url: "/dashboard/rank-checker", icon: Search },
+  { title: "Projects", url: "/dashboard/projects", icon: FolderOpen },
   { title: "History", url: "/dashboard/history", icon: History },
   { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
 ];
