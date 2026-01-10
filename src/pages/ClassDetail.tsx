@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, RefreshCw, Globe, Monitor, Smartphone, Tablet, Calendar, Loader2, Plus, Settings, Clock } from "lucide-react";
+import { ArrowLeft, RefreshCw, Globe, Monitor, Smartphone, Tablet, Calendar, Loader2, Settings, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useProjectClass, useProject, useCheckRankings, useDeleteKeywords } from "@/hooks/useProjects";
+import { useProjectClass, useProject, useCheckRankings, useDeleteKeywords, useAddKeywords } from "@/hooks/useProjects";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
 import { KeywordsTable } from "@/components/projects/KeywordsTable";
 import { CheckProgressDialog } from "@/components/projects/CheckProgressDialog";
 import { ExportButton } from "@/components/projects/ExportButton";
 import { ClassSettingsDialog } from "@/components/projects/ClassSettingsDialog";
+import { AddKeywordsDialog } from "@/components/projects/AddKeywordsDialog";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { CompetitorsFaviconList } from "@/components/projects/CompetitorsFaviconList";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -27,9 +28,17 @@ export default function ClassDetail() {
   const { data: project } = useProject(projectId);
   const checkRankings = useCheckRankings();
   const deleteKeywords = useDeleteKeywords();
+  const addKeywords = useAddKeywords();
   const [isChecking, setIsChecking] = useState(false);
   const [checkProgress, setCheckProgress] = useState({ current: 0, total: 0, keyword: "" });
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Add keywords handler
+  const handleAddKeywords = async (keywords: string[]) => {
+    if (!classId) return;
+    await addKeywords.mutateAsync({ classId, keywords });
+    refetch();
+  };
 
   if (isLoading) {
     return (
@@ -183,10 +192,7 @@ export default function ClassDetail() {
               {projectClass.keywordCount} keywords tracked
             </p>
           </div>
-          <Button variant="outline" size="sm">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Keywords
-          </Button>
+          <AddKeywordsDialog onAddKeywords={handleAddKeywords} isLoading={addKeywords.isPending} />
         </div>
         <KeywordsTable 
           keywords={projectClass.keywords} 
