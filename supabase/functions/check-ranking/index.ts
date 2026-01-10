@@ -281,7 +281,7 @@ Deno.serve(async (req) => {
       apiUrl.searchParams.set('query', keyword)
       apiUrl.searchParams.set('country', countryId)
       apiUrl.searchParams.set('lr', languageCode)
-      apiUrl.searchParams.set('device', device === 'mobile' ? 'phone' : 'desktop')
+      apiUrl.searchParams.set('device', device)
       apiUrl.searchParams.set('groupby', '10')
       apiUrl.searchParams.set('page', page.toString())
       apiUrl.searchParams.set('domain', '37') // google.com domain
