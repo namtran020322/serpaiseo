@@ -197,6 +197,7 @@ export default function ClassDetail() {
         <KeywordsTable 
           keywords={projectClass.keywords} 
           competitorDomains={projectClass.competitor_domains}
+          userDomain={projectClass.domain}
           onDeleteKeywords={handleDeleteKeywords}
           onRefreshKeywords={handleRefreshSelected}
         />

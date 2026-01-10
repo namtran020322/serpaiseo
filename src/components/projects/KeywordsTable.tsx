@@ -29,6 +29,7 @@ import { format } from "date-fns";
 interface KeywordsTableProps {
   keywords: ProjectKeyword[];
   competitorDomains: string[];
+  userDomain?: string;
   onDeleteKeywords?: (ids: string[]) => void;
   onRefreshKeywords?: (ids: string[]) => void;
 }
@@ -114,6 +115,7 @@ const findSerpTitle = (serpResults: SerpResult[] | null, position: number | null
 export function KeywordsTable({ 
   keywords, 
   competitorDomains,
+  userDomain,
   onDeleteKeywords,
   onRefreshKeywords,
 }: KeywordsTableProps) {
@@ -175,6 +177,7 @@ export function KeywordsTable({
     {
       accessorKey: "ranking_position",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Last" />,
+      size: 70,
       cell: ({ row }) => {
         const position = row.getValue("ranking_position") as number | null;
         return (
@@ -187,6 +190,7 @@ export function KeywordsTable({
     {
       accessorKey: "first_position",
       header: ({ column }) => <DataTableColumnHeader column={column} title="First" />,
+      size: 70,
       cell: ({ row }) => {
         const position = row.getValue("first_position") as number | null;
         return <span className="text-muted-foreground">{position ?? "-"}</span>;
@@ -195,6 +199,7 @@ export function KeywordsTable({
     {
       accessorKey: "best_position",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Best" />,
+      size: 70,
       cell: ({ row }) => {
         const position = row.getValue("best_position") as number | null;
         return (
@@ -207,6 +212,7 @@ export function KeywordsTable({
     {
       id: "change",
       header: "Change",
+      size: 80,
       cell: ({ row }) => {
         const current = row.original.ranking_position;
         const previous = row.original.previous_position;
@@ -254,13 +260,14 @@ export function KeywordsTable({
           <SerpResultsDialog 
             keyword={row.original.keyword}
             serpResults={serpResults}
+            userDomain={userDomain}
           />
         );
       },
       enableSorting: false,
       enableHiding: false,
     },
-  ], [competitorDomains.length]);
+  ], [competitorDomains.length, userDomain]);
 
   const table = useReactTable({
     data: keywords,
@@ -310,13 +317,23 @@ export function KeywordsTable({
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className={header.id === "select" || header.id === "expand" ? "w-10" : header.id === "actions" ? "w-16" : ""}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const isFixedWidth = header.id === "select" || header.id === "expand";
+                  const isActions = header.id === "actions";
+                  const columnSize = header.column.columnDef.size;
+                  
+                  return (
+                    <TableHead 
+                      key={header.id} 
+                      className={isFixedWidth ? "w-10" : isActions ? "w-16" : ""}
+                      style={columnSize ? { width: columnSize } : undefined}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             ))}
           </TableHeader>

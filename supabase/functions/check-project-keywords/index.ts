@@ -19,30 +19,65 @@ interface RequestBody {
   keywordIds?: string[]
 }
 
-// SERP API error messages mapping
-const SERP_API_ERRORS: Record<string, string> = {
-  '2': 'Empty keyword',
-  '15': 'No results for this keyword',
-  '31': 'API user not registered',
-  '42': 'Invalid API key',
-  '45': 'IP address blocked',
-  '101': 'Service under maintenance, please try again later',
-  '102': 'Invalid groupby parameter'
+// SERP API error messages mapping with retry info
+const SERP_API_ERRORS: Record<string, { message: string; retryable: boolean }> = {
+  '2': { message: 'Empty keyword provided', retryable: false },
+  '15': { message: 'No search results for this keyword', retryable: false },
+  '20': { message: 'Internal error - please contact support', retryable: false },
+  '21': { message: 'Internal error - please contact support', retryable: false },
+  '22': { message: 'Internal error - please contact support', retryable: false },
+  '23': { message: 'Internal error - please contact support', retryable: false },
+  '24': { message: 'Internal error - please contact support', retryable: false },
+  '31': { message: 'API user not registered', retryable: false },
+  '42': { message: 'Invalid API key - please check configuration', retryable: false },
+  '45': { message: 'IP address is blocked - check access settings', retryable: false },
+  '101': { message: 'Service under maintenance - please try again later', retryable: true },
+  '102': { message: 'Invalid groupby parameter', retryable: false },
+  '103': { message: 'Invalid language parameter (lr)', retryable: false },
+  '104': { message: 'Invalid location parameter (loc)', retryable: false },
+  '105': { message: 'Invalid country parameter', retryable: false },
+  '106': { message: 'Invalid domain parameter', retryable: false },
+  '107': { message: 'Invalid top results value for Yandex (only 10 allowed)', retryable: false },
+  '108': { message: 'Missing zoom or coords for Google Maps search', retryable: false },
+  '110': { message: 'All available channels are busy - please try again later', retryable: true },
+  '111': { message: 'No free data collection channels - please try again later', retryable: true },
+  '115': { message: 'Too many parallel requests - temporarily blocked', retryable: true },
+  '120': { message: 'Invalid characters or operators in search query', retryable: false },
+  '121': { message: 'Invalid request ID', retryable: false },
+  '200': { message: 'Account balance is empty - please top up', retryable: false },
+  '201': { message: 'Responses not being collected - collection paused for 20 minutes', retryable: true },
+  '202': { message: 'Request not yet processed - retrying', retryable: true },
+  '203': { message: 'Please retry after delay', retryable: true },
+  '204': { message: 'Invalid task ID or task failed', retryable: true },
+  '500': { message: 'Network error - please retry', retryable: true },
 }
 
-// Check for API errors in response
-function checkApiError(xmlText: string): void {
+// Concurrent processing limit (XMLRiver allows 10 threads for standard accounts)
+const CONCURRENT_LIMIT = 10
+
+// Check for API errors in response and return error info if found
+function checkApiError(xmlText: string): { code: string; message: string; retryable: boolean } | null {
   const errorMatch = xmlText.match(/<error\s+code="(\d+)"[^>]*>([\s\S]*?)<\/error>/i)
   if (errorMatch) {
     const errorCode = errorMatch[1]
-    const errorMessage = SERP_API_ERRORS[errorCode] || `API error ${errorCode}: ${errorMatch[2].trim()}`
-    throw new Error(errorMessage)
+    const errorInfo = SERP_API_ERRORS[errorCode]
+    return {
+      code: errorCode,
+      message: errorInfo?.message || `API error ${errorCode}: ${errorMatch[2].trim()}`,
+      retryable: errorInfo?.retryable ?? false
+    }
   }
   
   const simpleErrorMatch = xmlText.match(/<error>([\s\S]*?)<\/error>/i)
   if (simpleErrorMatch) {
-    throw new Error(`API error: ${simpleErrorMatch[1].trim()}`)
+    return {
+      code: 'unknown',
+      message: `API error: ${simpleErrorMatch[1].trim()}`,
+      retryable: false
+    }
   }
+  
+  return null
 }
 
 // Clean text by stripping CDATA wrapper and HTML tags
@@ -62,7 +97,10 @@ function cleanText(text: string): string {
 function parseXmlResults(xmlText: string, startPosition: number): SerpResult[] {
   const results: SerpResult[] = []
   
-  checkApiError(xmlText)
+  const errorInfo = checkApiError(xmlText)
+  if (errorInfo) {
+    throw new Error(errorInfo.message)
+  }
   
   const docRegex = /<doc>([\s\S]*?)<\/doc>/gi
   let docMatch
@@ -160,6 +198,53 @@ async function fetchWithTimeout(url: string, timeoutMs: number = 90000): Promise
   }
 }
 
+// Fetch with retry for retryable errors
+async function fetchWithRetry(
+  url: string, 
+  maxRetries: number = 3, 
+  baseDelay: number = 1000
+): Promise<{ response: Response; text: string }> {
+  let lastError: Error | null = null
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetchWithTimeout(url, 90000)
+      
+      if (!response.ok) {
+        throw new Error(`SERP API error: HTTP ${response.status}`)
+      }
+      
+      const text = await response.text()
+      
+      // Check for API error in response
+      const errorInfo = checkApiError(text)
+      if (errorInfo) {
+        if (errorInfo.retryable && attempt < maxRetries - 1) {
+          const delay = baseDelay * Math.pow(2, attempt)
+          console.log(`[WARN] Retryable error ${errorInfo.code}: ${errorInfo.message}, retrying in ${delay}ms...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+          continue
+        }
+        throw new Error(errorInfo.message)
+      }
+      
+      return { response, text }
+    } catch (err) {
+      lastError = err as Error
+      
+      // Network errors are retryable
+      if (attempt < maxRetries - 1 && !lastError.message.includes('API')) {
+        const delay = baseDelay * Math.pow(2, attempt)
+        console.log(`[WARN] Network error, retrying in ${delay}ms...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        continue
+      }
+    }
+  }
+  
+  throw lastError || new Error('Request failed after retries')
+}
+
 // Fetch SERP results for a keyword
 async function fetchSerpResults(
   keyword: string,
@@ -192,13 +277,7 @@ async function fetchSerpResults(
     }
 
     try {
-      const response = await fetchWithTimeout(apiUrl.toString(), 90000)
-      
-      if (!response.ok) {
-        throw new Error(`SERP API error: HTTP ${response.status}`)
-      }
-
-      const xmlText = await response.text()
+      const { text: xmlText } = await fetchWithRetry(apiUrl.toString(), 3, 1000)
       const startPosition = (page - 1) * resultsPerPage + 1
       const pageResults = parseXmlResults(xmlText, startPosition)
       allResults = allResults.concat(pageResults)
@@ -208,7 +287,7 @@ async function fetchSerpResults(
       }
 
       if (page < totalPages) {
-        await new Promise(resolve => setTimeout(resolve, 500))
+        await new Promise(resolve => setTimeout(resolve, 300))
       }
     } catch (err) {
       if (page === 1) {
@@ -219,6 +298,38 @@ async function fetchSerpResults(
   }
 
   return allResults.slice(0, topResults)
+}
+
+// Process a batch of items with concurrency limit
+async function processBatch<T, R>(
+  items: T[],
+  processor: (item: T) => Promise<R>,
+  concurrency: number
+): Promise<(R | null)[]> {
+  const results: (R | null)[] = []
+  
+  for (let i = 0; i < items.length; i += concurrency) {
+    const batch = items.slice(i, i + concurrency)
+    const batchResults = await Promise.allSettled(
+      batch.map(item => processor(item))
+    )
+    
+    for (const result of batchResults) {
+      if (result.status === 'fulfilled') {
+        results.push(result.value)
+      } else {
+        results.push(null)
+        console.error(`[ERROR] Batch item failed:`, result.reason)
+      }
+    }
+    
+    // Delay between batches to avoid rate limiting
+    if (i + concurrency < items.length) {
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+  }
+  
+  return results
 }
 
 Deno.serve(async (req) => {
@@ -308,7 +419,7 @@ Deno.serve(async (req) => {
       classesToProcess = classes || []
     }
 
-    console.log(`[INFO] Processing ${classesToProcess.length} class(es)`)
+    console.log(`[INFO] Processing ${classesToProcess.length} class(es) with ${CONCURRENT_LIMIT} concurrent threads`)
 
     let totalProcessed = 0
     let totalFound = 0
@@ -337,7 +448,8 @@ Deno.serve(async (req) => {
       
       console.log(`[INFO] Class ${cls.name}: Processing ${keywords?.length || 0} keywords`)
 
-      for (const kw of keywords || []) {
+      // Process keywords in batches with concurrent limit
+      const processKeyword = async (kw: any): Promise<{ found: boolean; processed: boolean }> => {
         try {
           console.log(`[INFO] Checking keyword: "${kw.keyword}"`)
           
@@ -426,18 +538,25 @@ Deno.serve(async (req) => {
             console.error(`[ERROR] Failed to insert history for keyword ${kw.id}:`, historyError)
           }
 
+          return { processed: true, found: userPosition !== null }
+        } catch (err) {
+          const error = err as Error
+          console.error(`[ERROR] Failed to check keyword "${kw.keyword}":`, error.message)
+          return { processed: false, found: false }
+        }
+      }
+
+      // Process keywords with concurrent limit
+      const results = await processBatch(keywords || [], processKeyword, CONCURRENT_LIMIT)
+      
+      for (const result of results) {
+        if (result?.processed) {
           totalProcessed++
-          if (userPosition !== null) {
+          if (result.found) {
             totalFound++
           } else {
             totalNotFound++
           }
-
-          // Small delay between keywords to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 300))
-        } catch (err) {
-          const error = err as Error
-          console.error(`[ERROR] Failed to check keyword "${kw.keyword}":`, error.message)
         }
       }
 
