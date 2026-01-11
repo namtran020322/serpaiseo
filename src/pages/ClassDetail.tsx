@@ -3,8 +3,10 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, RefreshCw, Globe, Monitor, Smartphone, Tablet, Calendar, Loader2, Settings, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProjectClass, useProject, useCheckRankings, useDeleteKeywords, useAddKeywords } from "@/hooks/useProjects";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
+import { RankingHistoryChart } from "@/components/projects/RankingHistoryChart";
 import { KeywordsTable } from "@/components/projects/KeywordsTable";
 import { CheckProgressDialog } from "@/components/projects/CheckProgressDialog";
 import { ExportButton } from "@/components/projects/ExportButton";
@@ -180,8 +182,23 @@ export default function ClassDetail() {
         <CompetitorsFaviconList domains={projectClass.competitor_domains} maxVisible={3} />
       )}
 
-      {/* Stats Cards */}
-      <RankingStatsCards stats={projectClass.rankingStats} />
+      {/* Stats & Chart Tabs */}
+      <Tabs defaultValue="stats" className="w-full">
+        <TabsList>
+          <TabsTrigger value="stats">Statistics</TabsTrigger>
+          <TabsTrigger value="chart">Ranking Chart</TabsTrigger>
+        </TabsList>
+        <TabsContent value="stats" className="mt-4">
+          <RankingStatsCards stats={projectClass.rankingStats} />
+        </TabsContent>
+        <TabsContent value="chart" className="mt-4">
+          <RankingHistoryChart
+            classId={classId!}
+            userDomain={projectClass.domain}
+            competitorDomains={projectClass.competitor_domains || []}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Keywords Section - No Card wrapper */}
       <div className="space-y-4">

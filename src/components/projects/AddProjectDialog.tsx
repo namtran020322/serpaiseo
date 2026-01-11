@@ -44,6 +44,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
   const [newProjectName, setNewProjectName] = useState("");
   const [projectDomain, setProjectDomain] = useState("");
   const [existingProjectId, setExistingProjectId] = useState("");
+  const [domainError, setDomainError] = useState<string | null>(null);
 
   // Step 2: Class & Competitors
   const [className, setClassName] = useState("");
@@ -98,6 +99,26 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
     setDevice("desktop");
     setTopResults("100");
     setSchedule(null);
+    setDomainError(null);
+  };
+
+  // Check for duplicate domain in real-time
+  const checkDuplicateDomain = (inputDomain: string): boolean => {
+    if (!inputDomain.trim()) {
+      setDomainError(null);
+      return true;
+    }
+    const normalizedDomain = extractRootDomain(inputDomain);
+    const duplicateProject = existingProjects?.find(
+      (p) => extractRootDomain(p.domain) === normalizedDomain
+    );
+    
+    if (duplicateProject) {
+      setDomainError(`You already have a project "${duplicateProject.name}" with this domain.`);
+      return false;
+    }
+    setDomainError(null);
+    return true;
   };
 
   const handleClose = () => {
@@ -139,7 +160,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
     switch (step) {
       case 1:
         if (projectType === "new") {
-          return newProjectName.trim().length > 0 && projectDomain.trim().length > 0;
+          return newProjectName.trim().length > 0 && projectDomain.trim().length > 0 && !domainError;
         }
         return existingProjectId.length > 0;
       case 2:
@@ -306,12 +327,25 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
                       id="projectDomain"
                       placeholder="e.g. example.com"
                       value={projectDomain}
-                      onChange={(e) => setProjectDomain(e.target.value)}
-                      onBlur={(e) => setProjectDomain(extractRootDomain(e.target.value))}
+                      onChange={(e) => {
+                        setProjectDomain(e.target.value);
+                        // Clear error while typing
+                        if (domainError) setDomainError(null);
+                      }}
+                      onBlur={(e) => {
+                        const normalized = extractRootDomain(e.target.value);
+                        setProjectDomain(normalized);
+                        checkDuplicateDomain(normalized);
+                      }}
+                      className={domainError ? "border-destructive focus-visible:ring-destructive" : ""}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      This domain will be used to track rankings across all classes in this project.
-                    </p>
+                    {domainError ? (
+                      <p className="text-sm text-destructive">{domainError}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        This domain will be used to track rankings across all classes in this project.
+                      </p>
+                    )}
                   </div>
                 </>
               ) : (
