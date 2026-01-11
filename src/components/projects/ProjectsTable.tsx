@@ -23,8 +23,24 @@ import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { Link } from "react-router-dom";
+
+// Ultra-compact time format helper
+function formatCompactTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSeconds < 60) return `${diffSeconds}s ago`;
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays <= 7) return `${diffDays}d ago`;
+  return format(date, "dd/MM/yyyy");
+}
 
 interface ProjectsTableProps {
   projects: ProjectWithClasses[];
@@ -160,7 +176,7 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" />,
       cell: ({ row }) => (
         <span className="text-muted-foreground text-sm">
-          {formatDistanceToNow(new Date(row.original.updated_at), { addSuffix: true })}
+          {formatCompactTime(new Date(row.original.updated_at))}
         </span>
       ),
     },
@@ -217,7 +233,7 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
                       header.id === "select" || header.id === "expand" 
                         ? "w-10" 
                         : header.id === "top3" || header.id === "top10" || header.id === "top30" || header.id === "top100"
-                        ? "w-16 text-center"
+                        ? "w-16 text-center whitespace-nowrap"
                         : ""
                     }
                   >
@@ -289,7 +305,7 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
                           </TableCell>
                           <TableCell>
                             <span className="text-muted-foreground text-sm">
-                              {formatDistanceToNow(new Date(cls.last_checked_at || cls.updated_at), { addSuffix: true })}
+                              {formatCompactTime(new Date(cls.last_checked_at || cls.updated_at))}
                             </span>
                           </TableCell>
                         </TableRow>
