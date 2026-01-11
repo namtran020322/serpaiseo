@@ -74,7 +74,7 @@ export function ProjectSettingsDialog({ project, open, onOpenChange }: ProjectSe
       await updateProject.mutateAsync({
         id: project.id,
         name: data.name,
-        domain: data.domain,
+        // Domain is not updated - it's read-only
       });
       onOpenChange(false);
     } catch (error) {
@@ -123,8 +123,16 @@ export function ProjectSettingsDialog({ project, open, onOpenChange }: ProjectSe
                 <FormItem>
                   <FormLabel>Domain</FormLabel>
                   <FormControl>
-                    <Input placeholder="example.com" {...field} />
+                    <Input 
+                      placeholder="example.com" 
+                      {...field} 
+                      disabled 
+                      className="bg-muted cursor-not-allowed"
+                    />
                   </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Domain cannot be changed. Create a new project for a different domain.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

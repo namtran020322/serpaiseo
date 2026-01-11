@@ -43,9 +43,10 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
   const [step, setStep] = useState<Step>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Step 1: Class & Domain
+  // Step 1: Class & Domain - use projectDomain if provided
   const [className, setClassName] = useState("");
-  const [domain, setDomain] = useState(projectDomain || "");
+  const effectiveDomain = projectDomain || "";
+  const [domain, setDomain] = useState(effectiveDomain);
   const [competitorDomains, setCompetitorDomains] = useState<string[]>([]);
   const [newCompetitor, setNewCompetitor] = useState("");
 
@@ -237,10 +238,17 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
                 <Input
                   id="domain"
                   placeholder="e.g. example.com"
-                  value={domain}
-                  onChange={(e) => setDomain(e.target.value)}
-                  onBlur={(e) => setDomain(extractRootDomain(e.target.value))}
+                  value={projectDomain || domain}
+                  onChange={(e) => !projectDomain && setDomain(e.target.value)}
+                  onBlur={(e) => !projectDomain && setDomain(extractRootDomain(e.target.value))}
+                  disabled={!!projectDomain}
+                  className={projectDomain ? "bg-muted cursor-not-allowed" : ""}
                 />
+                {projectDomain && (
+                  <p className="text-xs text-muted-foreground">
+                    Domain is inherited from the project.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

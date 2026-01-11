@@ -384,8 +384,8 @@ export function useDeleteProject() {
       const { error } = await supabase.from("projects").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"], refetchType: 'all' });
       toast({ title: "Success", description: "Project deleted successfully" });
     },
     onError: (error) => {
@@ -553,9 +553,9 @@ export function useDeleteClass() {
       const { error } = await supabase.from("project_classes").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-      queryClient.invalidateQueries({ queryKey: ["project"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"], refetchType: 'all' });
+      await queryClient.invalidateQueries({ queryKey: ["project"], refetchType: 'all' });
       toast({ title: "Success", description: "Class deleted successfully" });
     },
     onError: (error) => {
@@ -622,10 +622,10 @@ export function useDeleteKeywords() {
         .in("id", keywordIds);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-      queryClient.invalidateQueries({ queryKey: ["project"] });
-      queryClient.invalidateQueries({ queryKey: ["projectClass"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"], refetchType: 'all' });
+      await queryClient.invalidateQueries({ queryKey: ["project"], refetchType: 'all' });
+      await queryClient.invalidateQueries({ queryKey: ["projectClass"], refetchType: 'all' });
       toast({ title: "Success", description: "Keywords deleted successfully" });
     },
     onError: (error) => {
