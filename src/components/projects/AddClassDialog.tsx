@@ -194,7 +194,12 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        resetForm();
+      }
+      onOpenChange(isOpen);
+    }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Plus className="mr-2 h-4 w-4" />
