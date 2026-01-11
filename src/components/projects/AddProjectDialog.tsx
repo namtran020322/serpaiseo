@@ -19,6 +19,7 @@ import { countries } from "@/data/countries";
 import { languages } from "@/data/languages";
 import { useGeoData } from "@/hooks/useGeoData";
 import { LocationCombobox } from "@/components/LocationCombobox";
+import { useToast } from "@/hooks/use-toast";
 
 interface AddProjectDialogProps {
   open: boolean;
@@ -28,6 +29,7 @@ interface AddProjectDialogProps {
 type Step = 1 | 2 | 3 | 4 | 5;
 
 export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) {
+  const { toast } = useToast();
   const { data: existingProjects } = useProjects();
   const createProject = useCreateProject();
   const createClass = useCreateClass();
@@ -163,12 +165,28 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
       let domain = effectiveDomain;
 
       if (projectType === "new") {
+        // Check for duplicate domain for this user
+        const normalizedDomain = extractRootDomain(projectDomain);
+        const duplicateProject = existingProjects?.find(
+          (p) => extractRootDomain(p.domain) === normalizedDomain
+        );
+
+        if (duplicateProject) {
+          setIsSubmitting(false);
+          toast({
+            variant: "destructive",
+            title: "Domain already exists",
+            description: `You already have a project "${duplicateProject.name}" with this domain.`,
+          });
+          return;
+        }
+
         const newProject = await createProject.mutateAsync({
           name: newProjectName.trim(),
-          domain: projectDomain.trim(),
+          domain: normalizedDomain,
         });
         projectId = newProject.id;
-        domain = projectDomain.trim();
+        domain = normalizedDomain;
       }
 
       const selectedCountry = countries.find((c) => c.id === country);
