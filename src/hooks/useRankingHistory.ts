@@ -43,10 +43,18 @@ function getStartDate(timeRange: TimeRange): Date {
   }
 }
 
-interface CompetitorRanking {
-  domain: string;
-  position: number | null;
-  url?: string | null;
+interface PositionWithTimestamp {
+  position: number;
+  timestamp: string;
+}
+
+// Get the last (latest) position of the day
+function getLastPosition(positions: PositionWithTimestamp[]): number | null {
+  if (positions.length === 0) return null;
+  const sorted = [...positions].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+  return sorted[0].position;
 }
 
 export function useRankingHistory(
@@ -84,12 +92,12 @@ export function useRankingHistory(
       if (historyError) throw historyError;
       if (!history || history.length === 0) return { data: [], domains: [] };
 
-      // Group by date and calculate average positions
+      // Group by date - store positions with timestamps
       const dateMap = new Map<
         string,
         {
-          userPositions: number[];
-          competitorPositions: Map<string, number[]>;
+          userPositions: PositionWithTimestamp[];
+          competitorPositions: Map<string, PositionWithTimestamp[]>;
         }
       >();
 
@@ -105,24 +113,33 @@ export function useRankingHistory(
 
         const dayData = dateMap.get(dateKey)!;
 
-        // User domain position
+        // User domain position with timestamp
         if (record.ranking_position !== null) {
-          dayData.userPositions.push(record.ranking_position);
+          dayData.userPositions.push({
+            position: record.ranking_position,
+            timestamp: record.checked_at,
+          });
         }
 
-        // Competitor positions
+        // Competitor positions - handle as Object (key-value pairs)
         if (record.competitor_rankings) {
-          const rankings = record.competitor_rankings as unknown as CompetitorRanking[];
-          if (Array.isArray(rankings)) {
-            rankings.forEach((cr) => {
-              if (cr.position !== null && cr.domain) {
-                if (!dayData.competitorPositions.has(cr.domain)) {
-                  dayData.competitorPositions.set(cr.domain, []);
-                }
-                dayData.competitorPositions.get(cr.domain)!.push(cr.position);
+          const rankings = record.competitor_rankings as Record<
+            string,
+            { position: number | null; url?: string | null }
+          >;
+
+          // Iterate over object keys
+          Object.entries(rankings).forEach(([domain, data]) => {
+            if (data && data.position !== null) {
+              if (!dayData.competitorPositions.has(domain)) {
+                dayData.competitorPositions.set(domain, []);
               }
-            });
-          }
+              dayData.competitorPositions.get(domain)!.push({
+                position: data.position,
+                timestamp: record.checked_at,
+              });
+            }
+          });
         }
       });
 
@@ -139,25 +156,13 @@ export function useRankingHistory(
           date: dateKey,
         };
 
-        // User domain average
-        if (dayData.userPositions.length > 0) {
-          const avg =
-            dayData.userPositions.reduce((a, b) => a + b, 0) /
-            dayData.userPositions.length;
-          dataPoint[userDomain] = Math.round(avg * 10) / 10;
-        } else {
-          dataPoint[userDomain] = null;
-        }
+        // User domain - get last position of the day
+        dataPoint[userDomain] = getLastPosition(dayData.userPositions);
 
-        // Competitor averages
+        // Competitor domains - get last position of the day
         competitorDomains.forEach((domain) => {
           const positions = dayData.competitorPositions.get(domain);
-          if (positions && positions.length > 0) {
-            const avg = positions.reduce((a, b) => a + b, 0) / positions.length;
-            dataPoint[domain] = Math.round(avg * 10) / 10;
-          } else {
-            dataPoint[domain] = null;
-          }
+          dataPoint[domain] = positions ? getLastPosition(positions) : null;
         });
 
         chartData.push(dataPoint);
