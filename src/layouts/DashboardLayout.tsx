@@ -85,10 +85,10 @@ export default function DashboardLayout() {
   }, [location.pathname, params.projectId, params.classId, project, projectClass]);
 
   return (
-    <SidebarProvider>
-      <div className="h-screen flex w-full overflow-hidden">
+    <SidebarProvider className="h-screen overflow-hidden">
+      <div className="flex w-full h-full">
         <AppSidebar />
-        <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
           {/* Fixed Header */}
           <header className="h-14 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 flex items-center gap-2 flex-shrink-0 z-20">
             <SidebarTrigger className="-ml-1" />
