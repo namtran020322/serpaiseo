@@ -85,12 +85,12 @@ export default function DashboardLayout() {
   }, [location.pathname, params.projectId, params.classId, project, projectClass]);
 
   return (
-    <SidebarProvider className="h-screen overflow-hidden">
-      <div className="flex w-full h-full">
+    <SidebarProvider>
+      <div className="flex w-full min-h-screen">
         <AppSidebar />
-        <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-          {/* Fixed Header */}
-          <header className="h-14 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 flex items-center gap-2 flex-shrink-0 z-20">
+        <main className="flex-1 flex flex-col min-w-0">
+          {/* Sticky Header */}
+          <header className="sticky top-0 h-14 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 flex items-center gap-2 flex-shrink-0 z-20">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="h-4 mx-2" />
             <Breadcrumb>
@@ -113,8 +113,8 @@ export default function DashboardLayout() {
             </Breadcrumb>
             <div className="flex-1" />
           </header>
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-6">
+          {/* Content */}
+          <div className="p-6">
             <Outlet />
           </div>
         </main>
