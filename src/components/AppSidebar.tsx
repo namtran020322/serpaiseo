@@ -61,17 +61,11 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="px-4 py-4">
-        <div className="flex items-center gap-3">
-          <img
-            src={logoImage}
-            alt="SerpAISEO"
-            className="h-10 w-auto rounded-lg"
-          />
-          <div>
-            <h1 className="font-bold text-lg text-sidebar-foreground">SerpAISEO</h1>
-            <p className="text-xs text-sidebar-foreground/60">Keyword Rank Tracker</p>
-          </div>
-        </div>
+        <img
+          src={logoImage}
+          alt="SerpAISEO"
+          className="h-12 w-auto"
+        />
       </SidebarHeader>
 
       <SidebarContent>
