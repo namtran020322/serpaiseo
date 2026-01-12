@@ -64,7 +64,7 @@ export function AppSidebar() {
         <img
           src={logoImage}
           alt="SerpAISEO"
-          className="h-12 w-auto"
+          className="h-10 object-contain"
         />
       </SidebarHeader>
 
