@@ -1,4 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { crypto } from 'https://deno.land/std@0.177.0/crypto/mod.ts'
+import { encode as hexEncode } from 'https://deno.land/std@0.177.0/encoding/hex.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +19,15 @@ const PRICING_PACKAGES: PricingPackage[] = [
   { id: 'pro', name: 'Pro', price: 500000, credits: 28000 },
   { id: 'enterprise', name: 'Enterprise', price: 2000000, credits: 135000 },
 ]
+
+// Generate MD5 hash
+async function md5Hash(message: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(message)
+  const hashBuffer = await crypto.subtle.digest('MD5', data)
+  const decoder = new TextDecoder()
+  return decoder.decode(hexEncode(new Uint8Array(hashBuffer)))
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -117,43 +128,32 @@ Deno.serve(async (req) => {
       } catch {}
     }
 
-    // Build Sepay checkout form data
-    const formData = {
-      merchant_id: sepayMerchantId,
-      order_invoice_number: orderInvoiceNumber,
-      order_amount: pkg.price,
-      order_currency: 'VND',
-      operation: 'PURCHASE',
-      order_description: `Purchase ${pkg.credits} credits - ${pkg.name} package`,
-      success_url: `${origin}/dashboard/billing?payment=success`,
-      error_url: `${origin}/dashboard/billing?payment=error`,
-      cancel_url: `${origin}/dashboard/billing?payment=cancel`,
-    }
-
     // Generate signature for Sepay
     // Signature = MD5(merchant_id + order_invoice_number + order_amount + secret_key)
     const signatureString = `${sepayMerchantId}${orderInvoiceNumber}${pkg.price}${sepaySecretKey}`
-    const encoder = new TextEncoder()
-    const data = encoder.encode(signatureString)
-    const hashBuffer = await crypto.subtle.digest('MD5', data)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    const signature = await md5Hash(signatureString)
 
-    // Sepay checkout URL with form submission
-    const checkoutUrl = 'https://pay.sepay.vn/v1/checkout/init'
+    // Build Sepay checkout URL with query params
+    const checkoutUrl = new URL('https://pay.sepay.vn/v1/checkout/init')
+    checkoutUrl.searchParams.set('merchant_id', sepayMerchantId)
+    checkoutUrl.searchParams.set('order_invoice_number', orderInvoiceNumber)
+    checkoutUrl.searchParams.set('order_amount', pkg.price.toString())
+    checkoutUrl.searchParams.set('order_currency', 'VND')
+    checkoutUrl.searchParams.set('operation', 'PURCHASE')
+    checkoutUrl.searchParams.set('order_description', `Purchase ${pkg.credits} credits - ${pkg.name} package`)
+    checkoutUrl.searchParams.set('success_url', `${origin}/dashboard/billing?payment=success`)
+    checkoutUrl.searchParams.set('error_url', `${origin}/dashboard/billing?payment=error`)
+    checkoutUrl.searchParams.set('cancel_url', `${origin}/dashboard/billing?payment=cancel`)
+    checkoutUrl.searchParams.set('signature', signature)
 
-    console.log(`[INFO] Generated checkout for order ${orderInvoiceNumber}`)
+    console.log(`[INFO] Generated checkout URL for order ${orderInvoiceNumber}`)
 
     return new Response(
       JSON.stringify({
         success: true,
         order_id: order.id,
         order_invoice_number: orderInvoiceNumber,
-        checkout_url: checkoutUrl,
-        form_data: {
-          ...formData,
-          signature: signature,
-        },
+        checkout_url: checkoutUrl.toString(),
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
