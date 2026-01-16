@@ -1,6 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { crypto } from 'https://deno.land/std@0.177.0/crypto/mod.ts'
-import { encode as hexEncode } from 'https://deno.land/std@0.177.0/encoding/hex.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,13 +18,22 @@ const PRICING_PACKAGES: PricingPackage[] = [
   { id: 'enterprise', name: 'Enterprise', price: 2000000, credits: 135000 },
 ]
 
-// Generate MD5 hash
-async function md5Hash(message: string): Promise<string> {
+// Generate HMAC-SHA256 signature and return as base64
+async function hmacSha256(message: string, secretKey: string): Promise<string> {
   const encoder = new TextEncoder()
-  const data = encoder.encode(message)
-  const hashBuffer = await crypto.subtle.digest('MD5', data)
-  const decoder = new TextDecoder()
-  return decoder.decode(hexEncode(new Uint8Array(hashBuffer)))
+  const keyData = encoder.encode(secretKey)
+  const messageData = encoder.encode(message)
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData)
+  return btoa(String.fromCharCode(...new Uint8Array(signature)))
 }
 
 Deno.serve(async (req) => {
@@ -128,32 +135,49 @@ Deno.serve(async (req) => {
       } catch {}
     }
 
-    // Generate signature for Sepay
-    // Signature = MD5(merchant_id + order_invoice_number + order_amount + secret_key)
-    const signatureString = `${sepayMerchantId}${orderInvoiceNumber}${pkg.price}${sepaySecretKey}`
-    const signature = await md5Hash(signatureString)
+    // Build form data for Sepay checkout
+    const description = `Purchase ${pkg.credits} credits - ${pkg.name} package`
+    const successUrl = `${origin}/dashboard/billing?payment=success`
+    const errorUrl = `${origin}/dashboard/billing?payment=error`
+    const cancelUrl = `${origin}/dashboard/billing?payment=cancel`
 
-    // Build Sepay checkout URL with query params
-    const checkoutUrl = new URL('https://pay.sepay.vn/v1/checkout/init')
-    checkoutUrl.searchParams.set('merchant_id', sepayMerchantId)
-    checkoutUrl.searchParams.set('order_invoice_number', orderInvoiceNumber)
-    checkoutUrl.searchParams.set('order_amount', pkg.price.toString())
-    checkoutUrl.searchParams.set('order_currency', 'VND')
-    checkoutUrl.searchParams.set('operation', 'PURCHASE')
-    checkoutUrl.searchParams.set('order_description', `Purchase ${pkg.credits} credits - ${pkg.name} package`)
-    checkoutUrl.searchParams.set('success_url', `${origin}/dashboard/billing?payment=success`)
-    checkoutUrl.searchParams.set('error_url', `${origin}/dashboard/billing?payment=error`)
-    checkoutUrl.searchParams.set('cancel_url', `${origin}/dashboard/billing?payment=cancel`)
-    checkoutUrl.searchParams.set('signature', signature)
+    // Generate signature for Sepay using HMAC-SHA256
+    // Format: merchant=...,currency=...,operation=...,order_amount=...,order_description=...,order_invoice_number=...,success_url=...,error_url=...,cancel_url=...
+    const signedFields = [
+      `merchant=${sepayMerchantId}`,
+      `currency=VND`,
+      `operation=PURCHASE`,
+      `order_amount=${pkg.price}`,
+      `order_description=${description}`,
+      `order_invoice_number=${orderInvoiceNumber}`,
+      `success_url=${successUrl}`,
+      `error_url=${errorUrl}`,
+      `cancel_url=${cancelUrl}`
+    ]
+    const signedString = signedFields.join(',')
+    const signature = await hmacSha256(signedString, sepaySecretKey)
 
-    console.log(`[INFO] Generated checkout URL for order ${orderInvoiceNumber}`)
+    console.log(`[INFO] Generated checkout form data for order ${orderInvoiceNumber}`)
 
+    // Return form data for POST submission
     return new Response(
       JSON.stringify({
         success: true,
         order_id: order.id,
         order_invoice_number: orderInvoiceNumber,
-        checkout_url: checkoutUrl.toString(),
+        checkout_action: 'https://pay.sepay.vn/v1/checkout/init',
+        form_data: {
+          merchant: sepayMerchantId,
+          currency: 'VND',
+          operation: 'PURCHASE',
+          order_amount: pkg.price.toString(),
+          order_description: description,
+          order_invoice_number: orderInvoiceNumber,
+          success_url: successUrl,
+          error_url: errorUrl,
+          cancel_url: cancelUrl,
+          signature: signature
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
