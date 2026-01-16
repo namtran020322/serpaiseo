@@ -419,6 +419,80 @@ Deno.serve(async (req) => {
       classesToProcess = classes || []
     }
 
+    // Calculate total credits needed
+    let totalKeywordsCount = 0
+    let totalCreditsNeeded = 0
+    
+    for (const cls of classesToProcess) {
+      let keywordsQuery = supabase
+        .from('project_keywords')
+        .select('id', { count: 'exact' })
+        .eq('class_id', cls.id)
+        .eq('user_id', userId)
+      
+      if (keywordIds && keywordIds.length > 0) {
+        keywordsQuery = keywordsQuery.in('id', keywordIds)
+      }
+      
+      const { count } = await keywordsQuery
+      const keywordCount = count || 0
+      const creditsPerKeyword = Math.ceil(cls.top_results / 10)
+      
+      totalKeywordsCount += keywordCount
+      totalCreditsNeeded += keywordCount * creditsPerKeyword
+    }
+
+    // Check user credits
+    const { data: userCredits } = await supabase
+      .from('user_credits')
+      .select('balance, total_used')
+      .eq('user_id', userId)
+      .single()
+
+    const currentBalance = userCredits?.balance || 0
+    const currentTotalUsed = userCredits?.total_used || 0
+
+    if (currentBalance < totalCreditsNeeded) {
+      console.log(`[WARN] Insufficient credits: need ${totalCreditsNeeded}, have ${currentBalance}`)
+      return new Response(
+        JSON.stringify({
+          error: 'insufficient_credits',
+          message: `Không đủ credit. Cần ${totalCreditsNeeded} credits, bạn có ${currentBalance} credits.`,
+          credits_needed: totalCreditsNeeded,
+          credits_available: currentBalance,
+          keywords_count: totalKeywordsCount
+        }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Deduct credits before processing
+    const newBalance = currentBalance - totalCreditsNeeded
+    const newTotalUsed = currentTotalUsed + totalCreditsNeeded
+
+    const { error: deductError } = await supabase
+      .from('user_credits')
+      .upsert({
+        user_id: userId,
+        balance: newBalance,
+        total_used: newTotalUsed,
+      }, { onConflict: 'user_id' })
+
+    if (deductError) {
+      console.error('[ERROR] Failed to deduct credits:', deductError)
+      throw new Error('Failed to deduct credits')
+    }
+
+    // Log credit transaction
+    await supabase.from('credit_transactions').insert({
+      user_id: userId,
+      amount: -totalCreditsNeeded,
+      type: 'usage',
+      description: `Check ${totalKeywordsCount} keywords`,
+      balance_after: newBalance,
+    })
+
+    console.log(`[INFO] Deducted ${totalCreditsNeeded} credits from user ${userId}, new balance: ${newBalance}`)
     console.log(`[INFO] Processing ${classesToProcess.length} class(es) with ${CONCURRENT_LIMIT} concurrent threads`)
 
     let totalProcessed = 0
