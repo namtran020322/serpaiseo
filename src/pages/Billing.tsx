@@ -60,11 +60,28 @@ export default function Billing() {
 
       if (error) throw error;
 
-      if (data?.checkout_url) {
-        // Redirect to Sepay checkout
-        window.location.href = data.checkout_url;
+      if (data?.checkout_action && data?.form_data) {
+        // Create hidden form and submit via POST
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = data.checkout_action;
+        form.style.display = 'none';
+        
+        // Add all form fields as hidden inputs
+        Object.entries(data.form_data).forEach(([key, value]) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = String(value);
+          form.appendChild(input);
+        });
+        
+        document.body.appendChild(form);
+        form.submit();
+        // Don't reset loading state since page will redirect
+        return;
       } else {
-        throw new Error('No checkout URL returned');
+        throw new Error('Invalid response from payment service');
       }
     } catch (error: any) {
       console.error('Purchase error:', error);
@@ -73,7 +90,6 @@ export default function Billing() {
         title: "Purchase failed",
         description: error.message || "Unable to create order. Please try again.",
       });
-    } finally {
       setPurchaseLoading(null);
     }
   };
