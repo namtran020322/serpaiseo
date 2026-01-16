@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      billing_orders: {
+        Row: {
+          amount: number
+          created_at: string
+          credits: number
+          id: string
+          order_invoice_number: string
+          package_id: string
+          paid_at: string | null
+          sepay_order_id: string | null
+          sepay_transaction_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          credits: number
+          id?: string
+          order_invoice_number: string
+          package_id: string
+          paid_at?: string | null
+          sepay_order_id?: string | null
+          sepay_transaction_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credits?: number
+          id?: string
+          order_invoice_number?: string
+          package_id?: string
+          paid_at?: string | null
+          sepay_order_id?: string | null
+          sepay_transaction_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      credit_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          created_at: string
+          description: string | null
+          id: string
+          reference_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       keyword_ranking_history: {
         Row: {
           checked_at: string
@@ -231,6 +309,36 @@ export type Database = {
           domain?: string
           id?: string
           name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_credits: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          total_purchased: number
+          total_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          total_purchased?: number
+          total_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          total_purchased?: number
+          total_used?: number
           updated_at?: string
           user_id?: string
         }

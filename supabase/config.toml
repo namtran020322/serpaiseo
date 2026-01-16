@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.check-project-keywords]
 verify_jwt = false
+
+[functions.create-sepay-order]
+verify_jwt = false
+
+[functions.sepay-webhook]
+verify_jwt = false
