@@ -317,7 +317,8 @@ export function KeywordsTable({
       columnFilters,
       rowSelection,
       expanded,
-      pagination: isServerSide ? { pageIndex: page, pageSize } : undefined,
+      // Always provide pagination state to prevent undefined errors
+      pagination: { pageIndex: page, pageSize },
     },
     onSortingChange: handleSortingChange,
     onColumnFiltersChange: setColumnFilters,
