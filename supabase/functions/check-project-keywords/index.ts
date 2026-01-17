@@ -1,8 +1,23 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Allowed origins for CORS
+const ALLOWED_ORIGINS = [
+  'https://serpaiseo.lovable.app',
+  'https://id-preview--466d3968-bedc-40b5-9be4-10fb57a12051.lovable.app',
+  'http://localhost:5173',
+  'http://localhost:8080'
+]
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin.startsWith(o.replace(/:\d+$/, ''))) 
+    ? origin 
+    : ALLOWED_ORIGINS[0]
+  
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Credentials': 'true'
+  }
 }
 
 interface SerpResult {
@@ -17,6 +32,26 @@ interface RequestBody {
   classId?: string
   projectId?: string
   keywordIds?: string[]
+}
+
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Validate UUID format
+function isValidUUID(str: unknown): str is string {
+  return typeof str === 'string' && UUID_REGEX.test(str)
+}
+
+// Validate array of UUIDs
+function isValidUUIDArray(arr: unknown): arr is string[] {
+  if (!Array.isArray(arr)) return false
+  if (arr.length > 1000) return false // Max 1000 keywords per request
+  return arr.every(item => isValidUUID(item))
+}
+
+// Validate top_results is within reasonable range
+function isValidTopResults(value: number): boolean {
+  return value >= 10 && value <= 100
 }
 
 // SERP API error messages mapping with retry info
@@ -63,7 +98,7 @@ function checkApiError(xmlText: string): { code: string; message: string; retrya
     const errorInfo = SERP_API_ERRORS[errorCode]
     return {
       code: errorCode,
-      message: errorInfo?.message || `API error ${errorCode}: ${errorMatch[2].trim()}`,
+      message: errorInfo?.message || `API error ${errorCode}`,
       retryable: errorInfo?.retryable ?? false
     }
   }
@@ -72,7 +107,7 @@ function checkApiError(xmlText: string): { code: string; message: string; retrya
   if (simpleErrorMatch) {
     return {
       code: 'unknown',
-      message: `API error: ${simpleErrorMatch[1].trim()}`,
+      message: 'API error occurred',
       retryable: false
     }
   }
@@ -211,7 +246,7 @@ async function fetchWithRetry(
       const response = await fetchWithTimeout(url, 90000)
       
       if (!response.ok) {
-        throw new Error(`SERP API error: HTTP ${response.status}`)
+        throw new Error(`API error: HTTP ${response.status}`)
       }
       
       const text = await response.text()
@@ -221,7 +256,7 @@ async function fetchWithRetry(
       if (errorInfo) {
         if (errorInfo.retryable && attempt < maxRetries - 1) {
           const delay = baseDelay * Math.pow(2, attempt)
-          console.log(`[WARN] Retryable error ${errorInfo.code}: ${errorInfo.message}, retrying in ${delay}ms...`)
+          console.log(`[WARN] Retryable error, retrying in ${delay}ms...`)
           await new Promise(resolve => setTimeout(resolve, delay))
           continue
         }
@@ -256,8 +291,10 @@ async function fetchSerpResults(
   serpApiUserId: string,
   serpApiKey: string
 ): Promise<SerpResult[]> {
+  // Enforce reasonable bounds
+  const validTopResults = Math.max(10, Math.min(100, topResults))
   const resultsPerPage = 10
-  const totalPages = Math.ceil(topResults / resultsPerPage)
+  const totalPages = Math.ceil(validTopResults / resultsPerPage)
   let allResults: SerpResult[] = []
 
   for (let page = 1; page <= totalPages; page++) {
@@ -282,7 +319,7 @@ async function fetchSerpResults(
       const pageResults = parseXmlResults(xmlText, startPosition)
       allResults = allResults.concat(pageResults)
 
-      if (allResults.length >= topResults) {
+      if (allResults.length >= validTopResults) {
         break
       }
 
@@ -297,7 +334,7 @@ async function fetchSerpResults(
     }
   }
 
-  return allResults.slice(0, topResults)
+  return allResults.slice(0, validTopResults)
 }
 
 // Process a batch of items with concurrency limit
@@ -319,7 +356,7 @@ async function processBatch<T, R>(
         results.push(result.value)
       } else {
         results.push(null)
-        console.error(`[ERROR] Batch item failed:`, result.reason)
+        console.error(`[ERROR] Batch item failed`)
       }
     }
     
@@ -333,6 +370,9 @@ async function processBatch<T, R>(
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -359,7 +399,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const token = authHeader.replace('Bearer ', '')
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getUser()
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getUser(token)
     if (claimsError || !claimsData?.user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
@@ -368,12 +408,45 @@ Deno.serve(async (req) => {
     }
     const userId = claimsData.user.id
 
-    const body: RequestBody = await req.json()
+    // Parse and validate request body
+    let body: RequestBody
+    try {
+      body = await req.json()
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { classId, projectId, keywordIds } = body
 
+    // Validate required fields
     if (!classId && !projectId) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: classId or projectId' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate UUID formats
+    if (classId && !isValidUUID(classId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid classId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (projectId && !isValidUUID(projectId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid projectId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (keywordIds !== undefined && !isValidUUIDArray(keywordIds)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid keywordIds format or too many keywords (max 1000)' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -405,6 +478,13 @@ Deno.serve(async (req) => {
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
+
+      // Validate top_results
+      if (!isValidTopResults(cls.top_results)) {
+        console.log(`[WARN] Invalid top_results ${cls.top_results}, clamping to valid range`)
+        cls.top_results = Math.max(10, Math.min(100, cls.top_results))
+      }
+
       classesToProcess = [cls]
     } else if (projectId) {
       const { data: classes, error: classesError } = await supabase
@@ -414,9 +494,18 @@ Deno.serve(async (req) => {
         .eq('user_id', userId)
       
       if (classesError) {
-        throw classesError
+        console.error('[ERROR] Failed to fetch classes')
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch classes' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
-      classesToProcess = classes || []
+
+      // Validate and clamp top_results for all classes
+      classesToProcess = (classes || []).map(cls => ({
+        ...cls,
+        top_results: Math.max(10, Math.min(100, cls.top_results))
+      }))
     }
 
     // Calculate total credits needed
@@ -479,8 +568,11 @@ Deno.serve(async (req) => {
       }, { onConflict: 'user_id' })
 
     if (deductError) {
-      console.error('[ERROR] Failed to deduct credits:', deductError)
-      throw new Error('Failed to deduct credits')
+      console.error('[ERROR] Failed to deduct credits')
+      return new Response(
+        JSON.stringify({ error: 'Failed to deduct credits' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Log credit transaction
@@ -492,7 +584,7 @@ Deno.serve(async (req) => {
       balance_after: newBalance,
     })
 
-    console.log(`[INFO] Deducted ${totalCreditsNeeded} credits from user ${userId}, new balance: ${newBalance}`)
+    console.log(`[INFO] Deducted ${totalCreditsNeeded} credits from user, new balance: ${newBalance}`)
     console.log(`[INFO] Processing ${classesToProcess.length} class(es) with ${CONCURRENT_LIMIT} concurrent threads`)
 
     let totalProcessed = 0
@@ -514,7 +606,7 @@ Deno.serve(async (req) => {
       const { data: keywords, error: kwError } = await keywordsQuery
       
       if (kwError) {
-        console.error(`[ERROR] Failed to fetch keywords for class ${cls.id}:`, kwError)
+        console.error(`[ERROR] Failed to fetch keywords for class ${cls.id}`)
         continue
       }
 
@@ -593,7 +685,7 @@ Deno.serve(async (req) => {
             .eq('id', kw.id)
 
           if (updateError) {
-            console.error(`[ERROR] Failed to update keyword ${kw.id}:`, updateError)
+            console.error(`[ERROR] Failed to update keyword ${kw.id}`)
           }
 
           // Insert history record
@@ -609,13 +701,12 @@ Deno.serve(async (req) => {
             })
 
           if (historyError) {
-            console.error(`[ERROR] Failed to insert history for keyword ${kw.id}:`, historyError)
+            console.error(`[ERROR] Failed to insert history for keyword ${kw.id}`)
           }
 
           return { processed: true, found: userPosition !== null }
         } catch (err) {
-          const error = err as Error
-          console.error(`[ERROR] Failed to check keyword "${kw.keyword}":`, error.message)
+          console.error(`[ERROR] Failed to check keyword "${kw.keyword}"`)
           return { processed: false, found: false }
         }
       }
@@ -654,10 +745,9 @@ Deno.serve(async (req) => {
     )
 
   } catch (err) {
-    const error = err as Error
-    console.error('[ERROR] Edge function error:', error.message)
+    console.error('[ERROR] Edge function error:', err)
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: 'An error occurred processing the request' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

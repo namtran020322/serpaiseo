@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// CORS not strictly needed for webhook but kept for OPTIONS handling
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -8,6 +9,7 @@ const corsHeaders = {
 interface SepayWebhookPayload {
   timestamp: number
   notification_type: string
+  signature?: string
   order: {
     id: string
     order_id: string
@@ -40,6 +42,65 @@ interface SepayWebhookPayload {
   agreement: any | null
 }
 
+// Verify HMAC-SHA256 signature
+async function verifySignature(payload: SepayWebhookPayload, secretKey: string): Promise<boolean> {
+  try {
+    if (!payload.signature) {
+      console.log('[WARN] No signature in webhook payload')
+      return false
+    }
+
+    // Build signed string from payload fields (order matters)
+    const signedFields = [
+      `notification_type=${payload.notification_type}`,
+      `order_id=${payload.order?.order_id || ''}`,
+      `order_invoice_number=${payload.order?.order_invoice_number || ''}`,
+      `order_amount=${payload.order?.order_amount || ''}`,
+      `order_status=${payload.order?.order_status || ''}`,
+      `transaction_id=${payload.transaction?.transaction_id || ''}`,
+      `timestamp=${payload.timestamp || ''}`
+    ]
+    const signedString = signedFields.join(',')
+
+    const encoder = new TextEncoder()
+    const keyData = encoder.encode(secretKey)
+    const messageData = encoder.encode(signedString)
+
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    )
+
+    const expectedSignature = await crypto.subtle.sign('HMAC', cryptoKey, messageData)
+    const expectedBase64 = btoa(String.fromCharCode(...new Uint8Array(expectedSignature)))
+
+    const isValid = payload.signature === expectedBase64
+    if (!isValid) {
+      console.log('[WARN] Signature mismatch')
+    }
+    return isValid
+  } catch (err) {
+    console.error('[ERROR] Signature verification failed:', err)
+    return false
+  }
+}
+
+// Validate UUID format
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(str)
+}
+
+// Validate order invoice number format
+function isValidOrderInvoiceNumber(str: string): boolean {
+  // Format: ORD-XXXXXXXX-TIMESTAMP (where X is hex)
+  const orderRegex = /^ORD-[A-F0-9]{8}-\d{13}$/
+  return orderRegex.test(str)
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -56,14 +117,39 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const sepaySecretKey = Deno.env.get('SEPAY_SECRET_KEY')
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Parse webhook payload
-    const payload: SepayWebhookPayload = await req.json()
+    let payload: SepayWebhookPayload
+    try {
+      payload = await req.json()
+    } catch {
+      console.error('[ERROR] Invalid JSON payload')
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
     
-    console.log(`[INFO] Received Sepay webhook: ${payload.notification_type}`)
+    console.log(`[INFO] Received webhook: ${payload.notification_type}`)
     console.log(`[INFO] Order: ${payload.order?.order_invoice_number}`)
+
+    // Verify webhook signature if secret key is configured
+    if (sepaySecretKey) {
+      const isValidSignature = await verifySignature(payload, sepaySecretKey)
+      if (!isValidSignature) {
+        console.error('[ERROR] Invalid webhook signature')
+        return new Response(
+          JSON.stringify({ error: 'Invalid signature' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      console.log('[INFO] Webhook signature verified')
+    } else {
+      console.log('[WARN] SEPAY_SECRET_KEY not configured, skipping signature verification')
+    }
 
     // Only process ORDER_PAID notifications
     if (payload.notification_type !== 'ORDER_PAID') {
@@ -78,10 +164,11 @@ Deno.serve(async (req) => {
     const sepayOrderId = payload.order?.id
     const sepayTransactionId = payload.transaction?.id
 
-    if (!orderInvoiceNumber) {
-      console.error('[ERROR] Missing order_invoice_number in webhook')
+    // Validate order invoice number format
+    if (!orderInvoiceNumber || !isValidOrderInvoiceNumber(orderInvoiceNumber)) {
+      console.error('[ERROR] Invalid or missing order_invoice_number')
       return new Response(
-        JSON.stringify({ error: 'Missing order_invoice_number' }),
+        JSON.stringify({ error: 'Invalid request' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -133,8 +220,11 @@ Deno.serve(async (req) => {
       .eq('id', order.id)
 
     if (updateOrderError) {
-      console.error('[ERROR] Failed to update order:', updateOrderError)
-      throw new Error('Failed to update order')
+      console.error('[ERROR] Failed to update order')
+      return new Response(
+        JSON.stringify({ error: 'Processing failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Get current user credits
@@ -163,8 +253,11 @@ Deno.serve(async (req) => {
       })
 
     if (creditsError) {
-      console.error('[ERROR] Failed to update credits:', creditsError)
-      throw new Error('Failed to update credits')
+      console.error('[ERROR] Failed to update credits')
+      return new Response(
+        JSON.stringify({ error: 'Processing failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Insert credit transaction
@@ -180,12 +273,12 @@ Deno.serve(async (req) => {
       })
 
     if (transactionError) {
-      console.error('[ERROR] Failed to insert transaction:', transactionError)
+      console.error('[ERROR] Failed to insert transaction record')
       // Non-critical, continue
     }
 
     console.log(`[INFO] Successfully processed payment for order ${orderInvoiceNumber}`)
-    console.log(`[INFO] User ${order.user_id} credited with ${order.credits} credits, new balance: ${newBalance}`)
+    console.log(`[INFO] User credited with ${order.credits} credits, new balance: ${newBalance}`)
 
     return new Response(
       JSON.stringify({ success: true }),
@@ -193,10 +286,9 @@ Deno.serve(async (req) => {
     )
 
   } catch (err) {
-    const error = err as Error
-    console.error('[ERROR] Webhook processing error:', error.message)
+    console.error('[ERROR] Webhook processing error:', err)
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: 'An error occurred processing the request' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

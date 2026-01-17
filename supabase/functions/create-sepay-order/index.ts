@@ -1,8 +1,23 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Allowed origins for CORS
+const ALLOWED_ORIGINS = [
+  'https://serpaiseo.lovable.app',
+  'https://id-preview--466d3968-bedc-40b5-9be4-10fb57a12051.lovable.app',
+  'http://localhost:5173',
+  'http://localhost:8080'
+]
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin.startsWith(o.replace(/:\d+$/, ''))) 
+    ? origin 
+    : ALLOWED_ORIGINS[0]
+  
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Credentials': 'true'
+  }
 }
 
 interface PricingPackage {
@@ -17,6 +32,12 @@ const PRICING_PACKAGES: PricingPackage[] = [
   { id: 'pro', name: 'Pro', price: 500000, credits: 28000 },
   { id: 'enterprise', name: 'Enterprise', price: 2000000, credits: 135000 },
 ]
+
+// Validate package_id
+function isValidPackageId(packageId: unknown): packageId is string {
+  if (typeof packageId !== 'string') return false
+  return PRICING_PACKAGES.some(p => p.id === packageId)
+}
 
 // Generate HMAC-SHA256 signature and return as base64
 async function hmacSha256(message: string, secretKey: string): Promise<string> {
@@ -37,6 +58,9 @@ async function hmacSha256(message: string, secretKey: string): Promise<string> {
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -57,46 +81,51 @@ Deno.serve(async (req) => {
     const sepaySecretKey = Deno.env.get('SEPAY_SECRET_KEY')
 
     if (!sepayMerchantId || !sepaySecretKey) {
-      console.error('[ERROR] Sepay credentials not configured')
+      console.error('[ERROR] Payment gateway credentials not configured')
       return new Response(
         JSON.stringify({ error: 'Payment gateway not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Verify user
+    // Verify user using getClaims for proper JWT validation
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     })
     
-    const { data: userData, error: authError } = await supabaseAuth.auth.getUser()
-    if (authError || !userData?.user) {
+    const token = authHeader.replace('Bearer ', '')
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getUser(token)
+    if (claimsError || !claimsData?.user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
     
-    const userId = userData.user.id
+    const userId = claimsData.user.id
 
-    // Parse request
-    const { package_id } = await req.json()
-    
-    if (!package_id) {
+    // Parse and validate request body
+    let body: { package_id?: unknown }
+    try {
+      body = await req.json()
+    } catch {
       return new Response(
-        JSON.stringify({ error: 'Missing package_id' }),
+        JSON.stringify({ error: 'Invalid request body' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-
-    // Find package
-    const pkg = PRICING_PACKAGES.find(p => p.id === package_id)
-    if (!pkg) {
+    
+    const { package_id } = body
+    
+    if (!isValidPackageId(package_id)) {
       return new Response(
         JSON.stringify({ error: 'Invalid package' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    // Find package (already validated above)
+    const pkg = PRICING_PACKAGES.find(p => p.id === package_id)!
 
     // Generate order invoice number
     const timestamp = Date.now()
@@ -119,30 +148,37 @@ Deno.serve(async (req) => {
       .single()
 
     if (orderError) {
-      console.error('[ERROR] Failed to create order:', orderError)
-      throw new Error('Failed to create order')
+      console.error('[ERROR] Failed to create order')
+      return new Response(
+        JSON.stringify({ error: 'Failed to create order' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     console.log(`[INFO] Created order ${orderInvoiceNumber} for user ${userId}`)
 
     // Get origin from referer or use default
     const referer = req.headers.get('referer') || req.headers.get('origin')
-    let origin = 'https://serpaiseo.lovable.app'
+    let baseOrigin = 'https://serpaiseo.lovable.app'
     if (referer) {
       try {
         const url = new URL(referer)
-        origin = url.origin
-      } catch {}
+        // Only use origin if it's in allowed list
+        if (ALLOWED_ORIGINS.some(o => url.origin.startsWith(o.replace(/:\d+$/, '')))) {
+          baseOrigin = url.origin
+        }
+      } catch {
+        // Keep default
+      }
     }
 
     // Build form data for Sepay checkout
     const description = `Purchase ${pkg.credits} credits - ${pkg.name} package`
-    const successUrl = `${origin}/dashboard/billing?payment=success`
-    const errorUrl = `${origin}/dashboard/billing?payment=error`
-    const cancelUrl = `${origin}/dashboard/billing?payment=cancel`
+    const successUrl = `${baseOrigin}/dashboard/billing?payment=success`
+    const errorUrl = `${baseOrigin}/dashboard/billing?payment=error`
+    const cancelUrl = `${baseOrigin}/dashboard/billing?payment=cancel`
 
     // Generate signature for Sepay using HMAC-SHA256
-    // Format: merchant=...,currency=...,operation=...,order_amount=...,order_description=...,order_invoice_number=...,success_url=...,error_url=...,cancel_url=...
     const signedFields = [
       `merchant=${sepayMerchantId}`,
       `currency=VND`,
@@ -183,10 +219,9 @@ Deno.serve(async (req) => {
     )
 
   } catch (err) {
-    const error = err as Error
-    console.error('[ERROR] Create order error:', error.message)
+    console.error('[ERROR] Create order error:', err)
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: 'An error occurred processing the request' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
