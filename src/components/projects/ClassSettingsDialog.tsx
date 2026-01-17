@@ -53,6 +53,7 @@ const formSchema = z.object({
   device: z.string().min(1, "Device is required"),
   topResults: z.number().min(10).max(100),
   schedule: z.string().nullable(),
+  scheduleTime: z.string().default("08:00"),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -80,6 +81,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
       device: projectClass.device,
       topResults: projectClass.top_results,
       schedule: projectClass.schedule,
+      scheduleTime: (projectClass as any).schedule_time || "08:00",
     },
   });
 
@@ -92,6 +94,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
       device: projectClass.device,
       topResults: projectClass.top_results,
       schedule: projectClass.schedule,
+      scheduleTime: (projectClass as any).schedule_time || "08:00",
     });
     setCompetitorDomains(projectClass.competitor_domains || []);
   }, [projectClass, form]);
@@ -114,6 +117,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
         device: data.device,
         topResults: data.topResults,
         schedule: data.schedule,
+        scheduleTime: data.scheduleTime,
       });
       onOpenChange(false);
     } catch (error) {
@@ -209,6 +213,38 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
                     </FormItem>
                   )}
                 />
+                {form.watch("schedule") && form.watch("schedule") !== "none" && (
+                  <FormField
+                    control={form.control}
+                    name="scheduleTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Check Time</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || "08:00"}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select time" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {Array.from({ length: 24 }, (_, i) => {
+                              const hour = i.toString().padStart(2, '0');
+                              return (
+                                <SelectItem key={hour} value={`${hour}:00`}>
+                                  {hour}:00
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Vietnam time (Asia/Ho_Chi_Minh)
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </TabsContent>
 
               <TabsContent value="search" className="space-y-4 pt-4">

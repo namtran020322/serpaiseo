@@ -174,6 +174,8 @@ export type Database = {
           name: string
           project_id: string
           schedule: string | null
+          schedule_time: string | null
+          schedule_timezone: string | null
           top_results: number
           updated_at: string
           user_id: string
@@ -194,6 +196,8 @@ export type Database = {
           name: string
           project_id: string
           schedule?: string | null
+          schedule_time?: string | null
+          schedule_timezone?: string | null
           top_results?: number
           updated_at?: string
           user_id: string
@@ -214,6 +218,8 @@ export type Database = {
           name?: string
           project_id?: string
           schedule?: string | null
+          schedule_time?: string | null
+          schedule_timezone?: string | null
           top_results?: number
           updated_at?: string
           user_id?: string

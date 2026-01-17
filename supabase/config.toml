@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.sepay-webhook]
 verify_jwt = false
+
+[functions.scheduled-ranking-check]
+verify_jwt = false

@@ -62,6 +62,7 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
 
   // Step 4: Schedule
   const [schedule, setSchedule] = useState<string | null>(null);
+  const [scheduleTime, setScheduleTime] = useState("08:00");
 
   const filteredLocations = useMemo(() => {
     if (!country) return [];
@@ -83,6 +84,7 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
     setDevice("desktop");
     setTopResults("100");
     setSchedule(null);
+    setScheduleTime("08:00");
   };
 
   const handleClose = () => {
@@ -159,6 +161,7 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
         device,
         topResults: parseInt(topResults),
         schedule,
+        scheduleTime,
         keywords: parseKeywords(),
       });
 
@@ -410,18 +413,43 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
                     <SelectValue placeholder="No schedule" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No schedule (manual only)</SelectItem>
+        <SelectItem value="none">No schedule (manual only)</SelectItem>
                     <SelectItem value="daily">Daily</SelectItem>
                     <SelectItem value="weekly">Weekly</SelectItem>
                     <SelectItem value="monthly">Monthly</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-sm text-muted-foreground">
-                  {schedule
-                    ? `Rankings will be checked automatically ${schedule}. You'll receive an email notification when complete.`
-                    : "You can manually check rankings at any time."}
-                </p>
               </div>
+
+              {schedule && (
+                <div className="space-y-2">
+                  <Label>Check Time</Label>
+                  <Select value={scheduleTime} onValueChange={setScheduleTime}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, i) => {
+                        const hour = i.toString().padStart(2, '0');
+                        return (
+                          <SelectItem key={hour} value={`${hour}:00`}>
+                            {hour}:00
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    Rankings will be checked {schedule} at {scheduleTime} (Vietnam time).
+                  </p>
+                </div>
+              )}
+
+              {!schedule && (
+                <p className="text-sm text-muted-foreground">
+                  You can manually check rankings at any time.
+                </p>
+              )}
 
               <div className="rounded-lg border p-4 space-y-2 bg-muted/50">
                 <h4 className="font-medium">Summary</h4>
