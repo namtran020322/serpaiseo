@@ -4,7 +4,8 @@ import { ArrowLeft, RefreshCw, Globe, Monitor, Smartphone, Tablet, Calendar, Loa
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useProjectClass, useProject, useCheckRankings, useDeleteKeywords, useAddKeywords } from "@/hooks/useProjects";
+import { useProject, useCheckRankings, useDeleteKeywords, useAddKeywords } from "@/hooks/useProjects";
+import { useKeywordsPaginated, useClassRankingStats, useClassMetadata } from "@/hooks/useKeywordsPaginated";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
 import { RankingHistoryChart } from "@/components/projects/RankingHistoryChart";
 import { KeywordsTable } from "@/components/projects/KeywordsTable";
@@ -26,7 +27,26 @@ const deviceIcons = {
 export default function ClassDetail() {
   const { projectId, classId } = useParams();
   const navigate = useNavigate();
-  const { data: projectClass, isLoading, error, refetch } = useProjectClass(classId);
+  
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [sortBy, setSortBy] = useState<string | undefined>(undefined);
+  const [sortDesc, setSortDesc] = useState(false);
+  const [search, setSearch] = useState("");
+
+  // Data hooks - server-side pagination
+  const { data: classMetadata, isLoading: metaLoading } = useClassMetadata(classId);
+  const { data: rankingStats, refetch: refetchStats } = useClassRankingStats(classId);
+  const { data: keywordsData, isLoading: keywordsLoading, refetch: refetchKeywords } = useKeywordsPaginated({
+    classId: classId || "",
+    page,
+    pageSize,
+    sortBy,
+    sortDesc,
+    search,
+  });
+  
   const { data: project } = useProject(projectId);
   const checkRankings = useCheckRankings();
   const deleteKeywords = useDeleteKeywords();
@@ -35,14 +55,19 @@ export default function ClassDetail() {
   const [checkProgress, setCheckProgress] = useState({ current: 0, total: 0, keyword: "" });
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  const refetchAll = () => {
+    refetchStats();
+    refetchKeywords();
+  };
+
   // Add keywords handler
   const handleAddKeywords = async (keywords: string[]) => {
     if (!classId) return;
     await addKeywords.mutateAsync({ classId, keywords });
-    refetch();
+    refetchAll();
   };
 
-  if (isLoading) {
+  if (metaLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -51,7 +76,7 @@ export default function ClassDetail() {
     );
   }
 
-  if (error || !projectClass) {
+  if (!classMetadata) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
         <p className="text-destructive">Class not found</p>
@@ -62,14 +87,14 @@ export default function ClassDetail() {
     );
   }
 
-  const DeviceIcon = deviceIcons[projectClass.device as keyof typeof deviceIcons] || Monitor;
+  const DeviceIcon = deviceIcons[classMetadata.device as keyof typeof deviceIcons] || Monitor;
 
   const handleRefresh = async () => {
     setIsChecking(true);
-    setCheckProgress({ current: 0, total: projectClass.keywords.length, keyword: "" });
+    setCheckProgress({ current: 0, total: keywordsData?.totalCount || 0, keyword: "" });
     try {
       await checkRankings.mutateAsync({ classId });
-      refetch();
+      refetchAll();
     } catch (error) {
       console.error("Check failed:", error);
     } finally {
@@ -84,7 +109,7 @@ export default function ClassDetail() {
     setCheckProgress({ current: 0, total: keywordIds.length, keyword: "" });
     try {
       await checkRankings.mutateAsync({ classId, keywordIds });
-      refetch();
+      refetchAll();
     } catch (error) {
       console.error("Check failed:", error);
     } finally {
@@ -97,7 +122,7 @@ export default function ClassDetail() {
     if (keywordIds.length === 0) return;
     try {
       await deleteKeywords.mutateAsync(keywordIds);
-      refetch();
+      refetchAll();
     } catch (error) {
       console.error("Delete failed:", error);
     }
@@ -105,7 +130,26 @@ export default function ClassDetail() {
 
   const handleCheckComplete = () => {
     setIsChecking(false);
-    refetch();
+    refetchAll();
+  };
+
+  const handleSortChange = (newSortBy: string | undefined, newSortDesc: boolean) => {
+    setSortBy(newSortBy);
+    setSortDesc(newSortDesc);
+    setPage(0); // Reset to first page on sort change
+  };
+
+  const handleSearchChange = (newSearch: string) => {
+    setSearch(newSearch);
+    setPage(0); // Reset to first page on search
+  };
+
+  // Build projectClass-like object for components that need it
+  const projectClassForExport = {
+    ...classMetadata,
+    keywords: keywordsData?.keywords || [],
+    keywordCount: keywordsData?.totalCount || 0,
+    rankingStats: rankingStats || { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 },
   };
 
   return (
@@ -121,41 +165,41 @@ export default function ClassDetail() {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">{project?.name} /</span>
-              <h1 className="text-3xl font-bold tracking-tight">{projectClass.name}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">{classMetadata.name}</h1>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 flex-wrap">
-              <DomainWithFavicon domain={projectClass.domain} showFullDomain />
+              <DomainWithFavicon domain={classMetadata.domain} showFullDomain />
               <span className="text-muted-foreground/50">•</span>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge variant="outline" className="gap-1 font-normal">
                     <Globe className="h-3 w-3" />
-                    {projectClass.country_name}
+                    {classMetadata.country_name}
                   </Badge>
                 </TooltipTrigger>
-                <TooltipContent>{projectClass.language_name}</TooltipContent>
+                <TooltipContent>{classMetadata.language_name}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge variant="outline" className="gap-1 font-normal">
                     <DeviceIcon className="h-3 w-3" />
-                    {projectClass.device}
+                    {classMetadata.device}
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent>Device type</TooltipContent>
               </Tooltip>
-              {projectClass.schedule && (
+              {classMetadata.schedule && (
                 <Badge variant="secondary" className="gap-1 font-normal">
                   <Calendar className="h-3 w-3" />
-                  {projectClass.schedule}
+                  {classMetadata.schedule}
                 </Badge>
               )}
-              {projectClass.last_checked_at && (
+              {classMetadata.last_checked_at && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Badge variant="outline" className="gap-1 font-normal text-muted-foreground">
                       <Clock className="h-3 w-3" />
-                      {formatDistanceToNow(new Date(projectClass.last_checked_at), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(classMetadata.last_checked_at), { addSuffix: true })}
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>Last checked</TooltipContent>
@@ -165,7 +209,7 @@ export default function ClassDetail() {
           </div>
         </div>
         <div className="flex gap-2">
-          <ExportButton projectClass={projectClass} />
+          <ExportButton projectClass={projectClassForExport} />
           <Button variant="outline" onClick={() => setSettingsOpen(true)}>
             <Settings className="mr-2 h-4 w-4" />
             Settings
@@ -178,8 +222,8 @@ export default function ClassDetail() {
       </div>
 
       {/* Competitor Domains */}
-      {projectClass.competitor_domains && projectClass.competitor_domains.length > 0 && (
-        <CompetitorsFaviconList domains={projectClass.competitor_domains} maxVisible={3} />
+      {classMetadata.competitor_domains && classMetadata.competitor_domains.length > 0 && (
+        <CompetitorsFaviconList domains={classMetadata.competitor_domains} maxVisible={3} />
       )}
 
       {/* Stats & Chart Tabs */}
@@ -189,34 +233,43 @@ export default function ClassDetail() {
           <TabsTrigger value="chart">Ranking Chart</TabsTrigger>
         </TabsList>
         <TabsContent value="stats" className="mt-4">
-          <RankingStatsCards stats={projectClass.rankingStats} />
+          <RankingStatsCards stats={rankingStats || { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 }} />
         </TabsContent>
         <TabsContent value="chart" className="mt-4">
           <RankingHistoryChart
             classId={classId!}
-            userDomain={projectClass.domain}
-            competitorDomains={projectClass.competitor_domains || []}
+            userDomain={classMetadata.domain}
+            competitorDomains={classMetadata.competitor_domains || []}
           />
         </TabsContent>
       </Tabs>
 
-      {/* Keywords Section - No Card wrapper */}
+      {/* Keywords Section - Server-side pagination */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Keywords</h2>
             <p className="text-sm text-muted-foreground">
-              {projectClass.keywordCount} keywords tracked
+              {keywordsData?.totalCount || 0} keywords tracked
             </p>
           </div>
           <AddKeywordsDialog onAddKeywords={handleAddKeywords} isLoading={addKeywords.isPending} />
         </div>
         <KeywordsTable 
-          keywords={projectClass.keywords} 
-          competitorDomains={projectClass.competitor_domains}
-          userDomain={projectClass.domain}
+          keywords={keywordsData?.keywords || []} 
+          competitorDomains={classMetadata.competitor_domains}
+          userDomain={classMetadata.domain}
           onDeleteKeywords={handleDeleteKeywords}
           onRefreshKeywords={handleRefreshSelected}
+          // Server-side pagination props
+          totalCount={keywordsData?.totalCount}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(0); }}
+          onSortChange={handleSortChange}
+          onSearchChange={handleSearchChange}
+          isLoading={keywordsLoading}
         />
       </div>
 
@@ -224,14 +277,14 @@ export default function ClassDetail() {
       <CheckProgressDialog
         open={isChecking}
         onOpenChange={setIsChecking}
-        className={projectClass.name}
+        className={classMetadata.name}
         progress={checkProgress}
         onComplete={handleCheckComplete}
       />
 
       {/* Settings Dialog */}
       <ClassSettingsDialog
-        projectClass={projectClass}
+        projectClass={projectClassForExport}
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
       />
