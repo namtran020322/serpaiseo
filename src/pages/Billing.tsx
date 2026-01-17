@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, Coins, TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Loader2, Zap, Star, Check, Users } from "lucide-react";
+import { CreditCard, Coins, TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Loader2, Zap, Star, Check, Users, Shield, BarChart3, RefreshCw } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -118,8 +118,19 @@ export default function Billing() {
     return <TrendingDown className="h-4 w-4 text-red-500" />;
   };
 
+  const getFeatures = (pkgId: string) => {
+    const baseFeatures = [
+      { icon: Check, text: "Unlimited keywords" },
+      { icon: BarChart3, text: "Ranking history & charts" },
+      { icon: RefreshCw, text: "Auto-check scheduling" },
+      { icon: Shield, text: "SERP data accuracy" },
+    ];
+    
+    return baseFeatures;
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Billing</h1>
         <p className="text-muted-foreground mt-2">
@@ -129,147 +140,192 @@ export default function Billing() {
 
       {/* Credit Balance Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Current Balance</CardTitle>
-            <Coins className="h-4 w-4 text-muted-foreground" />
+            <Coins className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-10 w-32" />
             ) : (
-              <div className="text-2xl font-bold text-primary">{formatCredits(balance)} credits</div>
+              <div className="text-3xl font-bold text-primary">{formatCredits(balance)}</div>
             )}
+            <p className="text-xs text-muted-foreground mt-1">credits available</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Purchased</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
+            <TrendingUp className="h-5 w-5 text-green-500" />
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-10 w-32" />
             ) : (
-              <div className="text-2xl font-bold">{formatCredits(totalPurchased)}</div>
+              <div className="text-3xl font-bold text-green-600">{formatCredits(totalPurchased)}</div>
             )}
+            <p className="text-xs text-muted-foreground mt-1">credits lifetime</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Used</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-500" />
+            <TrendingDown className="h-5 w-5 text-orange-500" />
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-10 w-32" />
             ) : (
-              <div className="text-2xl font-bold">{formatCredits(totalUsed)}</div>
+              <div className="text-3xl font-bold text-orange-600">{formatCredits(totalUsed)}</div>
             )}
+            <p className="text-xs text-muted-foreground mt-1">credits consumed</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Pricing Packages - Redesigned */}
+      {/* Pricing Packages - Reference-inspired Design */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">Buy Credits</h2>
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold mb-2">Choose Your Plan</h2>
+          <p className="text-muted-foreground">Select the perfect plan for your SEO tracking needs</p>
+        </div>
+        
         <div className="grid gap-6 lg:grid-cols-3">
-          {PRICING_PACKAGES.map((pkg) => (
-            <Card 
-              key={pkg.id} 
-              className={cn(
-                "relative flex flex-col transition-all",
-                pkg.popular && "border-primary shadow-lg ring-2 ring-primary/20",
-                currentTier === pkg.id && "bg-primary/5"
-              )}
-            >
-              {pkg.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-primary shadow-sm">
-                    <Star className="h-3 w-3 mr-1" /> Most Popular
-                  </Badge>
-                </div>
-              )}
-              
-              <CardHeader className="text-center pb-2 pt-6">
-                <CardTitle className="text-xl">{pkg.name}</CardTitle>
-                <div className="text-3xl font-bold mt-2">{formatVND(pkg.price)}</div>
-              </CardHeader>
-              
-              <CardContent className="flex-1 space-y-4">
-                {/* Credits - Main Feature */}
-                <div className="text-center py-4 bg-primary/5 rounded-lg">
-                  <div className="text-3xl font-bold text-primary">
-                    {formatCredits(pkg.credits)}
+          {PRICING_PACKAGES.map((pkg) => {
+            const isCurrentTier = currentTier === pkg.id;
+            const isPro = pkg.popular;
+            
+            return (
+              <Card 
+                key={pkg.id} 
+                className={cn(
+                  "relative flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl",
+                  isPro && "border-2 border-primary shadow-lg scale-[1.02]",
+                  isCurrentTier && "ring-2 ring-primary/50"
+                )}
+              >
+                {/* Popular Badge */}
+                {isPro && (
+                  <div className="absolute top-0 right-0">
+                    <div className="bg-primary text-primary-foreground px-4 py-1 text-xs font-semibold rounded-bl-lg">
+                      MOST POPULAR
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground">credits</div>
-                </div>
+                )}
                 
-                {/* Features List */}
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500 shrink-0" />
-                    <span>~{pkg.pricePerCredit.toFixed(1)}đ / credit</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-primary shrink-0" />
-                    <span><strong>{pkg.maxCompetitors}</strong> competitor domains</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500 shrink-0" />
-                    <span>Unlimited keywords</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500 shrink-0" />
-                    <span>Ranking history</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500 shrink-0" />
-                    <span>Auto-check scheduling</span>
-                  </li>
-                </ul>
-              </CardContent>
-              
-              <CardFooter className="pt-0">
-                <Button 
-                  className="w-full" 
-                  size="lg"
-                  variant={pkg.popular ? "default" : "outline"}
-                  onClick={() => handlePurchase(pkg.id)}
-                  disabled={purchaseLoading !== null}
-                >
-                  {purchaseLoading === pkg.id ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Zap className="mr-2 h-4 w-4" />
-                  )}
-                  Buy Now
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+                {/* Current Tier Badge */}
+                {isCurrentTier && (
+                  <div className="absolute top-0 left-0">
+                    <div className="bg-green-500 text-white px-3 py-1 text-xs font-semibold rounded-br-lg">
+                      CURRENT
+                    </div>
+                  </div>
+                )}
+                
+                <CardHeader className={cn(
+                  "text-center pb-4 pt-8",
+                  isPro && "bg-gradient-to-br from-primary/5 to-primary/10"
+                )}>
+                  <CardTitle className="text-xl font-bold">{pkg.name}</CardTitle>
+                  
+                  {/* Price */}
+                  <div className="mt-4">
+                    <span className="text-4xl font-extrabold">{formatVND(pkg.price)}</span>
+                  </div>
+                  
+                  {/* Credits Highlight */}
+                  <div className={cn(
+                    "mt-4 py-3 px-4 rounded-lg",
+                    isPro ? "bg-primary text-primary-foreground" : "bg-muted"
+                  )}>
+                    <div className="text-2xl font-bold">{formatCredits(pkg.credits)}</div>
+                    <div className={cn(
+                      "text-sm",
+                      isPro ? "text-primary-foreground/80" : "text-muted-foreground"
+                    )}>
+                      credits
+                    </div>
+                  </div>
+                  
+                  {/* Price per credit */}
+                  <p className="text-sm text-muted-foreground mt-2">
+                    ~{pkg.pricePerCredit.toFixed(1)}đ per credit
+                  </p>
+                </CardHeader>
+                
+                <CardContent className="flex-1 pt-4">
+                  {/* Features List */}
+                  <ul className="space-y-3">
+                    {/* Competitor Limit - Highlighted */}
+                    <li className="flex items-center gap-3 p-2 rounded-md bg-muted/50">
+                      <Users className="h-5 w-5 text-primary shrink-0" />
+                      <span className="font-medium">
+                        Up to <strong className="text-primary">{pkg.maxCompetitors}</strong> competitors per class
+                      </span>
+                    </li>
+                    
+                    {getFeatures(pkg.id).map((feature, idx) => (
+                      <li key={idx} className="flex items-center gap-3">
+                        <feature.icon className="h-4 w-4 text-green-500 shrink-0" />
+                        <span className="text-sm">{feature.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                
+                <CardFooter className="pt-4 pb-6">
+                  <Button 
+                    className={cn(
+                      "w-full h-12 text-base font-semibold",
+                      isPro && "bg-primary hover:bg-primary/90"
+                    )}
+                    size="lg"
+                    variant={isPro ? "default" : "outline"}
+                    onClick={() => handlePurchase(pkg.id)}
+                    disabled={purchaseLoading !== null}
+                  >
+                    {purchaseLoading === pkg.id ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="mr-2 h-5 w-5" />
+                        {isCurrentTier ? 'Buy More' : 'Get Started'}
+                      </>
+                    )}
+                  </Button>
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       </div>
 
       {/* Credit Usage Info */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Credit Usage</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Coins className="h-5 w-5" />
+            Credit Usage
+          </CardTitle>
           <CardDescription>How credits are calculated for each ranking check</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">50</div>
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">50</div>
               <div>
-                <div className="font-medium">Top 50 Check</div>
+                <div className="font-semibold">Top 50 Check</div>
                 <div className="text-sm text-muted-foreground">5 credits per keyword</div>
               </div>
             </div>
             <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">100</div>
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">100</div>
               <div>
-                <div className="font-medium">Top 100 Check</div>
+                <div className="font-semibold">Top 100 Check</div>
                 <div className="text-sm text-muted-foreground">10 credits per keyword</div>
               </div>
             </div>

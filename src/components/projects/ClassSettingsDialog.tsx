@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectClassWithKeywords, useUpdateClass, useDeleteClass } from "@/hooks/useProjects";
-import { Loader2, Trash2, X, Plus, Lock } from "lucide-react";
+import { Loader2, Trash2, X, Plus, Lock, AlertCircle } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   AlertDialog,
@@ -45,6 +45,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { countries } from "@/data/countries";
 import { languages } from "@/data/languages";
+import { useCredits } from "@/hooks/useCredits";
+import { getMaxCompetitorsByPurchased } from "@/lib/pricing";
 
 const formSchema = z.object({
   name: z.string().min(1, "Class name is required"),
@@ -69,6 +71,10 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
   const { projectId } = useParams();
   const updateClass = useUpdateClass();
   const deleteClass = useDeleteClass();
+  const { totalPurchased } = useCredits();
+  
+  const maxCompetitors = getMaxCompetitorsByPurchased(totalPurchased);
+  
   const [competitorDomains, setCompetitorDomains] = useState<string[]>(projectClass.competitor_domains || []);
   const [newCompetitor, setNewCompetitor] = useState("");
 
@@ -100,6 +106,8 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
   }, [projectClass, form]);
 
   const selectedCountry = countries.find((c) => c.id === form.watch("countryId"));
+  
+  const isAtCompetitorLimit = competitorDomains.length >= maxCompetitors;
 
   const onSubmit = async (data: FormData) => {
     const country = countries.find((c) => c.id === data.countryId);
@@ -147,6 +155,8 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
   };
 
   const addCompetitor = () => {
+    if (isAtCompetitorLimit) return;
+    
     const domain = extractRootDomain(newCompetitor);
     if (domain && !competitorDomains.includes(domain)) {
       setCompetitorDomains([...competitorDomains, domain]);
@@ -298,7 +308,12 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
 
               <TabsContent value="competitors" className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <FormLabel>Competitor Domains</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Competitor Domains</FormLabel>
+                    <span className={`text-xs ${isAtCompetitorLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {competitorDomains.length}/{maxCompetitors}
+                    </span>
+                  </div>
                   <div className="flex gap-2">
                     <Input
                       placeholder="competitor.com"
@@ -310,11 +325,23 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
                           addCompetitor();
                         }
                       }}
+                      disabled={isAtCompetitorLimit}
                     />
-                    <Button type="button" variant="outline" onClick={addCompetitor}>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={addCompetitor}
+                      disabled={isAtCompetitorLimit}
+                    >
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
+                  {isAtCompetitorLimit && (
+                    <div className="flex items-center gap-2 text-xs text-destructive">
+                      <AlertCircle className="h-3 w-3" />
+                      <span>Đã đạt giới hạn {maxCompetitors} đối thủ. <a href="/dashboard/billing" className="underline">Nâng cấp</a> để thêm.</span>
+                    </div>
+                  )}
                   {competitorDomains.length > 0 && (
                     <div className="flex flex-wrap gap-2 pt-2">
                       {competitorDomains.map((domain) => (

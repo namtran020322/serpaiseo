@@ -14,12 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { X, ChevronLeft, ChevronRight, Plus, Upload } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Plus, Upload, AlertCircle } from "lucide-react";
 import { useCreateClass, useCheckRankings } from "@/hooks/useProjects";
 import { countries } from "@/data/countries";
 import { languages } from "@/data/languages";
 import { useGeoData } from "@/hooks/useGeoData";
 import { LocationCombobox } from "@/components/LocationCombobox";
+import { useCredits } from "@/hooks/useCredits";
+import { getMaxCompetitorsByPurchased } from "@/lib/pricing";
 
 interface AddClassDialogProps {
   open?: boolean;
@@ -35,6 +37,9 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
   const createClass = useCreateClass();
   const checkRankings = useCheckRankings();
   const { getLocationsByCountry } = useGeoData();
+  const { totalPurchased } = useCredits();
+  
+  const maxCompetitors = getMaxCompetitorsByPurchased(totalPurchased);
 
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
@@ -103,7 +108,11 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
     }
   };
 
+  const isAtCompetitorLimit = competitorDomains.length >= maxCompetitors;
+
   const addCompetitor = () => {
+    if (isAtCompetitorLimit) return;
+    
     const cleanDomain = extractRootDomain(newCompetitor);
     if (cleanDomain && !competitorDomains.includes(cleanDomain)) {
       setCompetitorDomains([...competitorDomains, cleanDomain]);
@@ -260,18 +269,34 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
               </div>
 
               <div className="space-y-2">
-                <Label>Competitor Domains (optional)</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Competitor Domains (optional)</Label>
+                  <span className={`text-xs ${isAtCompetitorLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {competitorDomains.length}/{maxCompetitors}
+                  </span>
+                </div>
                 <div className="flex gap-2">
                   <Input
                     placeholder="e.g. competitor.com"
                     value={newCompetitor}
                     onChange={(e) => setNewCompetitor(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCompetitor())}
+                    disabled={isAtCompetitorLimit}
                   />
-                  <Button variant="outline" onClick={addCompetitor}>
+                  <Button 
+                    variant="outline" 
+                    onClick={addCompetitor}
+                    disabled={isAtCompetitorLimit}
+                  >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
+                {isAtCompetitorLimit && (
+                  <div className="flex items-center gap-2 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3" />
+                    <span>Đã đạt giới hạn {maxCompetitors} đối thủ. <a href="/dashboard/billing" className="underline">Nâng cấp</a> để thêm.</span>
+                  </div>
+                )}
                 {competitorDomains.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {competitorDomains.map((d) => (
@@ -476,30 +501,25 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
           )}
         </div>
 
-        <DialogFooter className="flex justify-between">
-          <div>
-            {step > 1 && (
-              <Button variant="outline" onClick={() => setStep((s) => (s - 1) as Step)}>
-                <ChevronLeft className="mr-2 h-4 w-4" />
-                Back
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleClose}>
-              Cancel
+        <DialogFooter className="flex justify-between mt-4">
+          <Button
+            variant="outline"
+            onClick={() => step > 1 ? setStep((step - 1) as Step) : handleClose()}
+          >
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            {step === 1 ? "Cancel" : "Back"}
+          </Button>
+
+          {step < 4 ? (
+            <Button onClick={() => setStep((step + 1) as Step)} disabled={!canProceed()}>
+              Next
+              <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
-            {step < 4 ? (
-              <Button onClick={() => setStep((s) => (s + 1) as Step)} disabled={!canProceed()}>
-                Next
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            ) : (
-              <Button onClick={handleSubmit} disabled={!canProceed() || isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Class"}
-              </Button>
-            )}
-          </div>
+          ) : (
+            <Button onClick={handleSubmit} disabled={isSubmitting || !canProceed()}>
+              {isSubmitting ? "Creating..." : "Create Class"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

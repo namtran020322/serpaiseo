@@ -184,6 +184,10 @@ Deno.serve(async (req) => {
     const successUrl = `${baseOrigin}/dashboard/billing?payment=success`
     const errorUrl = `${baseOrigin}/dashboard/billing?payment=error`
     const cancelUrl = `${baseOrigin}/dashboard/billing?payment=cancel`
+    
+    // Set expiration time (30 minutes from now)
+    const expireDate = new Date(Date.now() + 30 * 60 * 1000)
+    const expireOn = expireDate.toISOString().replace('T', ' ').slice(0, 19)
 
     // Generate signature for Sepay using HMAC-SHA256
     const signedFields = [
@@ -193,6 +197,7 @@ Deno.serve(async (req) => {
       `order_amount=${pkg.price}`,
       `order_description=${description}`,
       `order_invoice_number=${orderInvoiceNumber}`,
+      `expire_on=${expireOn}`,
       `success_url=${successUrl}`,
       `error_url=${errorUrl}`,
       `cancel_url=${cancelUrl}`
@@ -200,7 +205,7 @@ Deno.serve(async (req) => {
     const signedString = signedFields.join(',')
     const signature = await hmacSha256(signedString, sepaySecretKey)
 
-    console.log(`[INFO] Generated checkout form data for order ${orderInvoiceNumber}`)
+    console.log(`[INFO] Generated checkout form data for order ${orderInvoiceNumber}, expires at ${expireOn}`)
 
     // Return form data for POST submission
     return new Response(
@@ -216,6 +221,7 @@ Deno.serve(async (req) => {
           order_amount: pkg.price.toString(),
           order_description: description,
           order_invoice_number: orderInvoiceNumber,
+          expire_on: expireOn,
           success_url: successUrl,
           error_url: errorUrl,
           cancel_url: cancelUrl,

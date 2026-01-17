@@ -594,27 +594,33 @@ export function useCheckRankings() {
 
       // Parse error message from response body if available
       if (response.error) {
-        // Method 1: Check if response.data contains error info
+        // FunctionsHttpError has context as Response object for non-2xx
+        const httpError = response.error as { context?: Response; message?: string };
+        
+        // Try to read JSON body from Response object
+        if (httpError.context && typeof httpError.context.json === 'function') {
+          try {
+            const errorBody = await httpError.context.json();
+            if (errorBody?.message) {
+              throw new Error(errorBody.message);
+            }
+          } catch {
+            // If JSON parse fails, continue to next method
+          }
+        }
+        
+        // Fallback: Check if error has message property
+        if (httpError.message && httpError.message !== 'Edge Function returned a non-2xx status code') {
+          throw new Error(httpError.message);
+        }
+        
+        // Fallback: Check response.data for error info
         const errorData = response.data as { error?: string; message?: string } | null;
         if (errorData?.message) {
           throw new Error(errorData.message);
         }
         
-        // Method 2: Try to extract from FunctionsHttpError context
-        // The Supabase client puts the response body in error.context for non-2xx responses
-        const httpError = response.error as { context?: { body?: string } };
-        if (httpError.context?.body) {
-          try {
-            const parsed = JSON.parse(httpError.context.body);
-            if (parsed?.message) {
-              throw new Error(parsed.message);
-            }
-          } catch {
-            // Ignore parse errors
-          }
-        }
-        
-        throw response.error;
+        throw new Error('Kiểm tra thất bại. Vui lòng thử lại.');
       }
       return response.data as CheckRankingsResult;
     },
@@ -628,12 +634,19 @@ export function useCheckRankings() {
       });
     },
     onError: (error) => {
-      const isInsufficientCredits = error.message?.toLowerCase().includes('credit');
+      const errorMessage = error.message || "Unknown error occurred";
+      const isInsufficientCredits = errorMessage.toLowerCase().includes('credit') || 
+                                     errorMessage.toLowerCase().includes('không đủ');
       
       toast({
         variant: "destructive",
         title: isInsufficientCredits ? "Không đủ credits" : "Error checking rankings",
-        description: error.message,
+        description: errorMessage,
+        action: isInsufficientCredits ? (
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/dashboard/billing'}>
+            Nạp thêm
+          </Button>
+        ) : undefined,
       });
     },
   });
