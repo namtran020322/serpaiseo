@@ -4,14 +4,21 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const ALLOWED_ORIGINS = [
   'https://serpaiseo.lovable.app',
   'https://id-preview--466d3968-bedc-40b5-9be4-10fb57a12051.lovable.app',
+  'https://466d3968-bedc-40b5-9be4-10fb57a12051.lovableproject.com',
+  'https://serp.aiseocore.com',
   'http://localhost:5173',
   'http://localhost:8080'
 ]
 
 function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin.startsWith(o.replace(/:\d+$/, ''))) 
-    ? origin 
-    : ALLOWED_ORIGINS[0]
+  // Accept any lovable.app, lovableproject.com subdomain, or custom domain
+  const isAllowed = origin && (
+    ALLOWED_ORIGINS.includes(origin) ||
+    origin.endsWith('.lovable.app') ||
+    origin.endsWith('.lovableproject.com')
+  )
+  
+  const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0]
   
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
