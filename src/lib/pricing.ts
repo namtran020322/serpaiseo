@@ -4,6 +4,7 @@ export interface PricingPackage {
   price: number; // VND
   credits: number;
   pricePerCredit: number;
+  maxCompetitors: number;
   popular?: boolean;
 }
 
@@ -14,6 +15,7 @@ export const PRICING_PACKAGES: PricingPackage[] = [
     price: 200000,
     credits: 10000,
     pricePerCredit: 20,
+    maxCompetitors: 5,
   },
   {
     id: 'pro',
@@ -21,6 +23,7 @@ export const PRICING_PACKAGES: PricingPackage[] = [
     price: 500000,
     credits: 28000,
     pricePerCredit: 17.86,
+    maxCompetitors: 10,
     popular: true,
   },
   {
@@ -29,8 +32,23 @@ export const PRICING_PACKAGES: PricingPackage[] = [
     price: 2000000,
     credits: 135000,
     pricePerCredit: 14.81,
+    maxCompetitors: 15,
   },
 ];
+
+// Get max competitors allowed based on user's total purchased amount
+export function getMaxCompetitorsByPurchased(totalPurchased: number): number {
+  if (totalPurchased >= 2000000) return 15; // Enterprise
+  if (totalPurchased >= 500000) return 10;  // Pro
+  return 5; // Basic (default)
+}
+
+// Get user tier name based on total purchased
+export function getUserTier(totalPurchased: number): 'basic' | 'pro' | 'enterprise' {
+  if (totalPurchased >= 2000000) return 'enterprise';
+  if (totalPurchased >= 500000) return 'pro';
+  return 'basic';
+}
 
 export function formatVND(amount: number): string {
   return new Intl.NumberFormat('vi-VN', {

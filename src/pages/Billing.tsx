@@ -1,18 +1,19 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, Coins, TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Loader2, Zap, Star } from "lucide-react";
+import { CreditCard, Coins, TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Loader2, Zap, Star, Check, Users } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { PRICING_PACKAGES, formatVND, formatCredits } from "@/lib/pricing";
+import { PRICING_PACKAGES, formatVND, formatCredits, getUserTier } from "@/lib/pricing";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export default function Billing() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -20,6 +21,8 @@ export default function Billing() {
   const { toast } = useToast();
   const { balance, totalPurchased, totalUsed, isLoading, transactions, transactionsLoading, orders, ordersLoading, refreshCredits } = useCredits();
   const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null);
+
+  const currentTier = getUserTier(totalPurchased);
 
   // Handle payment result from redirect
   useEffect(() => {
@@ -124,7 +127,7 @@ export default function Billing() {
         </p>
       </div>
 
-      {/* Credit Balance */}
+      {/* Credit Balance Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -167,39 +170,71 @@ export default function Billing() {
         </Card>
       </div>
 
-      {/* Pricing Packages */}
+      {/* Pricing Packages - Redesigned */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Buy Credits</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-6 lg:grid-cols-3">
           {PRICING_PACKAGES.map((pkg) => (
             <Card 
               key={pkg.id} 
-              className={`relative ${pkg.popular ? 'border-primary shadow-lg' : ''}`}
+              className={cn(
+                "relative flex flex-col transition-all",
+                pkg.popular && "border-primary shadow-lg ring-2 ring-primary/20",
+                currentTier === pkg.id && "bg-primary/5"
+              )}
             >
               {pkg.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-primary">
+                  <Badge className="bg-primary shadow-sm">
                     <Star className="h-3 w-3 mr-1" /> Most Popular
                   </Badge>
                 </div>
               )}
-              <CardHeader className="text-center pt-6">
-                <CardTitle className="text-2xl">{pkg.name}</CardTitle>
-                <CardDescription>
-                  <span className="text-3xl font-bold text-foreground">{formatVND(pkg.price)}</span>
-                </CardDescription>
+              
+              <CardHeader className="text-center pb-2 pt-6">
+                <CardTitle className="text-xl">{pkg.name}</CardTitle>
+                <div className="text-3xl font-bold mt-2">{formatVND(pkg.price)}</div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-primary">{formatCredits(pkg.credits)}</div>
+              
+              <CardContent className="flex-1 space-y-4">
+                {/* Credits - Main Feature */}
+                <div className="text-center py-4 bg-primary/5 rounded-lg">
+                  <div className="text-3xl font-bold text-primary">
+                    {formatCredits(pkg.credits)}
+                  </div>
                   <div className="text-sm text-muted-foreground">credits</div>
                 </div>
-                <div className="text-center text-sm text-muted-foreground">
-                  ~{pkg.pricePerCredit.toFixed(2)}đ / credit
-                </div>
+                
+                {/* Features List */}
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500 shrink-0" />
+                    <span>~{pkg.pricePerCredit.toFixed(1)}đ / credit</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary shrink-0" />
+                    <span><strong>{pkg.maxCompetitors}</strong> competitor domains</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500 shrink-0" />
+                    <span>Unlimited keywords</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500 shrink-0" />
+                    <span>Ranking history</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500 shrink-0" />
+                    <span>Auto-check scheduling</span>
+                  </li>
+                </ul>
+              </CardContent>
+              
+              <CardFooter className="pt-0">
                 <Button 
                   className="w-full" 
                   size="lg"
+                  variant={pkg.popular ? "default" : "outline"}
                   onClick={() => handlePurchase(pkg.id)}
                   disabled={purchaseLoading !== null}
                 >
@@ -210,7 +245,7 @@ export default function Billing() {
                   )}
                   Buy Now
                 </Button>
-              </CardContent>
+              </CardFooter>
             </Card>
           ))}
         </div>
@@ -220,17 +255,23 @@ export default function Billing() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Credit Usage</CardTitle>
-          <CardDescription>How credits are calculated</CardDescription>
+          <CardDescription>How credits are calculated for each ranking check</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="p-4 bg-muted rounded-lg">
-              <div className="font-medium">Top 50 Check</div>
-              <div className="text-sm text-muted-foreground">5 credits per keyword</div>
+            <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">50</div>
+              <div>
+                <div className="font-medium">Top 50 Check</div>
+                <div className="text-sm text-muted-foreground">5 credits per keyword</div>
+              </div>
             </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <div className="font-medium">Top 100 Check</div>
-              <div className="text-sm text-muted-foreground">10 credits per keyword</div>
+            <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">100</div>
+              <div>
+                <div className="font-medium">Top 100 Check</div>
+                <div className="text-sm text-muted-foreground">10 credits per keyword</div>
+              </div>
             </div>
           </div>
         </CardContent>

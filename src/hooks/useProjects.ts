@@ -412,6 +412,7 @@ export interface CreateClassInput {
   device: string;
   topResults: number;
   schedule: string | null;
+  scheduleTime?: string;
   keywords: string[];
 }
 
@@ -442,7 +443,8 @@ export function useCreateClass() {
           device: input.device,
           top_results: input.topResults,
           schedule: input.schedule,
-        })
+          schedule_time: input.scheduleTime || "08:00",
+        } as any)
         .select()
         .single();
 
@@ -496,6 +498,7 @@ export interface UpdateClassInput {
   device?: string;
   topResults?: number;
   schedule?: string | null;
+  scheduleTime?: string;
 }
 
 export function useUpdateClass() {
@@ -517,6 +520,7 @@ export function useUpdateClass() {
       if (input.device !== undefined) updateData.device = input.device;
       if (input.topResults !== undefined) updateData.top_results = input.topResults;
       if (input.schedule !== undefined) updateData.schedule = input.schedule;
+      if (input.scheduleTime !== undefined) updateData.schedule_time = input.scheduleTime;
 
       const { data, error } = await supabase
         .from("project_classes")
@@ -590,10 +594,26 @@ export function useCheckRankings() {
 
       // Parse error message from response body if available
       if (response.error) {
+        // Method 1: Check if response.data contains error info
         const errorData = response.data as { error?: string; message?: string } | null;
         if (errorData?.message) {
           throw new Error(errorData.message);
         }
+        
+        // Method 2: Try to extract from FunctionsHttpError context
+        // The Supabase client puts the response body in error.context for non-2xx responses
+        const httpError = response.error as { context?: { body?: string } };
+        if (httpError.context?.body) {
+          try {
+            const parsed = JSON.parse(httpError.context.body);
+            if (parsed?.message) {
+              throw new Error(parsed.message);
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+        
         throw response.error;
       }
       return response.data as CheckRankingsResult;
