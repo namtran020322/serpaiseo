@@ -641,12 +641,9 @@ export function useCheckRankings() {
       toast({
         variant: "destructive",
         title: isInsufficientCredits ? "Không đủ credits" : "Error checking rankings",
-        description: errorMessage,
-        action: isInsufficientCredits ? (
-          <Button variant="outline" size="sm" onClick={() => window.location.href = '/dashboard/billing'}>
-            Nạp thêm
-          </Button>
-        ) : undefined,
+        description: isInsufficientCredits 
+          ? `${errorMessage}. Vui lòng nạp thêm credit tại trang Billing.`
+          : errorMessage,
       });
     },
   });
