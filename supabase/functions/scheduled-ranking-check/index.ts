@@ -5,6 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Calculate credits needed for a check
+function calculateCreditsNeeded(topResults: number, keywordCount: number): number {
+  const creditsPerKeyword = Math.ceil(topResults / 10)
+  return creditsPerKeyword * keywordCount
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -25,10 +31,18 @@ Deno.serve(async (req) => {
 
     console.log(`[INFO] Scheduled check running at ${currentTime} Vietnam time`)
 
-    // Find classes that need to be checked
+    // Find classes that need to be checked with their keyword count
     const { data: classes, error: classesError } = await supabase
       .from('project_classes')
-      .select('id, user_id, schedule, schedule_time, last_checked_at')
+      .select(`
+        id, 
+        user_id, 
+        schedule, 
+        schedule_time, 
+        last_checked_at,
+        top_results,
+        project_keywords(count)
+      `)
       .not('schedule', 'is', null)
       .neq('schedule', 'none')
 
@@ -74,38 +88,86 @@ Deno.serve(async (req) => {
 
     console.log(`[INFO] Found ${classesToCheck.length} classes to check`)
 
-    // Trigger check for each class (non-blocking)
+    // Process each class
     const results = await Promise.allSettled(
       classesToCheck.map(async (cls) => {
         try {
-          // Get user's auth token is not possible from service role
-          // Instead, we'll directly call the check logic or use service role
-          console.log(`[INFO] Triggering check for class ${cls.id}`)
-          
-          // Update last_checked_at to prevent duplicate runs
-          await supabase
-            .from('project_classes')
-            .update({ last_checked_at: new Date().toISOString() })
-            .eq('id', cls.id)
+          const keywordCount = cls.project_keywords?.[0]?.count || 0
+          if (keywordCount === 0) {
+            console.log(`[INFO] Skipping class ${cls.id} - no keywords`)
+            return { classId: cls.id, success: true, skipped: true, reason: 'no_keywords' }
+          }
 
-          return { classId: cls.id, success: true }
+          // Check user's credit balance
+          const { data: userCredits, error: creditsError } = await supabase
+            .from('user_credits')
+            .select('balance')
+            .eq('user_id', cls.user_id)
+            .maybeSingle()
+
+          if (creditsError) {
+            console.error(`[ERROR] Failed to fetch credits for user ${cls.user_id}:`, creditsError)
+            return { classId: cls.id, success: false, reason: 'credits_error' }
+          }
+
+          const creditsNeeded = calculateCreditsNeeded(cls.top_results || 100, keywordCount)
+          const currentBalance = userCredits?.balance || 0
+
+          if (currentBalance < creditsNeeded) {
+            console.log(`[INFO] Skipping class ${cls.id} - insufficient credits (need ${creditsNeeded}, have ${currentBalance})`)
+            // Still update last_checked_at to prevent repeated attempts
+            await supabase
+              .from('project_classes')
+              .update({ last_checked_at: now.toISOString() })
+              .eq('id', cls.id)
+            return { classId: cls.id, success: false, reason: 'insufficient_credits', needed: creditsNeeded, available: currentBalance }
+          }
+
+          // Call the check-project-keywords function directly via HTTP
+          // Using internal Supabase function URL
+          const functionUrl = `${supabaseUrl}/functions/v1/check-project-keywords`
+          
+          const checkResponse = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({ classId: cls.id }),
+          })
+
+          if (!checkResponse.ok) {
+            const errorText = await checkResponse.text()
+            console.error(`[ERROR] Check failed for class ${cls.id}:`, errorText)
+            return { classId: cls.id, success: false, reason: 'check_failed', error: errorText }
+          }
+
+          const checkResult = await checkResponse.json()
+          console.log(`[INFO] Successfully checked class ${cls.id}:`, checkResult)
+
+          return { classId: cls.id, success: true, result: checkResult }
         } catch (err) {
-          console.error(`[ERROR] Failed to check class ${cls.id}:`, err)
-          return { classId: cls.id, success: false }
+          console.error(`[ERROR] Failed to process class ${cls.id}:`, err)
+          return { classId: cls.id, success: false, reason: 'exception', error: String(err) }
         }
       })
     )
 
-    const successful = results.filter(r => r.status === 'fulfilled').length
-    const failed = results.filter(r => r.status === 'rejected').length
+    const successful = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length
+    const skipped = results.filter(r => r.status === 'fulfilled' && (r.value as any).skipped).length
+    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !(r.value as any).success && !(r.value as any).skipped)).length
+
+    console.log(`[INFO] Scheduled check completed: ${successful} successful, ${skipped} skipped, ${failed} failed`)
 
     return new Response(
       JSON.stringify({
         message: 'Scheduled check completed',
-        checked: classesToCheck.length,
+        totalClasses: classesToCheck.length,
         successful,
+        skipped,
         failed,
-        currentTime
+        currentTime,
+        details: results.map(r => r.status === 'fulfilled' ? r.value : { error: r.reason })
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
