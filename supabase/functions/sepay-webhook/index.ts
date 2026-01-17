@@ -88,12 +88,6 @@ async function verifySignature(payload: SepayWebhookPayload, secretKey: string):
   }
 }
 
-// Validate UUID format
-function isValidUUID(str: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  return uuidRegex.test(str)
-}
-
 // Validate order invoice number format
 function isValidOrderInvoiceNumber(str: string): boolean {
   // Format: ORD-XXXXXXXX-TIMESTAMP (where X is hex)
@@ -173,112 +167,50 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Find the order
-    const { data: order, error: orderError } = await supabase
-      .from('billing_orders')
-      .select('*')
-      .eq('order_invoice_number', orderInvoiceNumber)
-      .single()
+    console.log(`[INFO] Processing payment atomically for order ${orderInvoiceNumber}`)
 
-    if (orderError || !order) {
-      console.error(`[ERROR] Order not found: ${orderInvoiceNumber}`)
-      return new Response(
-        JSON.stringify({ error: 'Order not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // Call atomic RPC function - all operations happen in single transaction
+    const { data: result, error: rpcError } = await supabase.rpc('process_payment_webhook', {
+      p_order_invoice_number: orderInvoiceNumber,
+      p_sepay_order_id: sepayOrderId || null,
+      p_sepay_transaction_id: sepayTransactionId || null
+    })
 
-    // Check for duplicate processing
-    if (order.sepay_transaction_id === sepayTransactionId) {
-      console.log(`[INFO] Duplicate webhook for transaction ${sepayTransactionId}`)
-      return new Response(
-        JSON.stringify({ success: true, message: 'Already processed' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Check if order is already paid
-    if (order.status === 'paid') {
-      console.log(`[INFO] Order ${orderInvoiceNumber} already paid`)
-      return new Response(
-        JSON.stringify({ success: true, message: 'Order already paid' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    console.log(`[INFO] Processing payment for order ${orderInvoiceNumber}, credits: ${order.credits}`)
-
-    // Update order status
-    const { error: updateOrderError } = await supabase
-      .from('billing_orders')
-      .update({
-        status: 'paid',
-        sepay_order_id: sepayOrderId,
-        sepay_transaction_id: sepayTransactionId,
-        paid_at: new Date().toISOString(),
-      })
-      .eq('id', order.id)
-
-    if (updateOrderError) {
-      console.error('[ERROR] Failed to update order')
+    if (rpcError) {
+      console.error('[ERROR] RPC error:', rpcError.message)
       return new Response(
         JSON.stringify({ error: 'Processing failed' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Get current user credits
-    const { data: existingCredits } = await supabase
-      .from('user_credits')
-      .select('*')
-      .eq('user_id', order.user_id)
-      .single()
-
-    const currentBalance = existingCredits?.balance || 0
-    const currentTotalPurchased = existingCredits?.total_purchased || 0
-    const newBalance = currentBalance + order.credits
-    const newTotalPurchased = currentTotalPurchased + order.credits
-
-    // Upsert user credits
-    const { error: creditsError } = await supabase
-      .from('user_credits')
-      .upsert({
-        user_id: order.user_id,
-        balance: newBalance,
-        total_purchased: newTotalPurchased,
-        total_used: existingCredits?.total_used || 0,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id',
-      })
-
-    if (creditsError) {
-      console.error('[ERROR] Failed to update credits')
+    if (!result.success) {
+      console.error('[ERROR] Payment processing failed:', result.error)
+      
+      // Map error codes to HTTP status
+      const statusMap: Record<string, number> = {
+        'order_not_found': 404,
+        'invalid_invoice_number': 400,
+      }
+      const status = statusMap[result.error] || 500
+      
       return new Response(
-        JSON.stringify({ error: 'Processing failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: result.error }),
+        { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Insert credit transaction
-    const { error: transactionError } = await supabase
-      .from('credit_transactions')
-      .insert({
-        user_id: order.user_id,
-        amount: order.credits,
-        type: 'purchase',
-        description: `Purchased ${order.credits} credits (${order.package_id} package)`,
-        reference_id: order.id,
-        balance_after: newBalance,
-      })
-
-    if (transactionError) {
-      console.error('[ERROR] Failed to insert transaction record')
-      // Non-critical, continue
+    // Check for idempotent responses
+    if (result.message === 'already_processed' || result.message === 'already_paid') {
+      console.log(`[INFO] Order ${orderInvoiceNumber}: ${result.message}`)
+      return new Response(
+        JSON.stringify({ success: true, message: result.message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     console.log(`[INFO] Successfully processed payment for order ${orderInvoiceNumber}`)
-    console.log(`[INFO] User credited with ${order.credits} credits, new balance: ${newBalance}`)
+    console.log(`[INFO] Credits added: ${result.credits_added}, New balance: ${result.new_balance}`)
 
     return new Response(
       JSON.stringify({ success: true }),

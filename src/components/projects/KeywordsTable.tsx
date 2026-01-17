@@ -2,7 +2,6 @@ import React, { useState, useMemo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   getFilteredRowModel,
   getExpandedRowModel,
@@ -12,11 +11,11 @@ import {
   ColumnFiltersState,
   RowSelectionState,
   ExpandedState,
+  PaginationState,
 } from "@tanstack/react-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronRight, ChevronDown, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Loader2 } from "lucide-react";
 import { ProjectKeyword } from "@/hooks/useProjects";
 import { DataTableToolbar } from "@/components/ui/data-table-toolbar";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
@@ -32,6 +31,15 @@ interface KeywordsTableProps {
   userDomain?: string;
   onDeleteKeywords?: (ids: string[]) => void;
   onRefreshKeywords?: (ids: string[]) => void;
+  // Server-side pagination props
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  onSortChange?: (sortBy: string | undefined, sortDesc: boolean) => void;
+  onSearchChange?: (search: string) => void;
+  isLoading?: boolean;
 }
 
 interface SerpResult {
@@ -124,12 +132,46 @@ export function KeywordsTable({
   userDomain,
   onDeleteKeywords,
   onRefreshKeywords,
+  // Server-side pagination props
+  totalCount,
+  page = 0,
+  pageSize = 20,
+  onPageChange,
+  onPageSizeChange,
+  onSortChange,
+  onSearchChange,
+  isLoading = false,
 }: KeywordsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [showSerpTitles, setShowSerpTitles] = useState(false);
+
+  // Determine if we're using server-side pagination
+  const isServerSide = totalCount !== undefined && onPageChange !== undefined;
+  const pageCount = isServerSide ? Math.ceil(totalCount / pageSize) : undefined;
+
+  // Handle sorting change for server-side
+  const handleSortingChange = (updater: React.SetStateAction<SortingState>) => {
+    const newSorting = typeof updater === "function" ? updater(sorting) : updater;
+    setSorting(newSorting);
+    
+    if (isServerSide && onSortChange) {
+      const sortCol = newSorting[0];
+      onSortChange(sortCol?.id, sortCol?.desc ?? false);
+    }
+  };
+
+  // Handle search for server-side
+  const handleSearchChange = (value: string) => {
+    if (isServerSide && onSearchChange) {
+      onSearchChange(value);
+    } else {
+      // Client-side filtering
+      setColumnFilters([{ id: "keyword", value }]);
+    }
+  };
 
   const columns = useMemo<ColumnDef<ProjectKeyword>[]>(() => [
   {
@@ -275,22 +317,40 @@ export function KeywordsTable({
       columnFilters,
       rowSelection,
       expanded,
+      pagination: isServerSide ? { pageIndex: page, pageSize } : undefined,
     },
-    onSortingChange: setSorting,
+    onSortingChange: handleSortingChange,
     onColumnFiltersChange: setColumnFilters,
     onRowSelectionChange: setRowSelection,
     onExpandedChange: setExpanded,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: isServerSide ? undefined : getSortedRowModel(),
+    getFilteredRowModel: isServerSide ? undefined : getFilteredRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
     getRowCanExpand: () => competitorDomains.length > 0,
+    // Server-side pagination config
+    manualPagination: isServerSide,
+    manualSorting: isServerSide,
+    manualFiltering: isServerSide,
+    pageCount: pageCount,
+    onPaginationChange: isServerSide ? (updater) => {
+      const newState = typeof updater === "function" 
+        ? updater({ pageIndex: page, pageSize }) 
+        : updater;
+      if (newState.pageIndex !== page && onPageChange) {
+        onPageChange(newState.pageIndex);
+      }
+      if (newState.pageSize !== pageSize && onPageSizeChange) {
+        onPageSizeChange(newState.pageSize);
+      }
+    } : undefined,
   });
 
-  const selectedIds = Object.keys(rowSelection).map((index) => keywords[parseInt(index)]?.id).filter(Boolean);
+  const selectedIds = Object.keys(rowSelection)
+    .map((index) => keywords[parseInt(index)]?.id)
+    .filter(Boolean);
 
-  if (keywords.length === 0) {
+  if (keywords.length === 0 && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
         <p className="text-muted-foreground">No keywords added yet</p>
@@ -309,8 +369,14 @@ export function KeywordsTable({
         onRefreshSelected={onRefreshKeywords ? () => onRefreshKeywords(selectedIds) : undefined}
         showSerpTitles={showSerpTitles}
         onToggleSerpTitles={() => setShowSerpTitles(!showSerpTitles)}
+        onSearchChange={isServerSide ? handleSearchChange : undefined}
       />
-      <div className="rounded-md border">
+      <div className="rounded-md border relative">
+        {isLoading && (
+          <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        )}
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -486,7 +552,7 @@ export function KeywordsTable({
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                  {isLoading ? "Loading..." : "No results."}
                 </TableCell>
               </TableRow>
             )}

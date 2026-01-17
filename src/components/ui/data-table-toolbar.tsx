@@ -1,4 +1,5 @@
 import { Table } from "@tanstack/react-table";
+import { useState, useEffect } from "react";
 import { X, Trash2, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,8 @@ interface DataTableToolbarProps<TData> {
   onRefreshSelected?: () => void;
   showSerpTitles?: boolean;
   onToggleSerpTitles?: () => void;
+  // Server-side search callback
+  onSearchChange?: (value: string) => void;
 }
 
 export function DataTableToolbar<TData>({
@@ -33,8 +36,33 @@ export function DataTableToolbar<TData>({
   onRefreshSelected,
   showSerpTitles,
   onToggleSerpTitles,
+  onSearchChange,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0;
+  const [searchValue, setSearchValue] = useState("");
+  
+  // Debounce server-side search
+  useEffect(() => {
+    if (!onSearchChange) return;
+    
+    const timer = setTimeout(() => {
+      onSearchChange(searchValue);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [searchValue, onSearchChange]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchValue(value);
+    // If not using server-side search, use client-side filtering
+    if (!onSearchChange && searchKey) {
+      table.getColumn(searchKey)?.setFilterValue(value);
+    }
+  };
+
+  const currentSearchValue = onSearchChange 
+    ? searchValue 
+    : (searchKey ? (table.getColumn(searchKey)?.getFilterValue() as string) ?? "" : "");
 
   return (
     <div className="flex items-center justify-between gap-2">
@@ -44,10 +72,8 @@ export function DataTableToolbar<TData>({
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder={searchPlaceholder}
-              value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
-              onChange={(event) =>
-                table.getColumn(searchKey)?.setFilterValue(event.target.value)
-              }
+              value={currentSearchValue}
+              onChange={(event) => handleSearchChange(event.target.value)}
               className="h-9 w-[150px] lg:w-[250px] pl-8"
             />
           </div>
