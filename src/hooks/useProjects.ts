@@ -588,7 +588,14 @@ export function useCheckRankings() {
         body: { classId, projectId, keywordIds }
       });
 
-      if (response.error) throw response.error;
+      // Parse error message from response body if available
+      if (response.error) {
+        const errorData = response.data as { error?: string; message?: string } | null;
+        if (errorData?.message) {
+          throw new Error(errorData.message);
+        }
+        throw response.error;
+      }
       return response.data as CheckRankingsResult;
     },
     onSuccess: (data) => {
@@ -601,10 +608,12 @@ export function useCheckRankings() {
       });
     },
     onError: (error) => {
+      const isInsufficientCredits = error.message?.toLowerCase().includes('credit');
+      
       toast({
         variant: "destructive",
-        title: "Error checking rankings",
-        description: error.message
+        title: isInsufficientCredits ? "Không đủ credits" : "Error checking rankings",
+        description: error.message,
       });
     },
   });
