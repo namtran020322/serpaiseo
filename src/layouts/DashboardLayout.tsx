@@ -3,6 +3,7 @@ import { Outlet, useLocation, Link, useParams } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -84,6 +85,10 @@ export default function DashboardLayout() {
     return items;
   }, [location.pathname, params.projectId, params.classId, project, projectClass]);
 
+  // Determine if current route should use contained layout
+  const containedRoutes = ['/dashboard/billing', '/dashboard/settings', '/dashboard/notifications'];
+  const isContainedLayout = containedRoutes.some(r => location.pathname.startsWith(r));
+
   return (
     <SidebarProvider>
       <div className="flex w-full min-h-screen">
@@ -114,7 +119,10 @@ export default function DashboardLayout() {
             <div className="flex-1" />
           </header>
           {/* Content */}
-          <div className="p-6">
+          <div className={cn(
+            "p-6",
+            isContainedLayout && "max-w-4xl mx-auto w-full"
+          )}>
             <Outlet />
           </div>
         </main>

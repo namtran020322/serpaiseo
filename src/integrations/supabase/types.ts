@@ -359,6 +359,7 @@ export type Database = {
         Args: { retention_days?: number }
         Returns: number
       }
+      cleanup_pending_orders: { Args: never; Returns: number }
       get_class_ranking_stats: { Args: { p_class_id: string }; Returns: Json }
       process_payment_webhook: {
         Args: {
