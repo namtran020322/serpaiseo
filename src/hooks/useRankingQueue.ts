@@ -37,6 +37,9 @@ export function useAddRankingJob() {
       toast.success("Ranking check started", {
         description: `Checking ${data.total_keywords} keywords for ${variables.className}`,
       });
+
+      // Trigger queue processing immediately (don't wait for cron)
+      supabase.functions.invoke("process-ranking-queue").catch(console.error);
     },
     onError: (error: any) => {
       // Handle 409 conflict (job already exists)
