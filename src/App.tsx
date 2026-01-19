@@ -10,13 +10,15 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
 import { Loader2 } from "lucide-react";
 
-// Lazy loaded pages
+// Import layouts directly (not lazy) to prevent sidebar reload on navigation
+import DashboardLayout from "./layouts/DashboardLayout";
+import AdminLayout from "./layouts/AdminLayout";
+
+// Lazy loaded pages only
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
-const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Billing = lazy(() => import("./pages/Billing"));
@@ -66,18 +68,18 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 >
-                  <Route index element={<Dashboard />} />
-                  <Route path="projects" element={<Projects />} />
-                  <Route path="projects/:projectId" element={<ProjectDetail />} />
-                  <Route path="projects/:projectId/classes/:classId" element={<ClassDetail />} />
-                  <Route path="billing" element={<Billing />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="notifications" element={<Notifications />} />
+                  <Route index element={<Suspense fallback={<PageLoader />}><Dashboard /></Suspense>} />
+                  <Route path="projects" element={<Suspense fallback={<PageLoader />}><Projects /></Suspense>} />
+                  <Route path="projects/:projectId" element={<Suspense fallback={<PageLoader />}><ProjectDetail /></Suspense>} />
+                  <Route path="projects/:projectId/classes/:classId" element={<Suspense fallback={<PageLoader />}><ClassDetail /></Suspense>} />
+                  <Route path="billing" element={<Suspense fallback={<PageLoader />}><Billing /></Suspense>} />
+                  <Route path="settings" element={<Suspense fallback={<PageLoader />}><Settings /></Suspense>} />
+                  <Route path="notifications" element={<Suspense fallback={<PageLoader />}><Notifications /></Suspense>} />
                 </Route>
 
                 {/* Admin Routes */}
                 <Route path="/admin" element={<Navigate to="/admin/account" replace />} />
-                <Route path="/admin/account" element={<AdminLogin />} />
+                <Route path="/admin/account" element={<Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>} />
                 <Route
                   path="/admin"
                   element={
@@ -86,10 +88,10 @@ const App = () => (
                     </AdminProtectedRoute>
                   }
                 >
-                  <Route path="dashboard" element={<AdminDashboard />} />
-                  <Route path="users" element={<AdminUsers />} />
-                  <Route path="finance" element={<AdminFinance />} />
-                  <Route path="announcements" element={<AdminAnnouncements />} />
+                  <Route path="dashboard" element={<Suspense fallback={<PageLoader />}><AdminDashboard /></Suspense>} />
+                  <Route path="users" element={<Suspense fallback={<PageLoader />}><AdminUsers /></Suspense>} />
+                  <Route path="finance" element={<Suspense fallback={<PageLoader />}><AdminFinance /></Suspense>} />
+                  <Route path="announcements" element={<Suspense fallback={<PageLoader />}><AdminAnnouncements /></Suspense>} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />
