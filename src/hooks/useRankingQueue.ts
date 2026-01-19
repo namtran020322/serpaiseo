@@ -1,0 +1,66 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useTaskProgress } from "@/contexts/TaskProgressContext";
+import { toast } from "sonner";
+
+interface AddJobParams {
+  classId: string;
+  className: string;
+  keywordIds?: string[];
+}
+
+export function useAddRankingJob() {
+  const { addTask } = useTaskProgress();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ classId, className, keywordIds }: AddJobParams) => {
+      const { data, error } = await supabase.functions.invoke("add-ranking-job", {
+        body: { classId, keywordIds },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Failed to add job");
+
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      addTask({
+        id: data.job_id,
+        classId: variables.classId,
+        className: variables.className,
+        progress: 0,
+        total: data.total_keywords,
+        status: "pending",
+      });
+
+      toast.success("Ranking check started", {
+        description: `Checking ${data.total_keywords} keywords for ${variables.className}`,
+      });
+    },
+    onError: (error: any) => {
+      // Handle 409 conflict (job already exists)
+      if (error.message?.includes("already in progress")) {
+        toast.info("Check already in progress", {
+          description: "A ranking check is already running for this class",
+        });
+        return;
+      }
+
+      toast.error("Failed to start ranking check", {
+        description: error.message || "Please try again",
+      });
+    },
+  });
+}
+
+// Hook to trigger queue processing (called periodically or after adding job)
+export function useTriggerQueueProcessing() {
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("process-ranking-queue");
+      if (error) throw error;
+      return data;
+    },
+  });
+}
