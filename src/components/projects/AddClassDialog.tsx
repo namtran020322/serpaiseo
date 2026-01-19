@@ -15,7 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { X, ChevronLeft, ChevronRight, Plus, Upload, AlertCircle } from "lucide-react";
-import { useCreateClass, useCheckRankings } from "@/hooks/useProjects";
+import { useCreateClass } from "@/hooks/useProjects";
+import { useAddRankingJob } from "@/hooks/useRankingQueue";
 import { countries } from "@/data/countries";
 import { languages } from "@/data/languages";
 import { useGeoData } from "@/hooks/useGeoData";
@@ -35,7 +36,7 @@ type Step = 1 | 2 | 3 | 4;
 
 export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledOnOpenChange, projectId, projectName, projectDomain }: AddClassDialogProps) {
   const createClass = useCreateClass();
-  const checkRankings = useCheckRankings();
+  const addRankingJob = useAddRankingJob();
   const { getLocationsByCountry } = useGeoData();
   const { totalPurchased } = useCredits();
   
@@ -176,8 +177,8 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
 
       handleClose();
       
-      // Auto-trigger ranking check (non-blocking)
-      checkRankings.mutate({ classId: newClass.id });
+      // Auto-trigger ranking check via queue system (non-blocking, background)
+      addRankingJob.mutate({ classId: newClass.id, className: className.trim() });
     } catch (error) {
       console.error("Error creating class:", error);
     } finally {
