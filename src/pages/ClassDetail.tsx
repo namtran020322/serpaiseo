@@ -4,12 +4,12 @@ import { ArrowLeft, RefreshCw, Globe, Monitor, Smartphone, Tablet, Calendar, Loa
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useProject, useCheckRankings, useDeleteKeywords, useAddKeywords } from "@/hooks/useProjects";
+import { useProject, useDeleteKeywords, useAddKeywords } from "@/hooks/useProjects";
 import { useKeywordsPaginated, useClassRankingStats, useClassMetadata } from "@/hooks/useKeywordsPaginated";
+import { useAddRankingJob } from "@/hooks/useRankingQueue";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
 import { RankingHistoryChart } from "@/components/projects/RankingHistoryChart";
 import { KeywordsTable } from "@/components/projects/KeywordsTable";
-import { CheckProgressDialog } from "@/components/projects/CheckProgressDialog";
 import { ExportButton } from "@/components/projects/ExportButton";
 import { ClassSettingsDialog } from "@/components/projects/ClassSettingsDialog";
 import { AddKeywordsDialog } from "@/components/projects/AddKeywordsDialog";
@@ -48,11 +48,9 @@ export default function ClassDetail() {
   });
   
   const { data: project } = useProject(projectId);
-  const checkRankings = useCheckRankings();
+  const addRankingJob = useAddRankingJob();
   const deleteKeywords = useDeleteKeywords();
   const addKeywords = useAddKeywords();
-  const [isChecking, setIsChecking] = useState(false);
-  const [checkProgress, setCheckProgress] = useState({ current: 0, total: 0, keyword: "" });
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const refetchAll = () => {
@@ -89,32 +87,23 @@ export default function ClassDetail() {
 
   const DeviceIcon = deviceIcons[classMetadata.device as keyof typeof deviceIcons] || Monitor;
 
-  const handleRefresh = async () => {
-    setIsChecking(true);
-    setCheckProgress({ current: 0, total: keywordsData?.totalCount || 0, keyword: "" });
-    try {
-      await checkRankings.mutateAsync({ classId });
-      refetchAll();
-    } catch (error) {
-      console.error("Check failed:", error);
-    } finally {
-      setIsChecking(false);
-    }
+  // Refresh all keywords - queue system (background)
+  const handleRefresh = () => {
+    if (!classId || !classMetadata) return;
+    addRankingJob.mutate({
+      classId,
+      className: classMetadata.name,
+    });
   };
 
-  // Refresh only selected keywords
-  const handleRefreshSelected = async (keywordIds: string[]) => {
-    if (keywordIds.length === 0) return;
-    setIsChecking(true);
-    setCheckProgress({ current: 0, total: keywordIds.length, keyword: "" });
-    try {
-      await checkRankings.mutateAsync({ classId, keywordIds });
-      refetchAll();
-    } catch (error) {
-      console.error("Check failed:", error);
-    } finally {
-      setIsChecking(false);
-    }
+  // Refresh only selected keywords - queue system (background)
+  const handleRefreshSelected = (keywordIds: string[]) => {
+    if (keywordIds.length === 0 || !classId || !classMetadata) return;
+    addRankingJob.mutate({
+      classId,
+      className: classMetadata.name,
+      keywordIds,
+    });
   };
 
   // Delete selected keywords
@@ -126,11 +115,6 @@ export default function ClassDetail() {
     } catch (error) {
       console.error("Delete failed:", error);
     }
-  };
-
-  const handleCheckComplete = () => {
-    setIsChecking(false);
-    refetchAll();
   };
 
   const handleSortChange = (newSortBy: string | undefined, newSortDesc: boolean) => {
@@ -214,9 +198,9 @@ export default function ClassDetail() {
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </Button>
-          <Button onClick={handleRefresh} disabled={isChecking}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isChecking ? "animate-spin" : ""}`} />
-            {isChecking ? "Checking..." : "Refresh Rankings"}
+          <Button onClick={handleRefresh} disabled={addRankingJob.isPending}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${addRankingJob.isPending ? "animate-spin" : ""}`} />
+            {addRankingJob.isPending ? "Starting..." : "Refresh Rankings"}
           </Button>
         </div>
       </div>
@@ -272,15 +256,6 @@ export default function ClassDetail() {
           isLoading={keywordsLoading}
         />
       </div>
-
-      {/* Check Progress Dialog */}
-      <CheckProgressDialog
-        open={isChecking}
-        onOpenChange={setIsChecking}
-        className={classMetadata.name}
-        progress={checkProgress}
-        onComplete={handleCheckComplete}
-      />
 
       {/* Settings Dialog */}
       <ClassSettingsDialog

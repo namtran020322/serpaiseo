@@ -24,7 +24,7 @@ export function ProcessingTasks() {
         return (
           <div
             key={task.id}
-            onClick={() => navigate(`/dashboard/projects/*/classes/${task.classId}`)}
+            onClick={() => navigate(`/dashboard/classes/${task.classId}`)}
             className={cn(
               "p-3 rounded-lg border bg-card cursor-pointer transition-colors",
               "hover:bg-accent/50"
