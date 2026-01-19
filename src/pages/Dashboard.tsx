@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { FolderOpen, ArrowRight, Plus, TrendingUp, Target } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 
 export default function Dashboard() {
   const { user } = useAuthContext();
@@ -10,6 +11,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
+      <AnnouncementBanner />
+      
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Hello, {userName}!</h1>
         <p className="text-muted-foreground mt-2">
