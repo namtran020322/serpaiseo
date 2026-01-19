@@ -19,7 +19,7 @@ import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import ClassDetail from "./pages/ClassDetail";
 import NotFound from "./pages/NotFound";
-import { AdminLogin, AdminDashboard, AdminUsers } from "./pages/admin";
+import { AdminLogin, AdminDashboard, AdminUsers, AdminFinance, AdminAnnouncements } from "./pages/admin";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +67,8 @@ const App = () => (
             >
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="users" element={<AdminUsers />} />
+              <Route path="finance" element={<AdminFinance />} />
+              <Route path="announcements" element={<AdminAnnouncements />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />
