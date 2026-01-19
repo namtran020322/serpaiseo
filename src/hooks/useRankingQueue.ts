@@ -10,30 +10,46 @@ interface AddJobParams {
 }
 
 export function useAddRankingJob() {
-  const { addTask } = useTaskProgress();
+  const { addTask, updateTask, removeTask } = useTaskProgress();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ classId, className, keywordIds }: AddJobParams) => {
-      const { data, error } = await supabase.functions.invoke("add-ranking-job", {
-        body: { classId, keywordIds },
-      });
+      // Create temp ID for immediate display (optimistic UI)
+      const tempId = `temp-${classId}-${Date.now()}`;
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Failed to add job");
-
-      return data;
-    },
-    onSuccess: (data, variables) => {
+      // Show progress IMMEDIATELY
       addTask({
-        id: data.job_id,
-        classId: variables.classId,
-        className: variables.className,
+        id: tempId,
+        classId,
+        className,
         progress: 0,
-        total: data.total_keywords,
+        total: keywordIds?.length || 0,
         status: "pending",
       });
 
+      try {
+        const { data, error } = await supabase.functions.invoke("add-ranking-job", {
+          body: { classId, keywordIds },
+        });
+
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || "Failed to add job");
+
+        // Update task with real ID and total (preserves startedAt)
+        updateTask(tempId, {
+          id: data.job_id,
+          total: data.total_keywords,
+        });
+
+        return data;
+      } catch (err) {
+        // Remove temp task on error
+        removeTask(tempId);
+        throw err;
+      }
+    },
+    onSuccess: (data, variables) => {
       toast.success("Ranking check started", {
         description: `Checking ${data.total_keywords} keywords for ${variables.className}`,
       });

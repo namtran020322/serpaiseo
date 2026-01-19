@@ -17,6 +17,7 @@ export interface RunningTask {
 interface TaskProgressContextType {
   tasks: RunningTask[];
   addTask: (task: Omit<RunningTask, "startedAt">) => void;
+  updateTask: (id: string, updates: Partial<Omit<RunningTask, "startedAt">>) => void;
   removeTask: (id: string) => void;
   refreshTasks: () => Promise<void>;
 }
@@ -74,6 +75,12 @@ export function TaskProgressProvider({ children }: { children: ReactNode }) {
       if (prev.find((t) => t.id === task.id)) return prev;
       return [...prev, { ...task, startedAt: new Date() }];
     });
+  }, []);
+
+  const updateTask = useCallback((id: string, updates: Partial<Omit<RunningTask, "startedAt">>) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+    );
   }, []);
 
   const removeTask = useCallback((id: string) => {
@@ -145,7 +152,7 @@ export function TaskProgressProvider({ children }: { children: ReactNode }) {
   }, [user, fetchTasks, removeTask]);
 
   return (
-    <TaskProgressContext.Provider value={{ tasks, addTask, removeTask, refreshTasks: fetchTasks }}>
+    <TaskProgressContext.Provider value={{ tasks, addTask, updateTask, removeTask, refreshTasks: fetchTasks }}>
       {children}
     </TaskProgressContext.Provider>
   );
