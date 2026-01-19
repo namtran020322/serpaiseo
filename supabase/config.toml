@@ -14,3 +14,15 @@ verify_jwt = false
 
 [functions.scheduled-ranking-check]
 verify_jwt = false
+
+[functions.admin-user-management]
+verify_jwt = false
+
+[functions.admin-xmlriver-stats]
+verify_jwt = false
+
+[functions.admin-finance-stats]
+verify_jwt = false
+
+[functions.admin-announcements]
+verify_jwt = false
