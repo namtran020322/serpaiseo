@@ -39,6 +39,7 @@ interface RequestBody {
   classId?: string
   projectId?: string
   keywordIds?: string[]
+  userId?: string // For internal calls from process-ranking-queue
 }
 
 // UUID validation regex
@@ -397,28 +398,46 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     
-    // Client for auth verification
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    })
+    const token = authHeader.replace('Bearer ', '')
     
     // Service client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getUser(token)
-    if (claimsError || !claimsData?.user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    
+    let userId: string
+    
+    // Check if this is a service role call (internal from process-ranking-queue)
+    if (token === supabaseServiceKey) {
+      // Internal call - userId must be provided in body
+      const body = await req.json() as RequestBody
+      if (!body.userId || !isValidUUID(body.userId)) {
+        return new Response(
+          JSON.stringify({ error: 'userId required for internal calls' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      userId = body.userId
+      // Restore request body for later parsing
+      ;(req as any)._parsedBody = body
+    } else {
+      // User JWT call - validate token
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } }
+      })
+      
+      const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getUser(token)
+      if (claimsError || !claimsData?.user) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      userId = claimsData.user.id
     }
-    const userId = claimsData.user.id
 
-    // Parse and validate request body
+    // Parse and validate request body (may already be parsed for internal calls)
     let body: RequestBody
     try {
-      body = await req.json()
+      body = (req as any)._parsedBody || await req.json()
     } catch {
       return new Response(
         JSON.stringify({ error: 'Invalid request body' }),

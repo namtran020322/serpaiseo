@@ -158,6 +158,7 @@ Deno.serve(async (req) => {
     }
 
     // Call check-project-keywords for this batch
+    // Include userId for internal service-role auth
     const functionUrl = `${supabaseUrl}/functions/v1/check-project-keywords`
     const checkResponse = await fetch(functionUrl, {
       method: 'POST',
@@ -167,7 +168,8 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({ 
         classId: job.class_id,
-        keywordIds: remainingKeywords.map(k => k.id)
+        keywordIds: remainingKeywords.map(k => k.id),
+        userId: job.user_id  // Pass userId for service role auth
       }),
     })
 
