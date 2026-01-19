@@ -29,17 +29,18 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+    // Use getUser instead of getClaims for proper token validation
+    const { data: userData, error: userError } = await userClient.auth.getUser();
     
-    if (claimsError || !claimsData?.claims) {
+    if (userError || !userData?.user) {
+      console.error('Auth error:', userError);
       return new Response(
         JSON.stringify({ error: 'Invalid token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = userData.user.id;
 
     // Create admin client for privileged operations
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -73,6 +74,7 @@ Deno.serve(async (req) => {
         .range(offset, offset + pageSize - 1);
 
       if (error) {
+        console.error('Error fetching announcements:', error);
         return new Response(
           JSON.stringify({ error: 'Failed to fetch announcements' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

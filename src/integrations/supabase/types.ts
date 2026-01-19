@@ -392,6 +392,56 @@ export type Database = {
         }
         Relationships: []
       }
+      ranking_check_queue: {
+        Row: {
+          class_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          keyword_ids: string[] | null
+          processed_keywords: number | null
+          started_at: string | null
+          status: string | null
+          total_keywords: number | null
+          user_id: string
+        }
+        Insert: {
+          class_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          keyword_ids?: string[] | null
+          processed_keywords?: number | null
+          started_at?: string | null
+          status?: string | null
+          total_keywords?: number | null
+          user_id: string
+        }
+        Update: {
+          class_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          keyword_ids?: string[] | null
+          processed_keywords?: number | null
+          started_at?: string | null
+          status?: string | null
+          total_keywords?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ranking_check_queue_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "project_classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_credits: {
         Row: {
           balance: number

@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.admin-announcements]
 verify_jwt = false
+
+[functions.add-ranking-job]
+verify_jwt = false
+
+[functions.process-ranking-queue]
+verify_jwt = false
