@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, Award, Target, BarChart3, XCircle, ArrowUp, ArrowDown } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 import { RankingStats } from "@/hooks/useProjects";
 
 interface RankingStatsCardsProps {
@@ -19,107 +19,50 @@ export function RankingStatsCards({ stats }: RankingStatsCardsProps) {
   };
 
   const cards = [
-    {
-      key: "top3",
-      label: "Top 1-3",
-      value: stats.top3,
-      icon: Award,
-      color: "text-emerald-600",
-      bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
-    },
-    {
-      key: "top10",
-      label: "Top 4-10",
-      value: stats.top10,
-      icon: TrendingUp,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50 dark:bg-blue-950/30",
-    },
-    {
-      key: "top30",
-      label: "Top 11-30",
-      value: stats.top30,
-      icon: Target,
-      color: "text-amber-600",
-      bgColor: "bg-amber-50 dark:bg-amber-950/30",
-    },
-    {
-      key: "top100",
-      label: "Top 31-100",
-      value: stats.top100,
-      icon: BarChart3,
-      color: "text-orange-600",
-      bgColor: "bg-orange-50 dark:bg-orange-950/30",
-    },
-    {
-      key: "notFound",
-      label: "Not Found",
-      value: stats.notFound,
-      icon: XCircle,
-      color: "text-destructive",
-      bgColor: "bg-destructive/10",
-    },
+    { key: "total", label: "Total Keywords", value: stats.total },
+    { key: "top3", label: "Top 1-3", value: stats.top3 },
+    { key: "top10", label: "Top 4-10", value: stats.top10 },
+    { key: "top30", label: "Top 11-30", value: stats.top30 },
+    { key: "top100", label: "Top 31-100", value: stats.top100 },
+    { key: "notFound", label: "Not Found", value: stats.notFound },
   ];
 
   return (
     <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-      {/* Total Keywords Card */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <BarChart3 className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.total}</p>
-              <p className="text-sm text-muted-foreground">Total Keywords</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tier Cards with enhanced stats */}
       {cards.map((card) => {
-        const percentage = total > 0 ? Math.round((card.value / total) * 100) : 0;
-        const improved = getImproved(card.key);
-        const declined = getDeclined(card.key);
-        const hasChanges = improved > 0 || declined > 0;
+        const isTotal = card.key === "total";
+        const percentage = !isTotal && total > 0 ? Math.round((card.value / total) * 100) : 0;
+        const improved = !isTotal ? getImproved(card.key) : 0;
+        const declined = !isTotal ? getDeclined(card.key) : 0;
 
         return (
-          <Card key={card.label}>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg ${card.bgColor} flex items-center justify-center`}>
-                  <card.icon className={`h-5 w-5 ${card.color}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  {/* Value and Percentage */}
-                  <div className="flex items-baseline gap-2">
-                    <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
+          <Card key={card.key}>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex flex-col gap-0.5">
+                {/* Row 1: Label */}
+                <span className="text-sm text-muted-foreground">{card.label}</span>
+                
+                {/* Row 2: Value + Percentage */}
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold">{card.value}</span>
+                  {!isTotal && (
                     <span className="text-sm text-muted-foreground">{percentage}%</span>
-                  </div>
-                  
-                  {/* Label */}
-                  <p className="text-sm text-muted-foreground">{card.label}</p>
-                  
-                  {/* Improved/Declined indicators */}
-                  {hasChanges && (
-                    <div className="flex items-center gap-3 mt-1">
-                      {improved > 0 && (
-                        <span className="flex items-center gap-0.5 text-xs font-medium text-emerald-600">
-                          <ArrowUp className="h-3 w-3" />
-                          {improved}
-                        </span>
-                      )}
-                      {declined > 0 && (
-                        <span className="flex items-center gap-0.5 text-xs font-medium text-destructive">
-                          <ArrowDown className="h-3 w-3" />
-                          {declined}
-                        </span>
-                      )}
-                    </div>
                   )}
                 </div>
+                
+                {/* Row 3: Trend indicators (always visible for non-total) */}
+                {!isTotal && (
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="flex items-center gap-0.5 text-primary">
+                      <TrendingUp className="h-3.5 w-3.5" />
+                      {improved}
+                    </span>
+                    <span className="flex items-center gap-0.5 text-destructive">
+                      <TrendingDown className="h-3.5 w-3.5" />
+                      {declined}
+                    </span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
