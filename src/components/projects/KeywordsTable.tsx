@@ -15,7 +15,7 @@ import {
 } from "@tanstack/react-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { TrendingUp, TrendingDown, Minus, Loader2 } from "lucide-react";
+import { Minus, Loader2 } from "lucide-react";
 import { ProjectKeyword } from "@/hooks/useProjects";
 import { DataTableToolbar } from "@/components/ui/data-table-toolbar";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
@@ -58,27 +58,28 @@ const getPositionColor = (position: number | null) => {
   return "text-destructive";
 };
 
-const getChangeIndicator = (current: number | null, previous: number | null) => {
-  if (current === null || previous === null) {
-    return <Minus className="h-4 w-4 text-muted-foreground" />;
-  }
-  const change = previous - current;
-  if (change > 0) {
-    return (
-      <span className="flex items-center gap-1 text-emerald-600">
-        <TrendingUp className="h-4 w-4" />
-        +{change}
+// Calculate change value (positive = improved, negative = declined)
+const getChangeValue = (current: number | null, previous: number | null): number => {
+  if (current === null || previous === null) return 0;
+  return previous - current; // Positive = ranking went up (improved)
+};
+
+// Render change indicator inline with position
+const renderPositionWithChange = (position: number | null, previous: number | null) => {
+  const change = getChangeValue(position, previous);
+  
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`font-medium ${getPositionColor(position)}`}>
+        {position ?? "-"}
       </span>
-    );
-  } else if (change < 0) {
-    return (
-      <span className="flex items-center gap-1 text-destructive">
-        <TrendingDown className="h-4 w-4" />
-        {change}
-      </span>
-    );
-  }
-  return <Minus className="h-4 w-4 text-muted-foreground" />;
+      {change !== 0 && (
+        <span className={`text-xs font-medium ${change > 0 ? "text-emerald-600" : "text-destructive"}`}>
+          {change > 0 ? `↑${change}` : `↓${Math.abs(change)}`}
+        </span>
+      )}
+    </div>
+  );
 };
 
 const extractSlug = (url: string | null) => {
@@ -214,14 +215,11 @@ export function KeywordsTable({
     {
       accessorKey: "ranking_position",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Last" />,
-      size: 55,
+      size: 80, // Increased to accommodate change indicator
       cell: ({ row }) => {
         const position = row.getValue("ranking_position") as number | null;
-        return (
-          <span className={`font-medium ${getPositionColor(position)}`}>
-            {position ?? "-"}
-          </span>
-        );
+        const previous = row.original.previous_position;
+        return renderPositionWithChange(position, previous);
       },
     },
     {
@@ -246,16 +244,7 @@ export function KeywordsTable({
         );
       },
     },
-    {
-      id: "change",
-      header: "Change",
-      size: 65,
-      cell: ({ row }) => {
-        const current = row.original.ranking_position;
-        const previous = row.original.previous_position;
-        return getChangeIndicator(current, previous);
-      },
-    },
+    // REMOVED: Change column - now merged into Last column
     {
       accessorKey: "found_url",
       header: "URL",
@@ -372,16 +361,16 @@ export function KeywordsTable({
         onToggleSerpTitles={() => setShowSerpTitles(!showSerpTitles)}
         onSearchChange={isServerSide ? handleSearchChange : undefined}
       />
-      <div className="rounded-md border relative">
+      <div className="rounded-md border max-h-[600px] overflow-y-auto relative">
         {isLoading && (
-          <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+          <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-20">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         )}
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-background">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="bg-background">
                 {headerGroup.headers.map((header) => {
                   const isFixedWidth = header.id === "select";
                   const isActions = header.id === "actions";
@@ -468,12 +457,10 @@ export function KeywordsTable({
                               <DomainWithFavicon domain={domain} showFullDomain size="sm" />
                             </TableCell>
                             
-                            {/* Last - conditionally visible */}
+                            {/* Last (with change indicator) - conditionally visible */}
                             {visibleColumnIds.includes("ranking_position") && (
                               <TableCell>
-                                <span className={`font-medium ${getPositionColor(position ?? null)}`}>
-                                  {position ?? "-"}
-                                </span>
+                                {renderPositionWithChange(position ?? null, prevPos ?? null)}
                               </TableCell>
                             )}
                             
@@ -490,13 +477,6 @@ export function KeywordsTable({
                                 <span className={`font-medium ${getPositionColor(bestPos ?? null)}`}>
                                   {bestPos ?? "-"}
                                 </span>
-                              </TableCell>
-                            )}
-                            
-                            {/* Change - conditionally visible */}
-                            {visibleColumnIds.includes("change") && (
-                              <TableCell>
-                                {getChangeIndicator(position ?? null, prevPos ?? null)}
                               </TableCell>
                             )}
                             

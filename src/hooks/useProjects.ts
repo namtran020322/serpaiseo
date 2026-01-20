@@ -75,32 +75,80 @@ export interface RankingStats {
   top100: number;
   notFound: number;
   total: number;
+  // Enhanced stats for improved/declined
+  top3_improved?: number;
+  top3_declined?: number;
+  top10_improved?: number;
+  top10_declined?: number;
+  top30_improved?: number;
+  top30_declined?: number;
+  top100_improved?: number;
+  top100_declined?: number;
+  notFound_improved?: number;
+  notFound_declined?: number;
+}
+
+// Helper to extract count from tier stats
+export function getTierCount(tier: number | TierStats): number {
+  return typeof tier === 'number' ? tier : tier.count;
+}
+
+// Helper to extract improved from tier stats
+export function getTierImproved(tier: number | TierStats): number {
+  return typeof tier === 'number' ? 0 : tier.improved;
+}
+
+// Helper to extract declined from tier stats
+export function getTierDeclined(tier: number | TierStats): number {
+  return typeof tier === 'number' ? 0 : tier.declined;
 }
 
 function calculateRankingStats(keywords: ProjectKeyword[]): RankingStats {
-  const stats: RankingStats = {
+  const stats = {
     top3: 0,
     top10: 0,
     top30: 0,
     top100: 0,
     notFound: 0,
     total: keywords.length,
+    top3_improved: 0,
+    top3_declined: 0,
+    top10_improved: 0,
+    top10_declined: 0,
+    top30_improved: 0,
+    top30_declined: 0,
+    top100_improved: 0,
+    top100_declined: 0,
+    notFound_improved: 0,
+    notFound_declined: 0,
   };
 
   keywords.forEach((kw) => {
     const pos = kw.ranking_position;
-    if (pos === null) {
+    const prev = kw.previous_position;
+    const improved = prev !== null && pos !== null && prev > pos;
+    const declined = prev !== null && pos !== null && prev < pos;
+    
+    if (pos === null || pos > 100) {
       stats.notFound++;
+      if (improved) stats.notFound_improved++;
+      if (declined) stats.notFound_declined++;
     } else if (pos <= 3) {
       stats.top3++;
+      if (improved) stats.top3_improved++;
+      if (declined) stats.top3_declined++;
     } else if (pos <= 10) {
       stats.top10++;
+      if (improved) stats.top10_improved++;
+      if (declined) stats.top10_declined++;
     } else if (pos <= 30) {
       stats.top30++;
+      if (improved) stats.top30_improved++;
+      if (declined) stats.top30_declined++;
     } else if (pos <= 100) {
       stats.top100++;
-    } else {
-      stats.notFound++;
+      if (improved) stats.top100_improved++;
+      if (declined) stats.top100_declined++;
     }
   });
 
@@ -508,7 +556,6 @@ export function useUpdateClass() {
   return useMutation({
     mutationFn: async (input: UpdateClassInput) => {
       const updateData: Record<string, any> = {};
-      
       if (input.name !== undefined) updateData.name = input.name;
       if (input.competitorDomains !== undefined) updateData.competitor_domains = input.competitorDomains;
       if (input.countryId !== undefined) updateData.country_id = input.countryId;
@@ -536,6 +583,8 @@ export function useUpdateClass() {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["project", data.project_id] });
       queryClient.invalidateQueries({ queryKey: ["projectClass", data.id] });
+      queryClient.invalidateQueries({ queryKey: ["class-metadata", data.id] });
+      queryClient.invalidateQueries({ queryKey: ["class-ranking-stats", data.id] });
       toast({ title: "Success", description: "Class updated successfully" });
     },
     onError: (error) => {
@@ -559,7 +608,6 @@ export function useDeleteClass() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["projects"], refetchType: 'all' });
-      await queryClient.invalidateQueries({ queryKey: ["project"], refetchType: 'all' });
       toast({ title: "Success", description: "Class deleted successfully" });
     },
     onError: (error) => {
@@ -572,78 +620,36 @@ export function useDeleteClass() {
   });
 }
 
-export interface CheckRankingsResult {
-  success: boolean;
-  processed: number;
-  found: number;
-  notFound: number;
-}
-
 export function useCheckRankings() {
+  const { user } = useAuthContext();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ classId, projectId, keywordIds }: { classId?: string; projectId?: string; keywordIds?: string[] }): Promise<CheckRankingsResult> => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+    mutationFn: async (classId: string) => {
+      if (!user) throw new Error("Not authenticated");
 
-      const response = await supabase.functions.invoke('check-project-keywords', {
-        body: { classId, projectId, keywordIds }
+      const { data, error } = await supabase.functions.invoke("check-project-keywords", {
+        body: { classId },
       });
 
-      // Parse error message from response body if available
-      if (response.error) {
-        // FunctionsHttpError has context as Response object for non-2xx
-        const httpError = response.error as { context?: Response; message?: string };
-        
-        // Try to read JSON body from Response object
-        if (httpError.context && typeof httpError.context.json === 'function') {
-          try {
-            const errorBody = await httpError.context.json();
-            if (errorBody?.message) {
-              throw new Error(errorBody.message);
-            }
-          } catch {
-            // If JSON parse fails, continue to next method
-          }
-        }
-        
-        // Fallback: Check if error has message property
-        if (httpError.message && httpError.message !== 'Edge Function returned a non-2xx status code') {
-          throw new Error(httpError.message);
-        }
-        
-        // Fallback: Check response.data for error info
-        const errorData = response.data as { error?: string; message?: string } | null;
-        if (errorData?.message) {
-          throw new Error(errorData.message);
-        }
-        
-        throw new Error('Kiểm tra thất bại. Vui lòng thử lại.');
-      }
-      return response.data as CheckRankingsResult;
+      if (error) throw error;
+      return data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-      queryClient.invalidateQueries({ queryKey: ["project"] });
-      queryClient.invalidateQueries({ queryKey: ["projectClass"] });
+    onSuccess: (_, classId) => {
+      queryClient.invalidateQueries({ queryKey: ["projectClass", classId] });
+      queryClient.invalidateQueries({ queryKey: ["keywords-paginated"] });
+      queryClient.invalidateQueries({ queryKey: ["class-ranking-stats", classId] });
       toast({
-        title: "Ranking Check Complete",
-        description: `Processed ${data.processed} keywords. Found: ${data.found}, Not found: ${data.notFound}`
+        title: "Ranking check started",
+        description: "Keywords will be checked in the background",
       });
     },
     onError: (error) => {
-      const errorMessage = error.message || "Unknown error occurred";
-      const isInsufficientCredits = errorMessage.toLowerCase().includes('credit') || 
-                                     errorMessage.toLowerCase().includes('không đủ');
-      
       toast({
         variant: "destructive",
-        title: isInsufficientCredits ? "Không đủ credits" : "Error checking rankings",
-        description: isInsufficientCredits 
-          ? `${errorMessage}. Vui lòng nạp thêm credit tại trang Billing.`
-          : errorMessage,
+        title: "Error",
+        description: error.message,
       });
     },
   });
@@ -654,18 +660,19 @@ export function useDeleteKeywords() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (keywordIds: string[]) => {
-      const { error } = await supabase
-        .from("project_keywords")
-        .delete()
-        .in("id", keywordIds);
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from("project_keywords").delete().in("id", ids);
       if (error) throw error;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["projects"], refetchType: 'all' });
-      await queryClient.invalidateQueries({ queryKey: ["project"], refetchType: 'all' });
       await queryClient.invalidateQueries({ queryKey: ["projectClass"], refetchType: 'all' });
-      toast({ title: "Success", description: "Keywords deleted successfully" });
+      await queryClient.invalidateQueries({ queryKey: ["keywords-paginated"], refetchType: 'all' });
+      await queryClient.invalidateQueries({ queryKey: ["class-ranking-stats"], refetchType: 'all' });
+      toast({
+        title: "Success",
+        description: "Keywords deleted successfully",
+      });
     },
     onError: (error) => {
       toast({
@@ -688,52 +695,58 @@ export function useAddKeywords() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (input: AddKeywordsInput) => {
+    mutationFn: async ({ classId, keywords }: AddKeywordsInput) => {
       if (!user) throw new Error("Not authenticated");
 
-      const uniqueKeywords = [...new Set(input.keywords.map((k) => k.trim().toLowerCase()))];
-      const filteredKeywords = uniqueKeywords.filter((k) => k.length > 0);
-      
-      // Check for existing keywords in this class
-      const { data: existingKeywords } = await supabase
+      // Fetch existing keywords
+      const { data: existingKeywords, error: fetchError } = await supabase
         .from("project_keywords")
         .select("keyword")
-        .eq("class_id", input.classId);
-      
-      const existingSet = new Set(existingKeywords?.map(k => k.keyword.toLowerCase()) || []);
-      
-      const keywordsToInsert = filteredKeywords
-        .filter((keyword) => !existingSet.has(keyword))
-        .map((keyword) => ({
-          class_id: input.classId,
-          user_id: user.id,
-          keyword,
-        }));
-      
-      const skippedCount = filteredKeywords.length - keywordsToInsert.length;
+        .eq("class_id", classId);
 
-      if (keywordsToInsert.length > 0) {
-        const { error } = await supabase
-          .from("project_keywords")
-          .insert(keywordsToInsert);
-        if (error) throw error;
+      if (fetchError) throw fetchError;
+
+      const existingSet = new Set(existingKeywords?.map((k) => k.keyword.toLowerCase()) || []);
+
+      // Deduplicate and filter
+      const uniqueNewKeywords = [...new Set(keywords.map((k) => k.trim().toLowerCase()))]
+        .filter((k) => k.length > 0 && !existingSet.has(k));
+
+      if (uniqueNewKeywords.length === 0) {
+        return { added: 0, skipped: keywords.length };
       }
 
-      return { added: keywordsToInsert.length, skipped: skippedCount };
+      const keywordsToInsert = uniqueNewKeywords.map((keyword) => ({
+        class_id: classId,
+        user_id: user.id,
+        keyword,
+      }));
+
+      const { error: insertError } = await supabase.from("project_keywords").insert(keywordsToInsert);
+
+      if (insertError) throw insertError;
+
+      return {
+        added: uniqueNewKeywords.length,
+        skipped: keywords.length - uniqueNewKeywords.length,
+      };
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["projectClass", variables.classId] });
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
-      queryClient.invalidateQueries({ queryKey: ["project"] });
-      
-      let message = `Added ${data.added} keyword${data.added !== 1 ? 's' : ''}`;
-      if (data.skipped > 0) {
-        message += `. ${data.skipped} duplicate${data.skipped !== 1 ? 's' : ''} skipped.`;
-      }
-      toast({ title: "Success", description: message });
+      queryClient.invalidateQueries({ queryKey: ["projectClass"] });
+      queryClient.invalidateQueries({ queryKey: ["keywords-paginated"] });
+      queryClient.invalidateQueries({ queryKey: ["class-ranking-stats"] });
+      toast({
+        title: "Success",
+        description: `Added ${result.added} keywords${result.skipped > 0 ? `, ${result.skipped} skipped (duplicates)` : ""}`,
+      });
     },
     onError: (error) => {
-      toast({ variant: "destructive", title: "Error adding keywords", description: error.message });
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
     },
   });
 }
