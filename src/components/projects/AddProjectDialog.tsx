@@ -234,7 +234,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
       handleClose();
       
       // Auto-trigger ranking check (non-blocking)
-      checkRankings.mutate({ classId: newClass.id });
+      checkRankings.mutate(newClass.id);
     } catch (error) {
       console.error("Error creating project/class:", error);
     } finally {

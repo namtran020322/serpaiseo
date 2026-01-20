@@ -46,7 +46,7 @@ export function ProjectRow({ project, isExpanded, onToggle }: ProjectRowProps) {
   const handleRefreshAll = async () => {
     setIsChecking(true);
     try {
-      await checkRankings.mutateAsync({ projectId: project.id });
+      await checkRankings.mutateAsync(project.id);
     } finally {
       setIsChecking(false);
     }
