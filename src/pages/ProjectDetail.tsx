@@ -44,18 +44,38 @@ export default function ProjectDetail() {
     );
   }
 
-  // Aggregate stats from all classes
+  // Aggregate stats from all classes (with improved/declined)
   const totalKeywords = project.classes.reduce((acc, cls) => acc + cls.keywordCount, 0);
   const aggregatedStats = project.classes.reduce(
-    (acc, cls) => ({
-      top3: acc.top3 + cls.rankingStats.top3,
-      top10: acc.top10 + cls.rankingStats.top10,
-      top30: acc.top30 + cls.rankingStats.top30,
-      top100: acc.top100 + cls.rankingStats.top100,
-      notFound: acc.notFound + cls.rankingStats.notFound,
-      total: acc.total + cls.rankingStats.total,
-    }),
-    { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 }
+    (acc, cls) => {
+      const s = cls.rankingStats;
+      return {
+        top3: acc.top3 + s.top3,
+        top10: acc.top10 + s.top10,
+        top30: acc.top30 + s.top30,
+        top100: acc.top100 + s.top100,
+        notFound: acc.notFound + s.notFound,
+        total: acc.total + s.total,
+        top3_improved: acc.top3_improved + (s.top3_improved || 0),
+        top3_declined: acc.top3_declined + (s.top3_declined || 0),
+        top10_improved: acc.top10_improved + (s.top10_improved || 0),
+        top10_declined: acc.top10_declined + (s.top10_declined || 0),
+        top30_improved: acc.top30_improved + (s.top30_improved || 0),
+        top30_declined: acc.top30_declined + (s.top30_declined || 0),
+        top100_improved: acc.top100_improved + (s.top100_improved || 0),
+        top100_declined: acc.top100_declined + (s.top100_declined || 0),
+        notFound_improved: acc.notFound_improved + (s.notFound_improved || 0),
+        notFound_declined: acc.notFound_declined + (s.notFound_declined || 0),
+      };
+    },
+    { 
+      top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0,
+      top3_improved: 0, top3_declined: 0,
+      top10_improved: 0, top10_declined: 0,
+      top30_improved: 0, top30_declined: 0,
+      top100_improved: 0, top100_declined: 0,
+      notFound_improved: 0, notFound_declined: 0,
+    }
   );
 
   return (

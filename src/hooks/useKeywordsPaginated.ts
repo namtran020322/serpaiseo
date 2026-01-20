@@ -71,14 +71,23 @@ export function useKeywordsPaginated(params: UseKeywordsPaginatedParams) {
   });
 }
 
-// Hook to get class ranking stats using RPC (efficient - no need to fetch all keywords)
-// Stats result type from RPC
+// Enhanced stats result type from RPC (includes improved/declined)
 interface StatsResult {
   top3: number;
+  top3_improved: number;
+  top3_declined: number;
   top10: number;
+  top10_improved: number;
+  top10_declined: number;
   top30: number;
+  top30_improved: number;
+  top30_declined: number;
   top100: number;
+  top100_improved: number;
+  top100_declined: number;
   notFound: number;
+  notFound_improved: number;
+  notFound_declined: number;
   total: number;
 }
 
@@ -89,7 +98,14 @@ export function useClassRankingStats(classId: string | undefined) {
     queryKey: ["class-ranking-stats", classId, user?.id],
     queryFn: async (): Promise<RankingStats> => {
       if (!user || !classId) {
-        return { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 };
+        return { 
+          top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0,
+          top3_improved: 0, top3_declined: 0,
+          top10_improved: 0, top10_declined: 0,
+          top30_improved: 0, top30_declined: 0,
+          top100_improved: 0, top100_declined: 0,
+          notFound_improved: 0, notFound_declined: 0,
+        };
       }
 
       const { data, error } = await supabase.rpc("get_class_ranking_stats", {
@@ -108,6 +124,17 @@ export function useClassRankingStats(classId: string | undefined) {
         top100: stats?.top100 || 0,
         notFound: stats?.notFound || 0,
         total: stats?.total || 0,
+        // Enhanced stats
+        top3_improved: stats?.top3_improved || 0,
+        top3_declined: stats?.top3_declined || 0,
+        top10_improved: stats?.top10_improved || 0,
+        top10_declined: stats?.top10_declined || 0,
+        top30_improved: stats?.top30_improved || 0,
+        top30_declined: stats?.top30_declined || 0,
+        top100_improved: stats?.top100_improved || 0,
+        top100_declined: stats?.top100_declined || 0,
+        notFound_improved: stats?.notFound_improved || 0,
+        notFound_declined: stats?.notFound_declined || 0,
       };
     },
     enabled: !!user && !!classId,
