@@ -11,11 +11,10 @@ import {
   ColumnFiltersState,
   RowSelectionState,
   ExpandedState,
-  PaginationState,
 } from "@tanstack/react-table";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Minus, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ProjectKeyword } from "@/hooks/useProjects";
 import { DataTableToolbar } from "@/components/ui/data-table-toolbar";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
@@ -175,10 +174,10 @@ export function KeywordsTable({
   };
 
   const columns = useMemo<ColumnDef<ProjectKeyword>[]>(() => [
-  {
-    id: "select",
-    size: 40,
-    header: ({ table }) => (
+    {
+      id: "select",
+      size: 40,
+      header: ({ table }) => (
         <Checkbox
           checked={table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? "indeterminate" : false}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
@@ -215,7 +214,7 @@ export function KeywordsTable({
     {
       accessorKey: "ranking_position",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Last" />,
-      size: 80, // Increased to accommodate change indicator
+      size: 80,
       cell: ({ row }) => {
         const position = row.getValue("ranking_position") as number | null;
         const previous = row.original.previous_position;
@@ -244,7 +243,6 @@ export function KeywordsTable({
         );
       },
     },
-    // REMOVED: Change column - now merged into Last column
     {
       accessorKey: "found_url",
       header: "URL",
@@ -306,7 +304,6 @@ export function KeywordsTable({
       columnFilters,
       rowSelection,
       expanded,
-      // Always provide pagination state to prevent undefined errors
       pagination: { pageIndex: page, pageSize },
     },
     onSortingChange: handleSortingChange,
@@ -318,7 +315,6 @@ export function KeywordsTable({
     getFilteredRowModel: isServerSide ? undefined : getFilteredRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
     getRowCanExpand: () => competitorDomains.length > 0,
-    // Server-side pagination config
     manualPagination: isServerSide,
     manualSorting: isServerSide,
     manualFiltering: isServerSide,
@@ -361,57 +357,71 @@ export function KeywordsTable({
         onToggleSerpTitles={() => setShowSerpTitles(!showSerpTitles)}
         onSearchChange={isServerSide ? handleSearchChange : undefined}
       />
-      <div className="rounded-md border max-h-[600px] overflow-y-auto relative">
+      
+      {/* Table container with max height and overflow for sticky header */}
+      <div className="rounded-md border max-h-[600px] overflow-auto relative">
         {isLoading && (
           <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-20">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         )}
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-background">
+        
+        <table className="w-full caption-bottom text-sm">
+          {/* Sticky header */}
+          <thead className="sticky top-0 z-10 bg-background border-b">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="bg-background">
+              <tr key={headerGroup.id} className="border-b">
                 {headerGroup.headers.map((header) => {
                   const isFixedWidth = header.id === "select";
                   const isActions = header.id === "actions";
                   const columnSize = header.column.columnDef.size;
                   
                   return (
-                    <TableHead 
+                    <th 
                       key={header.id} 
-                      className={isFixedWidth ? "w-10" : isActions ? "w-16" : ""}
+                      className={cn(
+                        "h-12 px-4 text-left align-middle font-medium text-muted-foreground bg-background",
+                        isFixedWidth && "w-10",
+                        isActions && "w-16"
+                      )}
                       style={columnSize ? { width: columnSize } : undefined}
                     >
                       {header.isPlaceholder
                         ? null
                         : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
+                    </th>
                   );
                 })}
-              </TableRow>
+              </tr>
             ))}
-          </TableHeader>
-          <TableBody>
+          </thead>
+          
+          <tbody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const rankings = row.original.competitor_rankings as Record<string, any> | null;
                 const lastChecked = row.original.last_checked_at;
                 const visibleColumnIds = table.getVisibleLeafColumns().map(c => c.id);
                 
-                // serp_results is an array
                 const serpResultsArray = row.original.serp_results as SerpResult[] | null;
                 const rankingPosition = row.original.ranking_position;
                 const serpTitle = findSerpTitle(serpResultsArray, rankingPosition);
                 
                 return (
                   <React.Fragment key={row.id}>
-                    <TableRow data-state={row.getIsSelected() && "selected"}>
+                    {/* Main keyword row */}
+                    <tr 
+                      className={cn(
+                        "border-b transition-colors hover:bg-muted/50",
+                        row.getIsSelected() && "bg-muted"
+                      )}
+                    >
                       {row.getVisibleCells().map((cell) => {
                         // Special handling for URL column when SERP Titles is ON
                         if (cell.column.id === "found_url" && showSerpTitles && serpTitle) {
                           const url = row.original.found_url;
                           return (
-                            <TableCell key={cell.id}>
+                            <td key={cell.id} className="p-4 align-middle">
                               <div className="space-y-0.5 max-w-[400px]">
                                 <div className="text-sm text-primary font-medium truncate" title={serpTitle}>
                                   {truncateText(serpTitle, 100)}
@@ -420,18 +430,18 @@ export function KeywordsTable({
                                   {extractSlug(url)}
                                 </span>
                               </div>
-                            </TableCell>
+                            </td>
                           );
                         }
                         return (
-                          <TableCell key={cell.id}>
+                          <td key={cell.id} className="p-4 align-middle">
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
+                          </td>
                         );
                       })}
-                    </TableRow>
+                    </tr>
                     
-                    {/* Expanded Competitor Rankings - rendered as rows in same table */}
+                    {/* Expanded competitor rows */}
                     {row.getIsExpanded() && competitorDomains.length > 0 && 
                       competitorDomains.map((domain) => {
                         const data = rankings?.[domain];
@@ -441,48 +451,47 @@ export function KeywordsTable({
                         const prevPos = typeof data === "object" ? data?.previous_position : null;
                         const url = typeof data === "object" ? data?.url : null;
                         
-                        // Get competitor title from serp_results by their position
                         const competitorTitle = findSerpTitle(serpResultsArray, position);
 
                         return (
-                          <TableRow 
+                          <tr 
                             key={`${row.id}-competitor-${domain}`} 
-                            className="bg-primary/5 hover:bg-primary/10 border-l-4 border-l-primary"
+                            className="bg-primary/5 hover:bg-primary/10 border-l-4 border-l-primary border-b"
                           >
-                          {/* Checkbox cell - always visible */}
-                            <TableCell></TableCell>
+                            {/* Checkbox cell - empty */}
+                            <td className="p-4 align-middle"></td>
                             
-                            {/* Domain (aligned with Keyword column) - always visible */}
-                            <TableCell>
+                            {/* Domain (aligned with Keyword column) */}
+                            <td className="p-4 align-middle">
                               <DomainWithFavicon domain={domain} showFullDomain size="sm" />
-                            </TableCell>
+                            </td>
                             
-                            {/* Last (with change indicator) - conditionally visible */}
+                            {/* Last (with change indicator) */}
                             {visibleColumnIds.includes("ranking_position") && (
-                              <TableCell>
+                              <td className="p-4 align-middle">
                                 {renderPositionWithChange(position ?? null, prevPos ?? null)}
-                              </TableCell>
+                              </td>
                             )}
                             
-                            {/* First - conditionally visible */}
+                            {/* First */}
                             {visibleColumnIds.includes("first_position") && (
-                              <TableCell className="text-muted-foreground">
+                              <td className="p-4 align-middle text-muted-foreground">
                                 {firstPos ?? "-"}
-                              </TableCell>
+                              </td>
                             )}
                             
-                            {/* Best - conditionally visible */}
+                            {/* Best */}
                             {visibleColumnIds.includes("best_position") && (
-                              <TableCell>
+                              <td className="p-4 align-middle">
                                 <span className={`font-medium ${getPositionColor(bestPos ?? null)}`}>
                                   {bestPos ?? "-"}
                                 </span>
-                              </TableCell>
+                              </td>
                             )}
                             
-                            {/* URL - conditionally visible */}
+                            {/* URL */}
                             {visibleColumnIds.includes("found_url") && (
-                              <TableCell>
+                              <td className="p-4 align-middle">
                                 {showSerpTitles && competitorTitle ? (
                                   <div className="space-y-0.5 max-w-[320px]">
                                     <div className="text-sm text-primary font-medium truncate" title={competitorTitle}>
@@ -497,12 +506,12 @@ export function KeywordsTable({
                                     {extractSlug(url)}
                                   </span>
                                 )}
-                              </TableCell>
+                              </td>
                             )}
                             
-                            {/* Updated - conditionally visible */}
+                            {/* Updated */}
                             {visibleColumnIds.includes("last_checked_at") && (
-                              <TableCell>
+                              <td className="p-4 align-middle">
                                 {lastChecked ? (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -515,15 +524,14 @@ export function KeywordsTable({
                                     </TooltipContent>
                                   </Tooltip>
                                 ) : "-"}
-                              </TableCell>
+                              </td>
                             )}
                             
-                            {/* Actions column - empty for competitor rows */}
+                            {/* Actions column - empty */}
                             {visibleColumnIds.includes("actions") && (
-                              <TableCell></TableCell>
+                              <td className="p-4 align-middle"></td>
                             )}
-                            
-                          </TableRow>
+                          </tr>
                         );
                       })
                     }
@@ -531,15 +539,16 @@ export function KeywordsTable({
                 );
               })
             ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+              <tr>
+                <td colSpan={columns.length} className="h-24 text-center p-4">
                   {isLoading ? "Loading..." : "No results."}
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
+      
       <DataTablePagination table={table} />
     </div>
   );
