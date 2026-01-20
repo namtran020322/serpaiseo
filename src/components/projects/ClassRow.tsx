@@ -46,7 +46,7 @@ export function ClassRow({ projectClass, projectId }: ClassRowProps) {
   const handleRefreshRankings = async () => {
     setIsChecking(true);
     try {
-      await checkRankings.mutateAsync({ classId: projectClass.id });
+      await checkRankings.mutateAsync(projectClass.id);
     } finally {
       setIsChecking(false);
     }

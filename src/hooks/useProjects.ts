@@ -88,19 +88,9 @@ export interface RankingStats {
   notFound_declined?: number;
 }
 
-// Helper to extract count from tier stats
-export function getTierCount(tier: number | TierStats): number {
-  return typeof tier === 'number' ? tier : tier.count;
-}
-
-// Helper to extract improved from tier stats
-export function getTierImproved(tier: number | TierStats): number {
-  return typeof tier === 'number' ? 0 : tier.improved;
-}
-
-// Helper to extract declined from tier stats
-export function getTierDeclined(tier: number | TierStats): number {
-  return typeof tier === 'number' ? 0 : tier.declined;
+// Helper to extract count from tier stats (for backward compatibility)
+export function getTierCount(tier: number): number {
+  return tier;
 }
 
 function calculateRankingStats(keywords: ProjectKeyword[]): RankingStats {
