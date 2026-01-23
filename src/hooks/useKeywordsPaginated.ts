@@ -10,6 +10,7 @@ export interface UseKeywordsPaginatedParams {
   sortBy?: string;
   sortDesc?: boolean;
   search?: string;
+  tierFilter?: string | null;
 }
 
 export interface KeywordsPaginatedResult {
@@ -19,10 +20,10 @@ export interface KeywordsPaginatedResult {
 
 export function useKeywordsPaginated(params: UseKeywordsPaginatedParams) {
   const { user } = useAuthContext();
-  const { classId, page, pageSize, sortBy, sortDesc, search } = params;
+  const { classId, page, pageSize, sortBy, sortDesc, search, tierFilter } = params;
 
   return useQuery({
-    queryKey: ["keywords-paginated", classId, page, pageSize, sortBy, sortDesc, search, user?.id],
+    queryKey: ["keywords-paginated", classId, page, pageSize, sortBy, sortDesc, search, tierFilter, user?.id],
     queryFn: async (): Promise<KeywordsPaginatedResult> => {
       if (!user || !classId) {
         return { keywords: [], totalCount: 0 };
@@ -35,6 +36,27 @@ export function useKeywordsPaginated(params: UseKeywordsPaginatedParams) {
         .from("project_keywords")
         .select("*", { count: "exact" })
         .eq("class_id", classId);
+
+      // Apply tier filter
+      if (tierFilter) {
+        switch (tierFilter) {
+          case 'top3':
+            query = query.gte('ranking_position', 1).lte('ranking_position', 3);
+            break;
+          case 'top10':
+            query = query.gte('ranking_position', 4).lte('ranking_position', 10);
+            break;
+          case 'top30':
+            query = query.gte('ranking_position', 11).lte('ranking_position', 30);
+            break;
+          case 'top100':
+            query = query.gte('ranking_position', 31).lte('ranking_position', 100);
+            break;
+          case 'notFound':
+            query = query.or('ranking_position.is.null,ranking_position.gt.100');
+            break;
+        }
+      }
 
       // Apply search filter
       if (search && search.trim()) {

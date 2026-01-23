@@ -504,6 +504,15 @@ export type Database = {
       }
       cleanup_pending_orders: { Args: never; Returns: number }
       get_class_ranking_stats: { Args: { p_class_id: string }; Returns: Json }
+      get_projects_paginated: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

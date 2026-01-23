@@ -11,7 +11,6 @@ const ALLOWED_ORIGINS = [
 ]
 
 function getCorsHeaders(origin: string | null): Record<string, string> {
-  // Accept any lovable.app, lovableproject.com subdomain, or custom domain
   const isAllowed = origin && (
     ALLOWED_ORIGINS.includes(origin) ||
     origin.endsWith('.lovable.app') ||
@@ -40,13 +39,11 @@ const PRICING_PACKAGES: PricingPackage[] = [
   { id: 'enterprise', name: 'Enterprise', price: 2000000, credits: 135000 },
 ]
 
-// Validate package_id
 function isValidPackageId(packageId: unknown): packageId is string {
   if (typeof packageId !== 'string') return false
   return PRICING_PACKAGES.some(p => p.id === packageId)
 }
 
-// Generate HMAC-SHA256 signature and return as base64
 async function hmacSha256(message: string, secretKey: string): Promise<string> {
   const encoder = new TextEncoder()
   const keyData = encoder.encode(secretKey)
@@ -95,7 +92,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Verify user using getClaims for proper JWT validation
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     })
@@ -111,8 +107,7 @@ Deno.serve(async (req) => {
     
     const userId = claimsData.user.id
 
-    // Parse and validate request body
-    let body: { package_id?: unknown }
+    let body: { package_id?: unknown; display_mode?: string }
     try {
       body = await req.json()
     } catch {
@@ -122,7 +117,7 @@ Deno.serve(async (req) => {
       )
     }
     
-    const { package_id } = body
+    const { package_id, display_mode } = body
     
     if (!isValidPackageId(package_id)) {
       return new Response(
@@ -131,14 +126,10 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Find package (already validated above)
     const pkg = PRICING_PACKAGES.find(p => p.id === package_id)!
-
-    // Generate order invoice number
     const timestamp = Date.now()
     const orderInvoiceNumber = `ORD-${userId.slice(0, 8).toUpperCase()}-${timestamp}`
 
-    // Create order in database
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     
     const { data: order, error: orderError } = await supabase
@@ -164,13 +155,11 @@ Deno.serve(async (req) => {
 
     console.log(`[INFO] Created order ${orderInvoiceNumber} for user ${userId}`)
 
-    // Get origin from referer or use default
     const referer = req.headers.get('referer') || req.headers.get('origin')
     let baseOrigin = 'https://serpaiseo.lovable.app'
     if (referer) {
       try {
         const url = new URL(referer)
-        // Only use origin if it's in allowed list
         if (ALLOWED_ORIGINS.some(o => url.origin.startsWith(o.replace(/:\d+$/, '')))) {
           baseOrigin = url.origin
         }
@@ -179,17 +168,42 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Build form data for Sepay checkout
     const description = `Purchase ${pkg.credits} credits - ${pkg.name} package`
     const successUrl = `${baseOrigin}/dashboard/billing?payment=success`
     const errorUrl = `${baseOrigin}/dashboard/billing?payment=error`
     const cancelUrl = `${baseOrigin}/dashboard/billing?payment=cancel`
     
-    // Set expiration time (30 minutes from now)
     const expireDate = new Date(Date.now() + 30 * 60 * 1000)
     const expireOn = expireDate.toISOString().replace('T', ' ').slice(0, 19)
 
-    // Generate signature for Sepay using HMAC-SHA256
+    // QR mode - return VietQR data for in-app display
+    if (display_mode === 'qr') {
+      // Build VietQR URL (using SePay's QR service)
+      // Format: https://qr.sepay.vn/img?acc=ACCOUNT&bank=BANK&amount=AMOUNT&des=DESCRIPTION
+      const qrUrl = `https://qr.sepay.vn/img?acc=${sepayMerchantId}&bank=MB&amount=${pkg.price}&des=${encodeURIComponent(orderInvoiceNumber)}`
+      
+      console.log(`[INFO] QR mode - Generated QR for order ${orderInvoiceNumber}`)
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          order_id: order.id,
+          order_invoice_number: orderInvoiceNumber,
+          qr_data: {
+            qr_url: qrUrl,
+            bank_name: 'MB Bank',
+            bank_account: sepayMerchantId,
+            account_name: 'SEPAY MERCHANT',
+            amount: pkg.price,
+            description: orderInvoiceNumber,
+            expire_on: expireDate.toISOString(),
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Redirect mode - generate form data for POST to SePay checkout
     const signedFields = [
       `merchant=${sepayMerchantId}`,
       `currency=VND`,
@@ -205,9 +219,8 @@ Deno.serve(async (req) => {
     const signedString = signedFields.join(',')
     const signature = await hmacSha256(signedString, sepaySecretKey)
 
-    console.log(`[INFO] Generated checkout form data for order ${orderInvoiceNumber}, expires at ${expireOn}`)
+    console.log(`[INFO] Generated checkout form for order ${orderInvoiceNumber}`)
 
-    // Return form data for POST submission
     return new Response(
       JSON.stringify({
         success: true,

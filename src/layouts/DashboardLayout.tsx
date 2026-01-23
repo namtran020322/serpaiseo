@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { useProject, useProjectClass } from "@/hooks/useProjects";
 import { Fragment } from "react";
+import { HeaderActions } from "@/components/HeaderActions";
 
 const routeLabels: Record<string, string> = {
   "dashboard": "Home",
@@ -117,6 +118,7 @@ export default function DashboardLayout() {
               </BreadcrumbList>
             </Breadcrumb>
             <div className="flex-1" />
+            <HeaderActions />
           </header>
           {/* Content */}
           <div className={cn(
