@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PRICING_PACKAGES, formatVND, formatCredits, getUserTier } from "@/lib/pricing";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { PaymentQRModal, QRData } from "@/components/PaymentQRModal";
+import { PaymentModal } from "@/components/PaymentModal";
 
 export default function Billing() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -23,10 +23,11 @@ export default function Billing() {
   const { balance, totalPurchased, totalUsed, isLoading, transactions, transactionsLoading, orders, ordersLoading, refreshCredits } = useCredits();
   const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null);
   
-  // QR Modal state
-  const [qrModalOpen, setQrModalOpen] = useState(false);
-  const [qrData, setQrData] = useState<QRData | null>(null);
+  // Payment Modal state
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [expireOn, setExpireOn] = useState<string | null>(null);
 
   const currentTier = getUserTier(totalPurchased);
 
@@ -64,38 +65,17 @@ export default function Billing() {
     
     try {
       const { data, error } = await supabase.functions.invoke('create-sepay-order', {
-        body: { package_id: packageId, display_mode: 'qr' },
+        body: { package_id: packageId },
       });
 
       if (error) throw error;
 
-      // QR mode - show modal
-      if (data?.qr_data) {
-        setQrData(data.qr_data);
+      // Open checkout URL in iframe modal
+      if (data?.checkout_url) {
+        setCheckoutUrl(data.checkout_url);
         setCurrentOrderId(data.order_id);
-        setQrModalOpen(true);
-        setPurchaseLoading(null);
-        return;
-      }
-
-      // Fallback: redirect flow (legacy)
-      if (data?.checkout_action && data?.form_data) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = data.checkout_action;
-        form.style.display = 'none';
-        
-        Object.entries(data.form_data).forEach(([key, value]) => {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = key;
-          input.value = String(value);
-          form.appendChild(input);
-        });
-        
-        document.body.appendChild(form);
-        form.submit();
-        return;
+        setExpireOn(data.expire_on);
+        setPaymentModalOpen(true);
       } else {
         throw new Error('Invalid response from payment service');
       }
@@ -106,6 +86,7 @@ export default function Billing() {
         title: "Purchase failed",
         description: error.message || "Unable to create order. Please try again.",
       });
+    } finally {
       setPurchaseLoading(null);
     }
   };
@@ -479,12 +460,13 @@ export default function Billing() {
         </TabsContent>
       </Tabs>
 
-      {/* Payment QR Modal */}
-      <PaymentQRModal
-        open={qrModalOpen}
-        onOpenChange={setQrModalOpen}
-        qrData={qrData}
+      {/* Payment Modal */}
+      <PaymentModal
+        open={paymentModalOpen}
+        onOpenChange={setPaymentModalOpen}
+        checkoutUrl={checkoutUrl}
         orderId={currentOrderId}
+        expireOn={expireOn}
         onPaymentSuccess={handlePaymentSuccess}
       />
     </div>
