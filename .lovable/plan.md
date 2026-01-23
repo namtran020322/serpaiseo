@@ -1,21 +1,22 @@
 
-## Kế hoạch: Chuyển SePay Payment sang Iframe Modal
+## Kế hoạch Sửa Lỗi SePay Payment 404
 
-### Vấn đề Hiện tại
+### Nguyên nhân Lỗi
 
-Code hiện tại đang sử dụng **VietQR** (`qr.sepay.vn/img`) - đây KHÔNG phải cách tích hợp chính thức của Cổng thanh toán SePay. Theo tài liệu SePay chính thức, cách đúng là:
+Theo tài liệu SePay chính thức:
+- Endpoint `https://pay.sepay.vn/v1/checkout/init` yêu cầu **POST method** thông qua form HTML
+- Code hiện tại đang sử dụng **GET request** với query params → SePay trả về 404
 
-1. Tạo form HTML với các tham số và signature
-2. POST form đến `https://pay.sepay.vn/v1/checkout/init`
-3. User được redirect đến trang checkout SePay
+Theo flow đúng:
+1. Tạo form HTML với các hidden inputs
+2. Submit form (POST) đến `/v1/checkout/init` 
+3. SePay validate signature → redirect đến `https://pgapi.sepay.vn?...` (trang checkout thực sự)
+4. User thanh toán
+5. SePay gọi webhook IPN + redirect user về success/error URL
 
-### Giải pháp: Iframe trong Modal
+### Giải pháp
 
-Thay vì redirect toàn bộ trang, sẽ:
-1. Tạo URL checkout với query params (thay vì POST form)
-2. Load URL đó trong iframe bên trong Dialog Modal
-3. Polling status để detect thanh toán thành công
-4. Đóng modal khi user quay lại từ success/cancel/error URL
+Thay đổi cách hoạt động: Frontend sẽ tạo form hidden và submit vào iframe thay vì load URL trực tiếp.
 
 ---
 
@@ -23,143 +24,115 @@ Thay vì redirect toàn bộ trang, sẽ:
 
 #### 1. Edge Function `create-sepay-order/index.ts`
 
-**Xóa logic VietQR**, thay bằng:
-- Tạo order trong database như hiện tại
-- Tạo signature theo đúng format SePay (field=value,field=value)
-- Trả về checkout URL với params đã encode
+Trả về **form data** thay vì checkout URL:
 
 ```typescript
-// Xóa display_mode='qr' và VietQR logic
-
-// Build checkout URL với các tham số
-const checkoutParams = new URLSearchParams();
-checkoutParams.set('merchant', sepayMerchantId);
-checkoutParams.set('currency', 'VND');
-checkoutParams.set('operation', 'PURCHASE');
-checkoutParams.set('order_amount', pkg.price.toString());
-checkoutParams.set('order_description', description);
-checkoutParams.set('order_invoice_number', orderInvoiceNumber);
-checkoutParams.set('success_url', successUrl);
-checkoutParams.set('error_url', errorUrl);
-checkoutParams.set('cancel_url', cancelUrl);
-
-// Tạo signature theo thứ tự đúng của SePay
-const signedFields = [
-  `merchant=${sepayMerchantId}`,
-  `operation=PURCHASE`,
-  `order_amount=${pkg.price}`,
-  `currency=VND`,
-  `order_invoice_number=${orderInvoiceNumber}`,
-  `order_description=${description}`,
-  `success_url=${successUrl}`,
-  `error_url=${errorUrl}`,
-  `cancel_url=${cancelUrl}`
-];
-const signature = await hmacSha256(signedFields.join(','), sepaySecretKey);
-checkoutParams.set('signature', signature);
-
-// URL checkout cho iframe
-const checkoutUrl = `https://pay.sepay.vn/v1/checkout/init?${checkoutParams.toString()}`;
-
+// Response format mới
 return {
   success: true,
   order_id: order.id,
-  checkout_url: checkoutUrl,
-  expire_on: expireDate.toISOString()
+  order_invoice_number: orderInvoiceNumber,
+  expire_on: expireDate.toISOString(),
+  checkout_action: 'https://pay.sepay.vn/v1/checkout/init', // POST endpoint
+  form_data: {
+    merchant: sepayMerchantId,
+    currency: 'VND',
+    operation: 'PURCHASE',
+    order_amount: pkg.price.toString(),
+    order_description: description,
+    order_invoice_number: orderInvoiceNumber,
+    success_url: successUrl,
+    error_url: errorUrl,
+    cancel_url: cancelUrl,
+    signature: signature
+  }
 };
 ```
 
-#### 2. Component `PaymentQRModal.tsx` -> `PaymentModal.tsx`
+#### 2. Component `PaymentModal.tsx`
 
-Đổi tên và thay đổi logic:
+Thay đổi từ load URL sang tạo form hidden và submit vào iframe:
 
 ```tsx
 interface PaymentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  checkoutUrl: string | null;
+  checkoutAction: string | null;  // POST URL
+  formData: Record<string, string> | null;  // Form fields
   orderId: string | null;
   expireOn: string | null;
   onPaymentSuccess: () => void;
 }
 
-export function PaymentModal({ 
-  open, 
-  onOpenChange, 
-  checkoutUrl,
-  orderId,
-  expireOn,
-  onPaymentSuccess 
-}: PaymentModalProps) {
-  // Countdown timer (giữ nguyên logic)
-  
-  // Polling status mỗi 5 giây (giữ nguyên logic)
-  
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0">
-        <DialogHeader className="p-4 pb-2 border-b">
-          <DialogTitle>Complete Payment</DialogTitle>
-          {/* Timer hiển thị */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span>Expires in {formatTime(timeLeft)}</span>
-            {checking && <Loader2 className="h-4 w-4 animate-spin" />}
-          </div>
-        </DialogHeader>
-        
-        {/* Iframe load SePay checkout */}
-        <div className="flex-1 min-h-0">
-          {checkoutUrl && (
-            <iframe 
-              src={checkoutUrl}
-              className="w-full h-full border-0"
-              title="SePay Checkout"
-              allow="payment"
-            />
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
+// Trong component:
+const iframeRef = useRef<HTMLIFrameElement>(null);
+const formRef = useRef<HTMLFormElement>(null);
+
+// Submit form vào iframe khi modal mở
+useEffect(() => {
+  if (open && checkoutAction && formData && formRef.current) {
+    // Submit form vào iframe
+    formRef.current.submit();
+  }
+}, [open, checkoutAction, formData]);
+
+return (
+  <Dialog>
+    <DialogContent>
+      {/* Hidden form để POST vào iframe */}
+      <form 
+        ref={formRef}
+        method="POST"
+        action={checkoutAction}
+        target="sepay-iframe"
+        style={{ display: 'none' }}
+      >
+        {formData && Object.entries(formData).map(([key, value]) => (
+          <input type="hidden" name={key} value={value} key={key} />
+        ))}
+      </form>
+      
+      {/* Iframe nhận form submit */}
+      <iframe 
+        ref={iframeRef}
+        name="sepay-iframe"
+        className="w-full h-full border-0"
+        title="SePay Checkout"
+      />
+    </DialogContent>
+  </Dialog>
+);
 ```
 
 #### 3. `Billing.tsx`
 
-Cập nhật để sử dụng component mới:
+Cập nhật để truyền đúng props cho PaymentModal:
 
 ```tsx
-// State mới
-const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
-const [expireOn, setExpireOn] = useState<string | null>(null);
+const [checkoutAction, setCheckoutAction] = useState<string | null>(null);
+const [formData, setFormData] = useState<Record<string, string> | null>(null);
 
 const handlePurchase = async (packageId: string) => {
-  setPurchaseLoading(packageId);
-  
-  const { data, error } = await supabase.functions.invoke('create-sepay-order', {
+  // ...
+  const { data } = await supabase.functions.invoke('create-sepay-order', {
     body: { package_id: packageId }
   });
 
-  if (error) throw error;
-
-  if (data?.checkout_url) {
-    setCheckoutUrl(data.checkout_url);
+  if (data?.checkout_action && data?.form_data) {
+    setCheckoutAction(data.checkout_action);
+    setFormData(data.form_data);
     setCurrentOrderId(data.order_id);
     setExpireOn(data.expire_on);
     setPaymentModalOpen(true);
   }
-  
-  setPurchaseLoading(null);
 };
 
 // Render
 <PaymentModal
   open={paymentModalOpen}
   onOpenChange={setPaymentModalOpen}
-  checkoutUrl={checkoutUrl}
+  checkoutAction={checkoutAction}
+  formData={formData}
   orderId={currentOrderId}
   expireOn={expireOn}
   onPaymentSuccess={handlePaymentSuccess}
@@ -170,27 +143,32 @@ const handlePurchase = async (packageId: string) => {
 
 ### Lưu ý Kỹ thuật Quan trọng
 
-**1. X-Frame-Options của SePay:**
-- Cần xác nhận SePay cho phép embed trong iframe
-- Nếu SePay block iframe (có header X-Frame-Options: DENY), giải pháp backup là mở popup window thay vì iframe
+**1. Thứ tự Form Fields:**
+Theo tài liệu SePay, thứ tự inputs trong form phải đúng:
+1. merchant
+2. currency  
+3. order_amount
+4. operation
+5. order_description
+6. order_invoice_number
+7. customer_id (nếu có)
+8. success_url
+9. error_url
+10. cancel_url
+11. signature
 
 **2. Signature Format:**
-Theo tài liệu SePay, thứ tự các field phải đúng:
-```
-merchant,operation,payment_method,order_amount,currency,order_invoice_number,order_description,customer_id,success_url,error_url,cancel_url
-```
-(Chỉ include các field có giá trị)
+Chuỗi ký: `merchant=X,operation=Y,order_amount=Z,currency=VND,order_invoice_number=W,order_description=D,success_url=S,error_url=E,cancel_url=C`
+(Chỉ include fields có giá trị, theo đúng thứ tự trong danh sách allowed fields)
 
-**3. Callback URLs trong Iframe:**
-- Khi user hoàn thành payment, SePay redirect trong iframe đến success_url
-- Cần detect URL change hoặc dựa vào polling để biết kết quả
+**3. Iframe Security:**
+- Cần `sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation"`
+- Nếu SePay block iframe, sẽ fallback sang popup window
 
-**4. Fallback Plan:**
-Nếu SePay không cho phép iframe, sử dụng `window.open()` để mở popup:
-```typescript
-const popup = window.open(checkoutUrl, 'SePay Payment', 'width=600,height=800');
-// Monitor popup.closed + polling
-```
+**4. Environment Detection:**
+- Production: `https://pay.sepay.vn/v1/checkout/init`
+- Sandbox: `https://pay-sandbox.sepay.vn/v1/checkout/init`
+- Sẽ add flag để chọn environment
 
 ---
 
@@ -198,16 +176,17 @@ const popup = window.open(checkoutUrl, 'SePay Payment', 'width=600,height=800');
 
 | File | Hành động |
 |------|-----------|
-| `supabase/functions/create-sepay-order/index.ts` | Sửa: Xóa VietQR, trả về checkout_url |
-| `src/components/PaymentQRModal.tsx` | Xóa |
-| `src/components/PaymentModal.tsx` | Tạo mới: Dialog với iframe |
-| `src/pages/Billing.tsx` | Sửa: Dùng PaymentModal thay QRModal |
+| `supabase/functions/create-sepay-order/index.ts` | Sửa: Trả về form_data thay vì URL |
+| `src/components/PaymentModal.tsx` | Sửa: Tạo hidden form, submit vào iframe |
+| `src/pages/Billing.tsx` | Sửa: Handle response mới và truyền props |
 
 ---
 
-### Thứ tự Triển khai
+### Testing Plan
 
-1. Cập nhật Edge Function trả về checkout_url đúng format SePay
-2. Tạo PaymentModal mới với iframe
-3. Cập nhật Billing.tsx để sử dụng
-4. Test thử - nếu SePay block iframe, chuyển sang popup fallback
+1. Deploy edge function
+2. Test gọi edge function trực tiếp để verify response format
+3. Click "Get Started" trên Billing page
+4. Verify iframe load trang checkout SePay (không phải 404)
+5. Thử thanh toán sandbox
+6. Verify webhook và credit được cộng
