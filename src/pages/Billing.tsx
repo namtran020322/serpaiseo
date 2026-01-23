@@ -25,7 +25,8 @@ export default function Billing() {
   
   // Payment Modal state
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [checkoutAction, setCheckoutAction] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Record<string, string> | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [expireOn, setExpireOn] = useState<string | null>(null);
 
@@ -70,9 +71,10 @@ export default function Billing() {
 
       if (error) throw error;
 
-      // Open checkout URL in iframe modal
-      if (data?.checkout_url) {
-        setCheckoutUrl(data.checkout_url);
+      // Open checkout form in iframe modal
+      if (data?.checkout_action && data?.form_data) {
+        setCheckoutAction(data.checkout_action);
+        setFormData(data.form_data);
         setCurrentOrderId(data.order_id);
         setExpireOn(data.expire_on);
         setPaymentModalOpen(true);
@@ -464,7 +466,8 @@ export default function Billing() {
       <PaymentModal
         open={paymentModalOpen}
         onOpenChange={setPaymentModalOpen}
-        checkoutUrl={checkoutUrl}
+        checkoutAction={checkoutAction}
+        formData={formData}
         orderId={currentOrderId}
         expireOn={expireOn}
         onPaymentSuccess={handlePaymentSuccess}
