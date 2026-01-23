@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     
     const userId = claimsData.user.id
 
-    let body: { package_id?: unknown; display_mode?: string }
+    let body: { package_id?: unknown }
     try {
       body = await req.json()
     } catch {
@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
       )
     }
     
-    const { package_id, display_mode } = body
+    const { package_id } = body
     
     if (!isValidPackageId(package_id)) {
       return new Response(
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (orderError) {
-      console.error('[ERROR] Failed to create order')
+      console.error('[ERROR] Failed to create order:', orderError)
       return new Response(
         JSON.stringify({ error: 'Failed to create order' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
 
     console.log(`[INFO] Created order ${orderInvoiceNumber} for user ${userId}`)
 
+    // Get base origin for callback URLs
     const referer = req.headers.get('referer') || req.headers.get('origin')
     let baseOrigin = 'https://serpaiseo.lovable.app'
     if (referer) {
@@ -173,45 +174,20 @@ Deno.serve(async (req) => {
     const errorUrl = `${baseOrigin}/dashboard/billing?payment=error`
     const cancelUrl = `${baseOrigin}/dashboard/billing?payment=cancel`
     
+    // Expire in 30 minutes
     const expireDate = new Date(Date.now() + 30 * 60 * 1000)
     const expireOn = expireDate.toISOString().replace('T', ' ').slice(0, 19)
 
-    // QR mode - return VietQR data for in-app display
-    if (display_mode === 'qr') {
-      // Build VietQR URL (using SePay's QR service)
-      // Format: https://qr.sepay.vn/img?acc=ACCOUNT&bank=BANK&amount=AMOUNT&des=DESCRIPTION
-      const qrUrl = `https://qr.sepay.vn/img?acc=${sepayMerchantId}&bank=MB&amount=${pkg.price}&des=${encodeURIComponent(orderInvoiceNumber)}`
-      
-      console.log(`[INFO] QR mode - Generated QR for order ${orderInvoiceNumber}`)
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          order_id: order.id,
-          order_invoice_number: orderInvoiceNumber,
-          qr_data: {
-            qr_url: qrUrl,
-            bank_name: 'MB Bank',
-            bank_account: sepayMerchantId,
-            account_name: 'SEPAY MERCHANT',
-            amount: pkg.price,
-            description: orderInvoiceNumber,
-            expire_on: expireDate.toISOString(),
-          }
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Redirect mode - generate form data for POST to SePay checkout
+    // Build signature according to SePay documentation
+    // Order: merchant,operation,payment_method,order_amount,currency,order_invoice_number,order_description,customer_id,success_url,error_url,cancel_url
+    // Only include fields that have values
     const signedFields = [
       `merchant=${sepayMerchantId}`,
-      `currency=VND`,
       `operation=PURCHASE`,
       `order_amount=${pkg.price}`,
-      `order_description=${description}`,
+      `currency=VND`,
       `order_invoice_number=${orderInvoiceNumber}`,
-      `expire_on=${expireOn}`,
+      `order_description=${description}`,
       `success_url=${successUrl}`,
       `error_url=${errorUrl}`,
       `cancel_url=${cancelUrl}`
@@ -219,27 +195,31 @@ Deno.serve(async (req) => {
     const signedString = signedFields.join(',')
     const signature = await hmacSha256(signedString, sepaySecretKey)
 
-    console.log(`[INFO] Generated checkout form for order ${orderInvoiceNumber}`)
+    // Build checkout URL for iframe
+    const checkoutParams = new URLSearchParams()
+    checkoutParams.set('merchant', sepayMerchantId)
+    checkoutParams.set('currency', 'VND')
+    checkoutParams.set('operation', 'PURCHASE')
+    checkoutParams.set('order_amount', pkg.price.toString())
+    checkoutParams.set('order_description', description)
+    checkoutParams.set('order_invoice_number', orderInvoiceNumber)
+    checkoutParams.set('expire_on', expireOn)
+    checkoutParams.set('success_url', successUrl)
+    checkoutParams.set('error_url', errorUrl)
+    checkoutParams.set('cancel_url', cancelUrl)
+    checkoutParams.set('signature', signature)
+
+    const checkoutUrl = `https://pay.sepay.vn/v1/checkout/init?${checkoutParams.toString()}`
+
+    console.log(`[INFO] Generated checkout URL for order ${orderInvoiceNumber}`)
 
     return new Response(
       JSON.stringify({
         success: true,
         order_id: order.id,
         order_invoice_number: orderInvoiceNumber,
-        checkout_action: 'https://pay.sepay.vn/v1/checkout/init',
-        form_data: {
-          merchant: sepayMerchantId,
-          currency: 'VND',
-          operation: 'PURCHASE',
-          order_amount: pkg.price.toString(),
-          order_description: description,
-          order_invoice_number: orderInvoiceNumber,
-          expire_on: expireOn,
-          success_url: successUrl,
-          error_url: errorUrl,
-          cancel_url: cancelUrl,
-          signature: signature
-        }
+        checkout_url: checkoutUrl,
+        expire_on: expireDate.toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
