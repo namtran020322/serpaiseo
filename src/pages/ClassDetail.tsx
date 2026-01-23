@@ -24,6 +24,7 @@ const deviceIcons = {
   tablet: Tablet,
 };
 
+// ClassDetail page for keyword ranking management
 export default function ClassDetail() {
   const { projectId, classId } = useParams();
   const navigate = useNavigate();
