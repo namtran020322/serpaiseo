@@ -195,31 +195,28 @@ Deno.serve(async (req) => {
     const signedString = signedFields.join(',')
     const signature = await hmacSha256(signedString, sepaySecretKey)
 
-    // Build checkout URL for iframe
-    const checkoutParams = new URLSearchParams()
-    checkoutParams.set('merchant', sepayMerchantId)
-    checkoutParams.set('currency', 'VND')
-    checkoutParams.set('operation', 'PURCHASE')
-    checkoutParams.set('order_amount', pkg.price.toString())
-    checkoutParams.set('order_description', description)
-    checkoutParams.set('order_invoice_number', orderInvoiceNumber)
-    checkoutParams.set('expire_on', expireOn)
-    checkoutParams.set('success_url', successUrl)
-    checkoutParams.set('error_url', errorUrl)
-    checkoutParams.set('cancel_url', cancelUrl)
-    checkoutParams.set('signature', signature)
+    console.log(`[INFO] Generated checkout form data for order ${orderInvoiceNumber}`)
 
-    const checkoutUrl = `https://pay.sepay.vn/v1/checkout/init?${checkoutParams.toString()}`
-
-    console.log(`[INFO] Generated checkout URL for order ${orderInvoiceNumber}`)
-
+    // Return form data for POST submission (SePay requires POST, not GET)
     return new Response(
       JSON.stringify({
         success: true,
         order_id: order.id,
         order_invoice_number: orderInvoiceNumber,
-        checkout_url: checkoutUrl,
-        expire_on: expireDate.toISOString()
+        expire_on: expireDate.toISOString(),
+        checkout_action: 'https://pay.sepay.vn/v1/checkout/init',
+        form_data: {
+          merchant: sepayMerchantId,
+          currency: 'VND',
+          order_amount: pkg.price.toString(),
+          operation: 'PURCHASE',
+          order_description: description,
+          order_invoice_number: orderInvoiceNumber,
+          success_url: successUrl,
+          error_url: errorUrl,
+          cancel_url: cancelUrl,
+          signature: signature
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

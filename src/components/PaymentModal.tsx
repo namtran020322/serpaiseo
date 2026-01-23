@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Clock, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 interface PaymentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  checkoutUrl: string | null;
+  checkoutAction: string | null;
+  formData: Record<string, string> | null;
   orderId: string | null;
   expireOn: string | null;
   onPaymentSuccess: () => void;
@@ -17,7 +18,8 @@ interface PaymentModalProps {
 export function PaymentModal({ 
   open, 
   onOpenChange, 
-  checkoutUrl,
+  checkoutAction,
+  formData,
   orderId, 
   expireOn,
   onPaymentSuccess 
@@ -26,14 +28,34 @@ export function PaymentModal({
   const [checking, setChecking] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes countdown
   const [iframeError, setIframeError] = useState(false);
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Reset state when modal opens/closes
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setFormSubmitted(false);
+      setIframeError(false);
+    } else {
       setChecking(false);
+      setFormSubmitted(false);
       setIframeError(false);
     }
   }, [open]);
+
+  // Submit form to iframe when modal opens
+  useEffect(() => {
+    if (open && checkoutAction && formData && formRef.current && !formSubmitted) {
+      // Small delay to ensure iframe is ready
+      const timer = setTimeout(() => {
+        if (formRef.current) {
+          formRef.current.submit();
+          setFormSubmitted(true);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [open, checkoutAction, formData, formSubmitted]);
 
   // Countdown timer
   useEffect(() => {
@@ -113,18 +135,50 @@ export function PaymentModal({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Fallback: open in new window if iframe fails
+  // Fallback: open in new window with form POST
   const openInNewWindow = useCallback(() => {
-    if (checkoutUrl) {
-      window.open(checkoutUrl, 'SePay Payment', 'width=600,height=800,scrollbars=yes');
+    if (checkoutAction && formData) {
+      // Create a form and submit it in a new window
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = checkoutAction;
+      form.target = '_blank';
+      
+      // Add form fields in correct order
+      const fieldOrder = [
+        'merchant', 'currency', 'order_amount', 'operation',
+        'order_description', 'order_invoice_number',
+        'success_url', 'error_url', 'cancel_url', 'signature'
+      ];
+      
+      fieldOrder.forEach(key => {
+        if (formData[key]) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = formData[key];
+          form.appendChild(input);
+        }
+      });
+      
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
     }
-  }, [checkoutUrl]);
+  }, [checkoutAction, formData]);
 
   const handleIframeError = () => {
     setIframeError(true);
   };
 
-  if (!checkoutUrl) return null;
+  if (!checkoutAction || !formData) return null;
+
+  // Field order for form submission (SePay requires specific order)
+  const fieldOrder = [
+    'merchant', 'currency', 'order_amount', 'operation',
+    'order_description', 'order_invoice_number',
+    'success_url', 'error_url', 'cancel_url', 'signature'
+  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -141,6 +195,26 @@ export function PaymentModal({
             </div>
           </div>
         </DialogHeader>
+        
+        {/* Hidden form for POST submission to iframe */}
+        <form 
+          ref={formRef}
+          method="POST"
+          action={checkoutAction}
+          target="sepay-iframe"
+          style={{ display: 'none' }}
+        >
+          {fieldOrder.map(key => (
+            formData[key] && (
+              <input 
+                type="hidden" 
+                name={key} 
+                value={formData[key]} 
+                key={key} 
+              />
+            )
+          ))}
+        </form>
         
         {/* Iframe or Error Fallback */}
         <div className="flex-1 min-h-0 relative">
@@ -163,10 +237,9 @@ export function PaymentModal({
             </div>
           ) : (
             <iframe 
-              src={checkoutUrl}
+              name="sepay-iframe"
               className="w-full h-full border-0"
               title="SePay Checkout"
-              allow="payment"
               onError={handleIframeError}
               sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation"
             />
