@@ -28,12 +28,13 @@ export default function ClassDetail() {
   const { projectId, classId } = useParams();
   const navigate = useNavigate();
   
-  // Pagination state
+  // Pagination and filter state
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [sortBy, setSortBy] = useState<string | undefined>(undefined);
   const [sortDesc, setSortDesc] = useState(false);
   const [search, setSearch] = useState("");
+  const [tierFilter, setTierFilter] = useState<string | null>(null);
 
   // Data hooks - server-side pagination
   const { data: classMetadata, isLoading: metaLoading } = useClassMetadata(classId);
@@ -45,6 +46,7 @@ export default function ClassDetail() {
     sortBy,
     sortDesc,
     search,
+    tierFilter,
   });
   
   const { data: project } = useProject(projectId);
@@ -126,6 +128,11 @@ export default function ClassDetail() {
   const handleSearchChange = (newSearch: string) => {
     setSearch(newSearch);
     setPage(0); // Reset to first page on search
+  };
+
+  const handleTierClick = (tier: string | null) => {
+    setTierFilter(tier);
+    setPage(0); // Reset to first page on filter change
   };
 
   // Build projectClass-like object for components that need it
@@ -217,7 +224,11 @@ export default function ClassDetail() {
           <TabsTrigger value="chart">Ranking Chart</TabsTrigger>
         </TabsList>
         <TabsContent value="stats" className="mt-4">
-          <RankingStatsCards stats={rankingStats || { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 }} />
+          <RankingStatsCards 
+            stats={rankingStats || { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 }} 
+            activeTier={tierFilter}
+            onTierClick={handleTierClick}
+          />
         </TabsContent>
         <TabsContent value="chart" className="mt-4">
           <RankingHistoryChart

@@ -1,12 +1,15 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { RankingStats } from "@/hooks/useProjects";
+import { cn } from "@/lib/utils";
 
 interface RankingStatsCardsProps {
   stats: RankingStats;
+  activeTier?: string | null;
+  onTierClick?: (tier: string | null) => void;
 }
 
-export function RankingStatsCards({ stats }: RankingStatsCardsProps) {
+export function RankingStatsCards({ stats, activeTier, onTierClick }: RankingStatsCardsProps) {
   const total = stats.total || 1; // Avoid division by zero
 
   // Helper to get improved/declined from stats
@@ -27,6 +30,12 @@ export function RankingStatsCards({ stats }: RankingStatsCardsProps) {
     { key: "notFound", label: "Not Found", value: stats.notFound },
   ];
 
+  const handleCardClick = (key: string) => {
+    if (!onTierClick) return;
+    // Toggle: if already active, clear filter; otherwise set filter
+    onTierClick(activeTier === key ? null : key);
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
       {cards.map((card) => {
@@ -34,9 +43,19 @@ export function RankingStatsCards({ stats }: RankingStatsCardsProps) {
         const percentage = !isTotal && total > 0 ? Math.round((card.value / total) * 100) : 0;
         const improved = !isTotal ? getImproved(card.key) : 0;
         const declined = !isTotal ? getDeclined(card.key) : 0;
+        const isActive = activeTier === card.key;
+        const isClickable = !isTotal && !!onTierClick;
 
         return (
-          <Card key={card.key}>
+          <Card 
+            key={card.key}
+            className={cn(
+              "transition-all duration-200",
+              isClickable && "cursor-pointer hover:border-primary/50 hover:shadow-sm",
+              isActive && "ring-2 ring-primary border-primary"
+            )}
+            onClick={() => !isTotal && handleCardClick(card.key)}
+          >
             <CardContent className="pt-4 pb-3">
               <div className="flex flex-col gap-0.5">
                 {/* Row 1: Label */}

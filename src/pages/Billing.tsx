@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PRICING_PACKAGES, formatVND, formatCredits, getUserTier } from "@/lib/pricing";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { PaymentQRModal, QRData } from "@/components/PaymentQRModal";
 
 export default function Billing() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -21,10 +22,15 @@ export default function Billing() {
   const { toast } = useToast();
   const { balance, totalPurchased, totalUsed, isLoading, transactions, transactionsLoading, orders, ordersLoading, refreshCredits } = useCredits();
   const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null);
+  
+  // QR Modal state
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrData, setQrData] = useState<QRData | null>(null);
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
 
   const currentTier = getUserTier(totalPurchased);
 
-  // Handle payment result from redirect
+  // Handle payment result from redirect (legacy flow)
   useEffect(() => {
     const paymentResult = searchParams.get('payment');
     if (paymentResult) {
@@ -58,19 +64,27 @@ export default function Billing() {
     
     try {
       const { data, error } = await supabase.functions.invoke('create-sepay-order', {
-        body: { package_id: packageId },
+        body: { package_id: packageId, display_mode: 'qr' },
       });
 
       if (error) throw error;
 
+      // QR mode - show modal
+      if (data?.qr_data) {
+        setQrData(data.qr_data);
+        setCurrentOrderId(data.order_id);
+        setQrModalOpen(true);
+        setPurchaseLoading(null);
+        return;
+      }
+
+      // Fallback: redirect flow (legacy)
       if (data?.checkout_action && data?.form_data) {
-        // Create hidden form and submit via POST
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = data.checkout_action;
         form.style.display = 'none';
         
-        // Add all form fields as hidden inputs
         Object.entries(data.form_data).forEach(([key, value]) => {
           const input = document.createElement('input');
           input.type = 'hidden';
@@ -81,7 +95,6 @@ export default function Billing() {
         
         document.body.appendChild(form);
         form.submit();
-        // Don't reset loading state since page will redirect
         return;
       } else {
         throw new Error('Invalid response from payment service');
@@ -95,6 +108,14 @@ export default function Billing() {
       });
       setPurchaseLoading(null);
     }
+  };
+
+  const handlePaymentSuccess = () => {
+    toast({ 
+      title: "Payment successful!", 
+      description: "Credits have been added to your account.",
+    });
+    refreshCredits();
   };
 
   const getStatusBadge = (status: string) => {
@@ -457,6 +478,15 @@ export default function Billing() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Payment QR Modal */}
+      <PaymentQRModal
+        open={qrModalOpen}
+        onOpenChange={setQrModalOpen}
+        qrData={qrData}
+        orderId={currentOrderId}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
     </div>
   );
 }
