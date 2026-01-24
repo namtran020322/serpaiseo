@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 
@@ -21,6 +21,18 @@ interface CreditTransaction {
   reference_id: string | null;
   balance_after: number;
   created_at: string;
+}
+
+interface DailyUsageSummary {
+  id: string;
+  user_id: string;
+  usage_date: string;
+  total_keywords: number;
+  total_credits: number;
+  check_count: number;
+  balance_end: number;
+  created_at: string;
+  updated_at: string;
 }
 
 interface BillingOrder {
@@ -59,8 +71,28 @@ export function useCredits() {
     enabled: !!user?.id,
   });
 
-  const transactionsQuery = useQuery({
-    queryKey: ['credit-transactions', user?.id],
+  // Query cho daily usage summary (thay thế usage transactions)
+  const dailySummaryQuery = useQuery({
+    queryKey: ['daily-usage-summary', user?.id],
+    queryFn: async (): Promise<DailyUsageSummary[]> => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('daily_usage_summary')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('usage_date', { ascending: false })
+        .limit(30); // 30 ngày gần nhất
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Query cho purchase transactions (chỉ lấy loại purchase)
+  const purchaseTransactionsQuery = useQuery({
+    queryKey: ['purchase-transactions', user?.id],
     queryFn: async (): Promise<CreditTransaction[]> => {
       if (!user?.id) return [];
       
@@ -68,6 +100,7 @@ export function useCredits() {
         .from('credit_transactions')
         .select('*')
         .eq('user_id', user.id)
+        .eq('type', 'purchase')
         .order('created_at', { ascending: false })
         .limit(50);
       
@@ -97,7 +130,8 @@ export function useCredits() {
 
   const refreshCredits = () => {
     queryClient.invalidateQueries({ queryKey: ['user-credits', user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['credit-transactions', user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['daily-usage-summary', user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['purchase-transactions', user?.id] });
     queryClient.invalidateQueries({ queryKey: ['billing-orders', user?.id] });
   };
 
@@ -107,8 +141,13 @@ export function useCredits() {
     totalPurchased: creditsQuery.data?.total_purchased ?? 0,
     totalUsed: creditsQuery.data?.total_used ?? 0,
     isLoading: creditsQuery.isLoading,
-    transactions: transactionsQuery.data ?? [],
-    transactionsLoading: transactionsQuery.isLoading,
+    // Daily usage summary (gom nhóm theo ngày)
+    dailySummary: dailySummaryQuery.data ?? [],
+    dailySummaryLoading: dailySummaryQuery.isLoading,
+    // Purchase transactions
+    purchaseTransactions: purchaseTransactionsQuery.data ?? [],
+    purchaseTransactionsLoading: purchaseTransactionsQuery.isLoading,
+    // Orders
     orders: ordersQuery.data ?? [],
     ordersLoading: ordersQuery.isLoading,
     refreshCredits,
