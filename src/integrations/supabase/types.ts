@@ -164,6 +164,42 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_usage_summary: {
+        Row: {
+          balance_end: number
+          check_count: number
+          created_at: string
+          id: string
+          total_credits: number
+          total_keywords: number
+          updated_at: string
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          balance_end?: number
+          check_count?: number
+          created_at?: string
+          id?: string
+          total_credits?: number
+          total_keywords?: number
+          updated_at?: string
+          usage_date: string
+          user_id: string
+        }
+        Update: {
+          balance_end?: number
+          check_count?: number
+          created_at?: string
+          id?: string
+          total_credits?: number
+          total_keywords?: number
+          updated_at?: string
+          usage_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       keyword_ranking_history: {
         Row: {
           checked_at: string
@@ -502,6 +538,7 @@ export type Database = {
         Args: { retention_days?: number }
         Returns: number
       }
+      cleanup_old_usage_transactions: { Args: never; Returns: number }
       cleanup_pending_orders: { Args: never; Returns: number }
       get_class_ranking_stats: { Args: { p_class_id: string }; Returns: Json }
       get_projects_paginated: {
@@ -527,6 +564,15 @@ export type Database = {
           p_sepay_transaction_id: string
         }
         Returns: Json
+      }
+      upsert_daily_usage: {
+        Args: {
+          p_balance_after: number
+          p_credits_used: number
+          p_keywords_count: number
+          p_user_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

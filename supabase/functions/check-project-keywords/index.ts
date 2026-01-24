@@ -601,14 +601,25 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Log credit transaction
-    await supabase.from('credit_transactions').insert({
-      user_id: userId,
-      amount: -totalCreditsNeeded,
-      type: 'usage',
-      description: `Check ${totalKeywordsCount} keywords`,
-      balance_after: newBalance,
+    // Upsert daily usage summary (gom nhóm theo ngày thay vì tạo nhiều records)
+    const { error: upsertError } = await supabase.rpc('upsert_daily_usage', {
+      p_user_id: userId,
+      p_keywords_count: totalKeywordsCount,
+      p_credits_used: totalCreditsNeeded,
+      p_balance_after: newBalance,
     })
+
+    if (upsertError) {
+      console.error('[WARN] Failed to upsert daily usage summary:', upsertError)
+      // Fallback: insert vào credit_transactions như cũ (tương thích ngược)
+      await supabase.from('credit_transactions').insert({
+        user_id: userId,
+        amount: -totalCreditsNeeded,
+        type: 'usage',
+        description: `Check ${totalKeywordsCount} keywords`,
+        balance_after: newBalance,
+      })
+    }
 
     console.log(`[INFO] Deducted ${totalCreditsNeeded} credits from user, new balance: ${newBalance}`)
     console.log(`[INFO] Processing ${classesToProcess.length} class(es) with ${CONCURRENT_LIMIT} concurrent threads`)

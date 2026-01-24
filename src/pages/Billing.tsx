@@ -19,7 +19,7 @@ export default function Billing() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthContext();
   const { toast } = useToast();
-  const { balance, totalPurchased, totalUsed, isLoading, transactions, transactionsLoading, orders, ordersLoading, refreshCredits } = useCredits();
+  const { balance, totalPurchased, totalUsed, isLoading, dailySummary, dailySummaryLoading, purchaseTransactions, purchaseTransactionsLoading, orders, ordersLoading, refreshCredits } = useCredits();
   const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null);
 
   const currentTier = getUserTier(totalPurchased);
@@ -349,17 +349,17 @@ export default function Billing() {
         <TabsContent value="transactions">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Transactions</CardTitle>
-              <CardDescription>Your credit usage and purchase history</CardDescription>
+              <CardTitle>Transaction History</CardTitle>
+              <CardDescription>Credit usage (grouped by day) and purchases</CardDescription>
             </CardHeader>
             <CardContent>
-              {transactionsLoading ? (
+              {(dailySummaryLoading || purchaseTransactionsLoading) ? (
                 <div className="space-y-2">
                   {[...Array(5)].map((_, i) => (
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              ) : transactions.length === 0 ? (
+              ) : (dailySummary.length === 0 && purchaseTransactions.length === 0) ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No transactions yet
                 </div>
@@ -375,25 +375,49 @@ export default function Billing() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.map((tx) => (
+                    {/* Purchase transactions */}
+                    {purchaseTransactions.map((tx) => (
                       <TableRow key={tx.id}>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {getTransactionIcon(tx.type, tx.amount)}
+                            <TrendingUp className="h-4 w-4 text-green-500" />
                             <span className="capitalize">{tx.type}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {tx.description || '-'}
                         </TableCell>
-                        <TableCell className={`text-right font-medium ${tx.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {tx.amount > 0 ? '+' : ''}{formatCredits(tx.amount)}
+                        <TableCell className="text-right font-medium text-green-600">
+                          +{formatCredits(tx.amount)}
                         </TableCell>
                         <TableCell className="text-right">
                           {formatCredits(tx.balance_after)}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {format(new Date(tx.created_at), 'dd/MM/yyyy HH:mm')}
+                          {format(new Date(tx.created_at), 'dd/MM/yyyy')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {/* Daily usage summary - gom theo ngày */}
+                    {dailySummary.map((day) => (
+                      <TableRow key={day.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <TrendingDown className="h-4 w-4 text-red-500" />
+                            <span>Usage</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          Checked {formatCredits(day.total_keywords)} keywords ({day.check_count} {day.check_count > 1 ? 'checks' : 'check'})
+                        </TableCell>
+                        <TableCell className="text-right font-medium text-red-600">
+                          -{formatCredits(day.total_credits)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCredits(day.balance_end)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {format(new Date(day.usage_date), 'dd/MM/yyyy')}
                         </TableCell>
                       </TableRow>
                     ))}
