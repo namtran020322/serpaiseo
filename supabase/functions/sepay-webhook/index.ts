@@ -62,6 +62,8 @@ async function verifySignature(payload: SepayWebhookPayload, secretKey: string):
     ]
     const signedString = signedFields.join(',')
 
+    console.log(`[DEBUG] Signed string for verification: ${signedString}`)
+
     const encoder = new TextEncoder()
     const keyData = encoder.encode(secretKey)
     const messageData = encoder.encode(signedString)
@@ -77,9 +79,12 @@ async function verifySignature(payload: SepayWebhookPayload, secretKey: string):
     const expectedSignature = await crypto.subtle.sign('HMAC', cryptoKey, messageData)
     const expectedBase64 = btoa(String.fromCharCode(...new Uint8Array(expectedSignature)))
 
+    console.log(`[DEBUG] Received signature: ${payload.signature}`)
+    console.log(`[DEBUG] Expected signature: ${expectedBase64}`)
+
     const isValid = payload.signature === expectedBase64
     if (!isValid) {
-      console.log('[WARN] Signature mismatch')
+      console.log('[WARN] Signature mismatch - received vs expected do not match')
     }
     return isValid
   } catch (err) {
@@ -129,6 +134,7 @@ Deno.serve(async (req) => {
     
     console.log(`[INFO] Received webhook: ${payload.notification_type}`)
     console.log(`[INFO] Order: ${payload.order?.order_invoice_number}`)
+    console.log(`[DEBUG] Full payload:`, JSON.stringify(payload, null, 2))
 
     // Verify webhook signature if secret key is configured
     if (sepaySecretKey) {
