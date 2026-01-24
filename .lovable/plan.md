@@ -1,91 +1,74 @@
 
 
-## Kế hoạch: Cập nhật SEPAY_SECRET_KEY và Sửa Webhook Signature
+## Kế hoạch: Sửa Thứ tự Form Data cho SePay Checkout
 
-### Vấn đề Phát hiện
+### Vấn đề Chính
 
-1. **SEPAY_SECRET_KEY** trong Supabase secrets có thể không khớp với key bạn sẽ cấu hình trong SePay dashboard
-2. **Chuỗi ký webhook** trong code hiện tại có thể không đúng format SePay IPN
-
----
-
-### Bước 1: Cập nhật Secret Key
-
-Cần cập nhật `SEPAY_SECRET_KEY` trong Supabase secrets với giá trị mới:
-```
-fbNvH5qiuX6vHEHjFQS6Fsnu
-```
+1. **Thứ tự form_data không khớp với SePay requirements**
+2. **Signature string đang đúng, nhưng form HTML cần đúng thứ tự**
+3. **IPN webhook có thể không có signature** (theo sample trong docs)
 
 ---
 
-### Bước 2: Xác nhận Format Signature IPN
+### Thay đổi Chi tiết
 
-Tài liệu bạn cung cấp là cho **tạo form checkout** (client → SePay). Cần xác nhận format signature cho **IPN webhook** (SePay → server).
+#### File: `supabase/functions/create-sepay-order/index.ts`
 
-Theo code hiện tại, webhook đang verify với các fields:
-```
-notification_type, order_id, order_invoice_number, order_amount, order_status, transaction_id, timestamp
-```
-
-Nếu SePay IPN dùng cùng format với form checkout, cần sửa thành:
-```
-merchant, operation, payment_method, order_amount, currency, order_invoice_number, order_description, customer_id, success_url, error_url, cancel_url
-```
-
-Tuy nhiên, **IPN webhook thường có format khác** vì nó không có success_url, error_url, etc.
-
----
-
-### Giải pháp Đề xuất
-
-#### A. Cập nhật Secret Key (Bắt buộc)
-
-Sử dụng tool để cập nhật secret với giá trị mới.
-
-#### B. Sửa Logic Verify Signature (Tùy thuộc docs IPN)
-
-**Option 1**: Nếu SePay IPN dùng cùng secret key nhưng khác format signature → cần docs cụ thể từ SePay
-
-**Option 2**: Tạm thời log raw signature để debug:
+**Sửa form_data thứ tự theo đúng docs SePay:**
 
 ```typescript
-console.log('[DEBUG] Payload signature:', payload.signature)
-console.log('[DEBUG] Expected signature:', expectedBase64)
-console.log('[DEBUG] Signed string:', signedString)
+// Thứ tự CHÍNH XÁC theo SePay docs:
+form_data: {
+  merchant: sepayMerchantId,
+  currency: 'VND',
+  order_amount: pkg.price.toString(),
+  operation: 'PURCHASE',
+  order_description: description,
+  order_invoice_number: orderInvoiceNumber,
+  // customer_id: không có thì bỏ qua
+  success_url: successUrl,
+  error_url: errorUrl,
+  cancel_url: cancelUrl,
+  signature: signature
+}
 ```
+
+Thứ tự này đã đúng, nhưng cần đảm bảo frontend submit form theo đúng thứ tự này.
 
 ---
 
-### Bước 3: Xử lý Đơn hàng Đã Thanh toán
+#### File: `src/pages/Billing.tsx` 
 
-Sau khi sửa xong, cần **trigger lại webhook** hoặc **xử lý thủ công** đơn hàng `ORD-56F84070-1769229017732`:
+**Kiểm tra thứ tự form fields khi submit:**
 
-```sql
--- Gọi RPC để cộng credits thủ công
-SELECT process_payment_webhook(
-  'ORD-56F84070-1769229017732',
-  'sepay_order_id',  -- Lấy từ SePay dashboard
-  'sepay_transaction_id'
-);
-```
+Frontend phải tạo form với input theo đúng thứ tự mà backend trả về.
 
 ---
 
-### Files Thay đổi
+#### File: `supabase/functions/sepay-webhook/index.ts`
+
+**Giữ nguyên logic hiện tại:**
+
+Theo IPN sample trong docs, không có `signature` field. Logic hiện tại đã xử lý đúng:
+- Nếu có signature → verify
+- Nếu không có → log warning và tiếp tục xử lý
+
+---
+
+### Verification
+
+Sau khi sửa, test bằng cách:
+1. Tạo đơn hàng mới
+2. Kiểm tra URL redirect có giống format demo: `https://pay-sandbox.sepay.vn/v1/checkout?merchant=...&signature=...`
+3. Thanh toán thử và kiểm tra webhook logs
+
+---
+
+### Technical Changes Summary
 
 | File | Thay đổi |
 |------|----------|
-| Supabase Secrets | Cập nhật `SEPAY_SECRET_KEY` = `fbNvH5qiuX6vHEHjFQS6Fsnu` |
-| `supabase/functions/sepay-webhook/index.ts` | Thêm debug logs hoặc sửa format signature nếu có docs IPN |
-
----
-
-### Câu hỏi cho Bạn
-
-Bạn có tài liệu cụ thể về **format signature IPN webhook** từ SePay không? Vì tài liệu bạn gửi là cho form checkout, có thể IPN dùng format khác.
-
-Nếu không có docs IPN riêng, tôi sẽ:
-1. Cập nhật secret key mới
-2. Thêm debug logs để xem SePay gửi signature như thế nào
-3. Sau đó sửa logic verify cho khớp
+| `create-sepay-order/index.ts` | Thêm log để debug form data, đảm bảo thứ tự đúng |
+| `Billing.tsx` | Đảm bảo form submit theo đúng thứ tự fields |
+| `sepay-webhook/index.ts` | Không thay đổi - logic hiện tại đã hợp lý |
 
