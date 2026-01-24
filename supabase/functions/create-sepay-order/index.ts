@@ -179,21 +179,39 @@ Deno.serve(async (req) => {
     const expireOn = expireDate.toISOString().replace('T', ' ').slice(0, 19)
 
     // Build signature according to SePay documentation
-    // Order: merchant,operation,payment_method,order_amount,currency,order_invoice_number,order_description,customer_id,success_url,error_url,cancel_url
-    // Only include fields that have values
-    const signedFields = [
-      `merchant=${sepayMerchantId}`,
-      `operation=PURCHASE`,
-      `order_amount=${pkg.price}`,
-      `currency=VND`,
-      `order_invoice_number=${orderInvoiceNumber}`,
-      `order_description=${description}`,
-      `success_url=${successUrl}`,
-      `error_url=${errorUrl}`,
-      `cancel_url=${cancelUrl}`
+    // Allowed fields in strict order: merchant, operation, payment_method, order_amount, currency,
+    // order_invoice_number, order_description, customer_id, success_url, error_url, cancel_url
+    // Only include fields that have values, but MUST maintain this exact order
+    const allowedFields = [
+      'merchant', 'operation', 'payment_method', 'order_amount', 'currency',
+      'order_invoice_number', 'order_description', 'customer_id',
+      'success_url', 'error_url', 'cancel_url'
     ]
-    const signedString = signedFields.join(',')
+    
+    // All fields we're using (without payment_method and customer_id)
+    const fields: Record<string, string> = {
+      merchant: sepayMerchantId,
+      operation: 'PURCHASE',
+      order_amount: pkg.price.toString(),
+      currency: 'VND',
+      order_invoice_number: orderInvoiceNumber,
+      order_description: description,
+      success_url: successUrl,
+      error_url: errorUrl,
+      cancel_url: cancelUrl
+    }
+    
+    // Build signature string in strict order of allowedFields
+    const signedParts: string[] = []
+    for (const field of allowedFields) {
+      if (fields[field]) {
+        signedParts.push(`${field}=${fields[field]}`)
+      }
+    }
+    const signedString = signedParts.join(',')
     const signature = await hmacSha256(signedString, sepaySecretKey)
+    
+    console.log(`[DEBUG] Signed string: ${signedString}`)
 
     console.log(`[INFO] Generated checkout form data for order ${orderInvoiceNumber}`)
 
