@@ -1,137 +1,72 @@
 
 
-## Kế hoạch: Chuyển hướng trực tiếp đến SePay (Bỏ Iframe)
+## Kế hoạch: Cập nhật SEPAY_SECRET_KEY và Sửa Webhook Signature
 
-### Vấn đề Hiện tại
+### Vấn đề Phát hiện
 
-Iframe bị chặn bởi SePay (X-Frame-Options), dẫn đến trang trắng với loading indicator vô hạn.
-
-### Giải pháp
-
-Thay vì dùng iframe/modal, sẽ **chuyển hướng trực tiếp toàn trang** đến SePay checkout. Sau khi thanh toán xong, SePay sẽ redirect về `success_url`, `error_url`, hoặc `cancel_url`.
+1. **SEPAY_SECRET_KEY** trong Supabase secrets có thể không khớp với key bạn sẽ cấu hình trong SePay dashboard
+2. **Chuỗi ký webhook** trong code hiện tại có thể không đúng format SePay IPN
 
 ---
 
-### Thay đổi Chi tiết
+### Bước 1: Cập nhật Secret Key
 
-#### 1. `src/pages/Billing.tsx`
-
-Xóa PaymentModal và thay bằng logic submit form trực tiếp:
-
-```tsx
-const handlePurchase = async (packageId: string) => {
-  if (!user) return;
-  
-  setPurchaseLoading(packageId);
-  
-  try {
-    const { data, error } = await supabase.functions.invoke('create-sepay-order', {
-      body: { package_id: packageId },
-    });
-
-    if (error) throw error;
-
-    // Redirect trực tiếp đến SePay thay vì mở modal
-    if (data?.checkout_action && data?.form_data) {
-      // Tạo form ẩn và submit
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = data.checkout_action;
-      
-      // Thêm fields theo đúng thứ tự SePay
-      const fieldOrder = [
-        'merchant', 'currency', 'order_amount', 'operation',
-        'order_description', 'order_invoice_number',
-        'success_url', 'error_url', 'cancel_url', 'signature'
-      ];
-      
-      fieldOrder.forEach(key => {
-        if (data.form_data[key]) {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = key;
-          input.value = data.form_data[key];
-          form.appendChild(input);
-        }
-      });
-      
-      document.body.appendChild(form);
-      form.submit(); // Redirect toàn trang
-    } else {
-      throw new Error('Invalid response from payment service');
-    }
-  } catch (error: any) {
-    console.error('Purchase error:', error);
-    toast({
-      variant: "destructive",
-      title: "Purchase failed",
-      description: error.message || "Unable to create order. Please try again.",
-    });
-    setPurchaseLoading(null);
-  }
-};
+Cần cập nhật `SEPAY_SECRET_KEY` trong Supabase secrets với giá trị mới:
+```
+fbNvH5qiuX6vHEHjFQS6Fsnu
 ```
 
-#### 2. Xóa các state không cần thiết
+---
 
-Loại bỏ các state liên quan đến PaymentModal:
-- `paymentModalOpen`
-- `checkoutAction`
-- `formData`
-- `currentOrderId`
-- `expireOn`
+### Bước 2: Xác nhận Format Signature IPN
 
-#### 3. Xóa import và render PaymentModal
+Tài liệu bạn cung cấp là cho **tạo form checkout** (client → SePay). Cần xác nhận format signature cho **IPN webhook** (SePay → server).
 
-Không cần component `PaymentModal` nữa vì đã redirect trực tiếp.
+Theo code hiện tại, webhook đang verify với các fields:
+```
+notification_type, order_id, order_invoice_number, order_amount, order_status, transaction_id, timestamp
+```
+
+Nếu SePay IPN dùng cùng format với form checkout, cần sửa thành:
+```
+merchant, operation, payment_method, order_amount, currency, order_invoice_number, order_description, customer_id, success_url, error_url, cancel_url
+```
+
+Tuy nhiên, **IPN webhook thường có format khác** vì nó không có success_url, error_url, etc.
 
 ---
 
-### Luồng Thanh toán Mới
+### Giải pháp Đề xuất
 
-```text
-+------------------------+
-| User clicks "Buy"      |
-+------------------------+
-          |
-          v
-+------------------------+
-| Edge function tạo      |
-| order + form_data      |
-+------------------------+
-          |
-          v
-+------------------------+
-| Form hidden submit     |
-| → Redirect to SePay    |
-+------------------------+
-          |
-          v
-+------------------------+
-| User trên trang        |
-| checkout SePay         |
-+------------------------+
-          |
-    +-----+-----+
-    |     |     |
-    v     v     v
-+------+ +-----+ +--------+
-|Success| |Error| |Cancel  |
-|URL    | |URL  | |URL     |
-+------+ +-----+ +--------+
-    |
-    v
-+------------------------+
-| Billing page detect    |
-| ?payment=success/error |
-| → Show toast           |
-+------------------------+
-    |
-    v
-+------------------------+
-| Webhook IPN update     |
-| → credits added        |
-+------------------------+
+#### A. Cập nhật Secret Key (Bắt buộc)
+
+Sử dụng tool để cập nhật secret với giá trị mới.
+
+#### B. Sửa Logic Verify Signature (Tùy thuộc docs IPN)
+
+**Option 1**: Nếu SePay IPN dùng cùng secret key nhưng khác format signature → cần docs cụ thể từ SePay
+
+**Option 2**: Tạm thời log raw signature để debug:
+
+```typescript
+console.log('[DEBUG] Payload signature:', payload.signature)
+console.log('[DEBUG] Expected signature:', expectedBase64)
+console.log('[DEBUG] Signed string:', signedString)
+```
+
+---
+
+### Bước 3: Xử lý Đơn hàng Đã Thanh toán
+
+Sau khi sửa xong, cần **trigger lại webhook** hoặc **xử lý thủ công** đơn hàng `ORD-56F84070-1769229017732`:
+
+```sql
+-- Gọi RPC để cộng credits thủ công
+SELECT process_payment_webhook(
+  'ORD-56F84070-1769229017732',
+  'sepay_order_id',  -- Lấy từ SePay dashboard
+  'sepay_transaction_id'
+);
 ```
 
 ---
@@ -140,15 +75,17 @@ Không cần component `PaymentModal` nữa vì đã redirect trực tiếp.
 
 | File | Thay đổi |
 |------|----------|
-| `src/pages/Billing.tsx` | Xóa PaymentModal, thêm logic redirect trực tiếp |
-| `src/components/PaymentModal.tsx` | Giữ nguyên (có thể xóa sau nếu không cần) |
+| Supabase Secrets | Cập nhật `SEPAY_SECRET_KEY` = `fbNvH5qiuX6vHEHjFQS6Fsnu` |
+| `supabase/functions/sepay-webhook/index.ts` | Thêm debug logs hoặc sửa format signature nếu có docs IPN |
 
 ---
 
-### Ưu điểm của Cách Này
+### Câu hỏi cho Bạn
 
-1. **Không bị chặn bởi X-Frame-Options** - Trang mở trực tiếp, không qua iframe
-2. **Đơn giản hơn** - Không cần quản lý state modal phức tạp
-3. **UX quen thuộc** - User được redirect đến trang thanh toán như các website khác
-4. **Đã có sẵn logic xử lý callback** - Code xử lý `?payment=success/error/cancel` đã có trong `useEffect`
+Bạn có tài liệu cụ thể về **format signature IPN webhook** từ SePay không? Vì tài liệu bạn gửi là cho form checkout, có thể IPN dùng format khác.
+
+Nếu không có docs IPN riêng, tôi sẽ:
+1. Cập nhật secret key mới
+2. Thêm debug logs để xem SePay gửi signature như thế nào
+3. Sau đó sửa logic verify cho khớp
 
