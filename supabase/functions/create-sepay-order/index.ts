@@ -212,8 +212,26 @@ Deno.serve(async (req) => {
     const signature = await hmacSha256(signedString, sepaySecretKey)
     
     console.log(`[DEBUG] Signed string: ${signedString}`)
+    console.log(`[DEBUG] Generated signature: ${signature}`)
+
+    // Form data in EXACT order required by SePay HTML form
+    // Order: merchant, currency, order_amount, operation, order_description,
+    // order_invoice_number, customer_id (optional), success_url, error_url, cancel_url, signature
+    const formData = {
+      merchant: sepayMerchantId,
+      currency: 'VND',
+      order_amount: pkg.price.toString(),
+      operation: 'PURCHASE',
+      order_description: description,
+      order_invoice_number: orderInvoiceNumber,
+      success_url: successUrl,
+      error_url: errorUrl,
+      cancel_url: cancelUrl,
+      signature: signature
+    }
 
     console.log(`[INFO] Generated checkout form data for order ${orderInvoiceNumber}`)
+    console.log(`[DEBUG] Form data fields: ${Object.keys(formData).join(', ')}`)
 
     // Return form data for POST submission (SePay requires POST, not GET)
     return new Response(
@@ -223,18 +241,7 @@ Deno.serve(async (req) => {
         order_invoice_number: orderInvoiceNumber,
         expire_on: expireDate.toISOString(),
         checkout_action: 'https://pay.sepay.vn/v1/checkout/init',
-        form_data: {
-          merchant: sepayMerchantId,
-          currency: 'VND',
-          order_amount: pkg.price.toString(),
-          operation: 'PURCHASE',
-          order_description: description,
-          order_invoice_number: orderInvoiceNumber,
-          success_url: successUrl,
-          error_url: errorUrl,
-          cancel_url: cancelUrl,
-          signature: signature
-        }
+        form_data: formData
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
