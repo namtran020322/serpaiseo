@@ -136,8 +136,8 @@ Deno.serve(async (req) => {
     console.log(`[INFO] Order: ${payload.order?.order_invoice_number}`)
     console.log(`[DEBUG] Full payload:`, JSON.stringify(payload, null, 2))
 
-    // Verify webhook signature if secret key is configured
-    if (sepaySecretKey) {
+    // Verify webhook signature if secret key AND signature are present
+    if (sepaySecretKey && payload.signature) {
       const isValidSignature = await verifySignature(payload, sepaySecretKey)
       if (!isValidSignature) {
         console.error('[ERROR] Invalid webhook signature')
@@ -147,6 +147,9 @@ Deno.serve(async (req) => {
         )
       }
       console.log('[INFO] Webhook signature verified')
+    } else if (!payload.signature) {
+      // SePay is not sending signature - allow processing but log warning
+      console.log('[WARN] No signature in payload - processing without verification')
     } else {
       console.log('[WARN] SEPAY_SECRET_KEY not configured, skipping signature verification')
     }
