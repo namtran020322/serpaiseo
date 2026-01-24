@@ -14,7 +14,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { PRICING_PACKAGES, formatVND, formatCredits, getUserTier } from "@/lib/pricing";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { PaymentModal } from "@/components/PaymentModal";
 
 export default function Billing() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -22,17 +21,10 @@ export default function Billing() {
   const { toast } = useToast();
   const { balance, totalPurchased, totalUsed, isLoading, transactions, transactionsLoading, orders, ordersLoading, refreshCredits } = useCredits();
   const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null);
-  
-  // Payment Modal state
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [checkoutAction, setCheckoutAction] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Record<string, string> | null>(null);
-  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
-  const [expireOn, setExpireOn] = useState<string | null>(null);
 
   const currentTier = getUserTier(totalPurchased);
 
-  // Handle payment result from redirect (legacy flow)
+  // Handle payment result from redirect
   useEffect(() => {
     const paymentResult = searchParams.get('payment');
     if (paymentResult) {
@@ -71,13 +63,32 @@ export default function Billing() {
 
       if (error) throw error;
 
-      // Open checkout form in iframe modal
+      // Redirect trực tiếp đến SePay thay vì mở modal
       if (data?.checkout_action && data?.form_data) {
-        setCheckoutAction(data.checkout_action);
-        setFormData(data.form_data);
-        setCurrentOrderId(data.order_id);
-        setExpireOn(data.expire_on);
-        setPaymentModalOpen(true);
+        // Tạo form ẩn và submit để redirect toàn trang
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = data.checkout_action;
+        
+        // Thêm fields theo đúng thứ tự SePay yêu cầu
+        const fieldOrder = [
+          'merchant', 'currency', 'order_amount', 'operation',
+          'order_description', 'order_invoice_number',
+          'success_url', 'error_url', 'cancel_url', 'signature'
+        ];
+        
+        fieldOrder.forEach(key => {
+          if (data.form_data[key]) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = data.form_data[key];
+            form.appendChild(input);
+          }
+        });
+        
+        document.body.appendChild(form);
+        form.submit(); // Redirect toàn trang đến SePay checkout
       } else {
         throw new Error('Invalid response from payment service');
       }
@@ -88,17 +99,8 @@ export default function Billing() {
         title: "Purchase failed",
         description: error.message || "Unable to create order. Please try again.",
       });
-    } finally {
       setPurchaseLoading(null);
     }
-  };
-
-  const handlePaymentSuccess = () => {
-    toast({ 
-      title: "Payment successful!", 
-      description: "Credits have been added to your account.",
-    });
-    refreshCredits();
   };
 
   const getStatusBadge = (status: string) => {
@@ -461,17 +463,6 @@ export default function Billing() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Payment Modal */}
-      <PaymentModal
-        open={paymentModalOpen}
-        onOpenChange={setPaymentModalOpen}
-        checkoutAction={checkoutAction}
-        formData={formData}
-        orderId={currentOrderId}
-        expireOn={expireOn}
-        onPaymentSuccess={handlePaymentSuccess}
-      />
     </div>
   );
 }
