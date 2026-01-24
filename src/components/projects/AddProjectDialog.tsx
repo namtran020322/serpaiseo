@@ -112,7 +112,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
     const duplicateProject = existingProjects?.find(
       (p) => extractRootDomain(p.domain) === normalizedDomain
     );
-    
+
     if (duplicateProject) {
       setDomainError(`You already have a project "${duplicateProject.name}" with this domain.`);
       return false;
@@ -160,7 +160,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
     switch (step) {
       case 1:
         if (projectType === "new") {
-          return newProjectName.trim().length > 0 && projectDomain.trim().length > 0 && !domainError;
+          return newProjectName.trim().length > 0 && newProjectName.length <= 50 && projectDomain.trim().length > 0 && !domainError;
         }
         return existingProjectId.length > 0;
       case 2:
@@ -232,7 +232,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
       });
 
       handleClose();
-      
+
       // Auto-trigger ranking check (non-blocking)
       checkRankings.mutate(newClass.id);
     } catch (error) {
@@ -251,7 +251,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
     const existingKeywords = parseKeywords();
     const newKeywords = [...new Set([...existingKeywords, ...lines])];
     setKeywordsText(newKeywords.join("\n"));
-    
+
     // Reset file input
     e.target.value = "";
   };
@@ -278,9 +278,8 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
           {[1, 2, 3, 4, 5].map((s) => (
             <div
               key={s}
-              className={`flex-1 h-1 rounded-full ${
-                s <= step ? "bg-primary" : "bg-muted"
-              }`}
+              className={`flex-1 h-1 rounded-full ${s <= step ? "bg-primary" : "bg-muted"
+                }`}
             />
           ))}
         </div>
@@ -313,13 +312,24 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
               {projectType === "new" ? (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="projectName">Project Name *</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="projectName">Project Name *</Label>
+                      <span className={`text-xs ${newProjectName.length > 50 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        {newProjectName.length}/50
+                      </span>
+                    </div>
                     <Input
                       id="projectName"
                       placeholder="e.g. iPhone Products"
                       value={newProjectName}
-                      onChange={(e) => setNewProjectName(e.target.value)}
+                      onChange={(e) => setNewProjectName(e.target.value.slice(0, 50))}
+                      maxLength={50}
                     />
+                    {newProjectName.length >= 45 && (
+                      <p className="text-xs text-muted-foreground">
+                        {newProjectName.length >= 50 ? "Character limit reached" : `${50 - newProjectName.length} characters remaining`}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="projectDomain">Your Domain *</Label>

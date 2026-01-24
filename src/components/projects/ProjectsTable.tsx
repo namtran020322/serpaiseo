@@ -81,9 +81,10 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
       accessorKey: "name",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
       cell: ({ row }) => (
-        <Link 
+        <Link
           to={`/dashboard/projects/${row.original.id}`}
-          className="font-medium hover:underline"
+          className="font-medium hover:underline block max-w-[200px] truncate"
+          title={row.getValue("name") as string}
         >
           {row.getValue("name")}
         </Link>
@@ -111,11 +112,13 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
     },
     {
       accessorKey: "updated_at",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" className="justify-end" />,
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
-          {formatCompactTime(new Date(row.original.updated_at))}
-        </span>
+        <div className="text-right">
+          <span className="text-muted-foreground text-sm">
+            {formatCompactTime(new Date(row.original.updated_at))}
+          </span>
+        </div>
       ),
     },
   ], []);
@@ -161,14 +164,18 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead 
-                    key={header.id} 
+                  <TableHead
+                    key={header.id}
                     className={
-                      header.id === "select" || header.id === "expand" 
-                        ? "w-10" 
-                        : header.id === "top3" || header.id === "top10" || header.id === "top30" || header.id === "top100"
-                        ? "w-16 text-center whitespace-nowrap"
-                        : ""
+                      header.id === "select" || header.id === "expand"
+                        ? "w-10 hidden sm:table-cell"
+                        : header.id === "name"
+                          ? "min-w-[120px] max-w-[200px]"
+                          : header.id === "classes" || header.id === "keywords"
+                            ? "hidden md:table-cell"
+                            : header.id === "updated_at"
+                              ? "hidden lg:table-cell w-[100px]"
+                              : ""
                     }
                   >
                     {header.isPlaceholder
@@ -184,7 +191,18 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      className={
+                        cell.column.id === "select"
+                          ? "hidden sm:table-cell"
+                          : cell.column.id === "classes" || cell.column.id === "keywords"
+                            ? "hidden md:table-cell"
+                            : cell.column.id === "updated_at"
+                              ? "hidden lg:table-cell w-[100px]"
+                              : ""
+                      }
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

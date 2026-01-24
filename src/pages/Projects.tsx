@@ -1,26 +1,16 @@
 import { useState } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useProjectsPaginated } from "@/hooks/useProjectsPaginated";
 import { ProjectsTable } from "@/components/projects/ProjectsTable";
 import { AddProjectDialog } from "@/components/projects/AddProjectDialog";
-import { DataTablePagination } from "@/components/ui/data-table-pagination";
 
 export default function Projects() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState("");
-  const [searchInput, setSearchInput] = useState("");
 
-  const { data, isLoading, error } = useProjectsPaginated({ page, pageSize, search });
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearch(searchInput);
-    setPage(0);
-  };
+  const { data, isLoading, error } = useProjectsPaginated({ page, pageSize, search: "" });
 
   const totalPages = Math.ceil((data?.total || 0) / pageSize);
 
@@ -38,28 +28,6 @@ export default function Projects() {
           Add Project
         </Button>
       </div>
-
-      {/* Search */}
-      <form onSubmit={handleSearch} className="flex gap-2 max-w-md">
-        <Input
-          placeholder="Search projects..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="flex-1"
-        />
-        <Button type="submit" variant="secondary">
-          Search
-        </Button>
-        {search && (
-          <Button 
-            type="button" 
-            variant="ghost" 
-            onClick={() => { setSearch(""); setSearchInput(""); setPage(0); }}
-          >
-            Clear
-          </Button>
-        )}
-      </form>
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-12 space-y-4">
@@ -107,7 +75,7 @@ export default function Projects() {
       ) : (
         <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
           <p className="text-muted-foreground">
-            {search ? "No projects found matching your search" : "No projects yet"}
+            No projects yet
           </p>
           <Button onClick={() => setAddDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
