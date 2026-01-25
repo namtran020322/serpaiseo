@@ -13,6 +13,9 @@ export interface PaginatedProject {
   top3_count: number;
   top10_count: number;
   top30_count: number;
+  top3_change: number;
+  top10_change: number;
+  top30_change: number;
 }
 
 interface ProjectsPaginatedResult {
