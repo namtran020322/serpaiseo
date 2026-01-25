@@ -1,221 +1,273 @@
 
 
-## Tối ưu Lưu trữ Transaction History - Gom nhóm theo ngày
+## Kế hoạch Tổng hợp - 5 Tính năng Cải thiện
 
-### Mục tiêu
-Thay đổi cách lưu trữ và hiển thị usage transactions để tiết kiệm tài nguyên database:
-- Gom các lượt check trong cùng ngày thành 1 bản ghi duy nhất
-- Hiển thị: Tổng keywords đã check, tổng credits trừ, số dư cuối ngày
-- Cột Date chỉ hiển thị ngày/tháng/năm (không có giờ phút)
+### Tổng quan các nhiệm vụ
 
----
-
-### Thiết kế Giải pháp
-
-#### 1. Bảng mới: `daily_usage_summary`
-
-```text
-+-------------------+--------------------+
-| Column            | Type               |
-+-------------------+--------------------+
-| id                | uuid (PK)          |
-| user_id           | uuid (FK)          |
-| usage_date        | date (unique/user) |
-| total_keywords    | integer            |
-| total_credits     | integer            |
-| check_count       | integer            |
-| balance_end       | integer            |
-| created_at        | timestamptz        |
-| updated_at        | timestamptz        |
-+-------------------+--------------------+
-```
-
-**RLS Policies:**
-- Users can view own summaries
-- Users can insert/update own summaries
+| # | Nhiệm vụ | Loại |
+|---|----------|------|
+| 1 | Xác nhận daily_usage_summary hoạt động đúng | Verification |
+| 2 | Thêm cron job cleanup_old_usage_transactions | Database |
+| 3 | Sửa thứ tự sắp xếp Transaction History | Frontend |
+| 4 | Thêm 3 cột Top ranking vào Projects table | Database + Frontend |
+| 5 | Cải thiện KeywordsTable (keyword truncate + URL click) | Frontend |
 
 ---
 
-#### 2. Thay đổi Logic Trừ Credits
+## 1. Xác nhận daily_usage_summary hoạt động
 
-**File: `supabase/functions/check-project-keywords/index.ts`**
+**Trạng thái:** Verified - Dữ liệu đã được ghi đúng
 
-Thay vì INSERT mới vào `credit_transactions`, thực hiện:
-
-```typescript
-// 1. UPSERT vào daily_usage_summary
-// Nếu ngày này đã có record → UPDATE tăng thêm
-// Nếu chưa có → INSERT mới
-
-// 2. Xóa bản ghi chi tiết trong credit_transactions sau khi đã aggregate
-```
+Query xác nhận cho thấy bảng đang hoạt động tốt:
+- Ngày 25/01/2026: 4 keywords, 12 credits, 1 check
+- Ngày 24/01/2026: 18 keywords, 54 credits, 6 checks
+- Logic UPSERT đang gom đúng theo ngày
 
 ---
 
-#### 3. Database RPC: `upsert_daily_usage`
+## 2. Thêm Cron Job Cleanup
+
+**File: Database Migration**
+
+Sử dụng `pg_cron` để tự động chạy `cleanup_old_usage_transactions()` hàng ngày lúc 3:00 AM.
 
 ```sql
-CREATE OR REPLACE FUNCTION upsert_daily_usage(
-  p_user_id uuid,
-  p_keywords_count integer,
-  p_credits_used integer,
-  p_balance_after integer
-)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_today date := CURRENT_DATE;
-BEGIN
-  INSERT INTO daily_usage_summary (
-    user_id, usage_date, total_keywords, total_credits, 
-    check_count, balance_end
-  )
-  VALUES (
-    p_user_id, v_today, p_keywords_count, p_credits_used, 
-    1, p_balance_after
-  )
-  ON CONFLICT (user_id, usage_date) DO UPDATE SET
-    total_keywords = daily_usage_summary.total_keywords + p_keywords_count,
-    total_credits = daily_usage_summary.total_credits + p_credits_used,
-    check_count = daily_usage_summary.check_count + 1,
-    balance_end = p_balance_after,
-    updated_at = NOW();
-END;
-$$;
+-- Tạo cron job xóa usage transactions cũ hơn 7 ngày
+SELECT cron.schedule(
+  'cleanup-old-usage-transactions',
+  '0 3 * * *', -- Mỗi ngày lúc 3:00 AM UTC
+  $$SELECT cleanup_old_usage_transactions()$$
+);
 ```
 
 ---
 
-#### 4. Cập nhật Frontend
+## 3. Sửa Thứ tự Sắp xếp Transaction History
 
-**File: `src/hooks/useCredits.ts`**
+**Vấn đề:** 
+Nhìn vào ảnh, thứ tự hiện tại là: Purchase trước, Usage sau - không sắp xếp theo ngày chung.
 
-```typescript
-// Thêm query mới để lấy daily summary thay vì raw transactions
-const dailySummaryQuery = useQuery({
-  queryKey: ['daily-usage-summary', user?.id],
-  queryFn: async () => {
-    const { data, error } = await supabase
-      .from('daily_usage_summary')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('usage_date', { ascending: false })
-      .limit(30); // 30 ngày gần nhất
-    
-    if (error) throw error;
-    return data || [];
-  },
-  enabled: !!user?.id,
-});
-```
+**Giải pháp:**
+Gom tất cả transactions (purchase + usage) vào một mảng duy nhất và sort theo ngày giảm dần.
 
 **File: `src/pages/Billing.tsx`**
 
 ```typescript
-// Transaction History table columns:
-// | Type | Description | Amount | Balance After | Date |
-// | Usage | Checked 24 keywords (8 checks) | -72 | 9,835 | 24/01/2026 |
-
-{dailySummary.map((day) => (
-  <TableRow key={day.id}>
-    <TableCell>
-      <div className="flex items-center gap-2">
-        <TrendingDown className="h-4 w-4 text-red-500" />
-        <span>Usage</span>
-      </div>
-    </TableCell>
-    <TableCell className="text-muted-foreground">
-      Checked {day.total_keywords} keywords ({day.check_count} checks)
-    </TableCell>
-    <TableCell className="text-right font-medium text-red-600">
-      -{formatCredits(day.total_credits)}
-    </TableCell>
-    <TableCell className="text-right">
-      {formatCredits(day.balance_end)}
-    </TableCell>
-    <TableCell className="text-muted-foreground">
-      {format(new Date(day.usage_date), 'dd/MM/yyyy')}
-    </TableCell>
-  </TableRow>
-))}
+// Merge purchase transactions và daily summary, sort theo ngày
+const allTransactions = useMemo(() => {
+  const purchaseItems = purchaseTransactions.map(tx => ({
+    type: 'purchase' as const,
+    date: new Date(tx.created_at),
+    data: tx,
+  }));
+  
+  const usageItems = dailySummary.map(day => ({
+    type: 'usage' as const,
+    date: new Date(day.usage_date),
+    data: day,
+  }));
+  
+  return [...purchaseItems, ...usageItems].sort(
+    (a, b) => b.date.getTime() - a.date.getTime()
+  );
+}, [purchaseTransactions, dailySummary]);
 ```
+
+Sau đó render dựa trên `type` của mỗi item.
 
 ---
 
-#### 5. Dọn dẹp dữ liệu cũ
+## 4. Thêm 3 Cột Top Ranking vào Projects Table
 
-**Migration:** Cron job xóa bản ghi `credit_transactions` type='usage' cũ hơn 7 ngày
+### 4.1 Cập nhật Database RPC
+
+**File: Database Migration - Update `get_projects_paginated`**
 
 ```sql
--- Thêm vào pg_cron job hiện có hoặc tạo mới
-DELETE FROM credit_transactions 
-WHERE type = 'usage' 
-  AND created_at < NOW() - INTERVAL '7 days';
+CREATE OR REPLACE FUNCTION get_projects_paginated(...)
+RETURNS jsonb
+AS $$
+...
+  SELECT 
+    pr.id, pr.name, pr.domain, pr.created_at, pr.updated_at,
+    (SELECT COUNT(*)::integer FROM project_classes WHERE project_id = pr.id) as class_count,
+    (SELECT COUNT(*)::integer FROM project_keywords pk 
+     JOIN project_classes pc ON pk.class_id = pc.id 
+     WHERE pc.project_id = pr.id) as keyword_count,
+    -- New: Top ranking counts
+    (SELECT COUNT(*)::integer FROM project_keywords pk 
+     JOIN project_classes pc ON pk.class_id = pc.id 
+     WHERE pc.project_id = pr.id 
+       AND pk.ranking_position IS NOT NULL 
+       AND pk.ranking_position <= 3) as top3_count,
+    (SELECT COUNT(*)::integer FROM project_keywords pk 
+     JOIN project_classes pc ON pk.class_id = pc.id 
+     WHERE pc.project_id = pr.id 
+       AND pk.ranking_position IS NOT NULL 
+       AND pk.ranking_position > 3 
+       AND pk.ranking_position <= 10) as top10_count,
+    (SELECT COUNT(*)::integer FROM project_keywords pk 
+     JOIN project_classes pc ON pk.class_id = pc.id 
+     WHERE pc.project_id = pr.id 
+       AND pk.ranking_position IS NOT NULL 
+       AND pk.ranking_position > 10 
+       AND pk.ranking_position <= 30) as top30_count
+  FROM projects pr
+  ...
+$$;
+```
+
+### 4.2 Update Interface
+
+**File: `src/hooks/useProjectsPaginated.ts`**
+
+```typescript
+export interface PaginatedProject {
+  id: string;
+  name: string;
+  domain: string;
+  created_at: string;
+  updated_at: string;
+  class_count: number;
+  keyword_count: number;
+  // New fields
+  top3_count: number;
+  top10_count: number;
+  top30_count: number;
+}
+```
+
+### 4.3 Add Columns to Table
+
+**File: `src/components/projects/ProjectsTable.tsx`**
+
+Thêm 3 cột mới sau cột Keywords:
+
+```typescript
+{
+  id: "top3",
+  header: "1-3",
+  cell: ({ row }) => (
+    <span className="text-emerald-600 font-medium">
+      {row.original.top3_count || 0}
+    </span>
+  ),
+},
+{
+  id: "top10",
+  header: "4-10", 
+  cell: ({ row }) => (
+    <span className="text-blue-600 font-medium">
+      {row.original.top10_count || 0}
+    </span>
+  ),
+},
+{
+  id: "top30",
+  header: "11-30",
+  cell: ({ row }) => (
+    <span className="text-amber-600 font-medium">
+      {row.original.top30_count || 0}
+    </span>
+  ),
+},
 ```
 
 ---
 
-### Luồng xử lý mới
+## 5. Cải thiện KeywordsTable
 
-```text
-User check keywords
-       |
-       v
-+------------------+
-| Edge Function    |
-| check-project-   |
-| keywords         |
-+------------------+
-       |
-       v
-+------------------+
-| Trừ credits từ   |
-| user_credits     |
-+------------------+
-       |
-       v
-+------------------+
-| UPSERT vào       |
-| daily_usage_     |
-| summary          |
-+------------------+
-       |
-       v
-+------------------+
-| (Optional)       |
-| INSERT vào       |
-| credit_          |
-| transactions     |
-| để giữ 7 ngày    |
-+------------------+
+### 5.1 Keyword Truncate với Fade Effect
+
+**File: `src/components/projects/KeywordsTable.tsx`**
+
+Thêm CSS cho fade effect và Tooltip để xem full keyword:
+
+```typescript
+cell: ({ row }) => {
+  const keyword = row.getValue("keyword") as string;
+  const hasCompetitors = competitorDomains.length > 0;
+  
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span 
+          className={cn(
+            "font-medium block max-w-[200px] truncate",
+            "relative after:absolute after:right-0 after:top-0 after:h-full after:w-8",
+            "after:bg-gradient-to-l after:from-background after:to-transparent",
+            keyword.length > 30 && "after:opacity-100",
+            keyword.length <= 30 && "after:opacity-0",
+            hasCompetitors && 'cursor-pointer hover:text-primary hover:underline'
+          )}
+          onClick={() => hasCompetitors && row.toggleExpanded()}
+        >
+          {keyword}
+        </span>
+      </TooltipTrigger>
+      {keyword.length > 30 && (
+        <TooltipContent>
+          <p className="max-w-[400px] break-words">{keyword}</p>
+        </TooltipContent>
+      )}
+    </Tooltip>
+  );
+}
+```
+
+### 5.2 URL Click Actions
+
+**Single click:** Copy full URL to clipboard
+**Double click:** Open URL in new tab
+
+```typescript
+cell: ({ row }) => {
+  const url = row.getValue("found_url") as string | null;
+  const fullUrl = url?.startsWith("http") ? url : `https://${url}`;
+  
+  const handleClick = () => {
+    if (!url) return;
+    navigator.clipboard.writeText(fullUrl);
+    toast({ description: "URL copied to clipboard" });
+  };
+  
+  const handleDoubleClick = () => {
+    if (!url) return;
+    window.open(fullUrl, "_blank");
+  };
+  
+  return (
+    <span 
+      className="text-sm text-muted-foreground truncate block max-w-[400px] cursor-pointer hover:text-primary"
+      title={`Click: Copy | Double-click: Open | ${url}`}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+    >
+      {extractSlug(url)}
+    </span>
+  );
+}
 ```
 
 ---
 
-### Files cần thay đổi
+## Files cần thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| **Migration** | Tạo bảng `daily_usage_summary` + RLS + unique constraint |
-| **Migration** | Tạo RPC `upsert_daily_usage` |
-| **Migration** | Migrate dữ liệu cũ từ `credit_transactions` sang summary |
-| **Migration** | Thêm cron job xóa transactions cũ |
-| `check-project-keywords/index.ts` | Gọi RPC thay vì INSERT trực tiếp |
-| `src/hooks/useCredits.ts` | Thêm query `daily_usage_summary` |
-| `src/pages/Billing.tsx` | Hiển thị theo format mới |
+| **Migration SQL** | Thêm cron job cleanup + Update RPC get_projects_paginated |
+| `src/pages/Billing.tsx` | Merge và sort transactions theo ngày |
+| `src/hooks/useProjectsPaginated.ts` | Thêm 3 fields: top3_count, top10_count, top30_count |
+| `src/components/projects/ProjectsTable.tsx` | Thêm 3 cột ranking stats |
+| `src/components/projects/KeywordsTable.tsx` | Truncate keyword + URL click actions |
 
 ---
 
-### Kết quả sau khi hoàn thành
+## Kết quả mong đợi
 
-**Trước:**
-- 12 bản ghi riêng lẻ mỗi ngày (nếu check 12 lần)
-- Mỗi bản ghi: ~200 bytes
-
-**Sau:**
-- 1 bản ghi tổng hợp mỗi ngày
-- Tiết kiệm ~92% storage cho usage transactions
-- UI gọn gàng, dễ đọc hơn
+1. **Daily usage summary** - Confirmed working
+2. **Auto cleanup** - Transactions type='usage' cũ hơn 7 ngày tự động bị xóa mỗi ngày
+3. **Transaction History** - Sắp xếp theo ngày (mới nhất trước), không tách biệt Purchase/Usage
+4. **Projects Table** - Hiển thị 3 cột: 1-3 (emerald), 4-10 (blue), 11-30 (amber)
+5. **KeywordsTable** - Keyword dài mờ dần + hover xem full | URL single-click copy, double-click open
 
