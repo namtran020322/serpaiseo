@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -364,65 +364,10 @@ export default function Billing() {
                   No transactions yet
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="text-right">Balance After</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {/* Purchase transactions */}
-                    {purchaseTransactions.map((tx) => (
-                      <TableRow key={tx.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-green-500" />
-                            <span className="capitalize">{tx.type}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {tx.description || '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-medium text-green-600">
-                          +{formatCredits(tx.amount)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCredits(tx.balance_after)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {format(new Date(tx.created_at), 'dd/MM/yyyy')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {/* Daily usage summary - gom theo ngày */}
-                    {dailySummary.map((day) => (
-                      <TableRow key={day.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <TrendingDown className="h-4 w-4 text-red-500" />
-                            <span>Usage</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          Checked {formatCredits(day.total_keywords)} keywords ({day.check_count} {day.check_count > 1 ? 'checks' : 'check'})
-                        </TableCell>
-                        <TableCell className="text-right font-medium text-red-600">
-                          -{formatCredits(day.total_credits)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCredits(day.balance_end)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {format(new Date(day.usage_date), 'dd/MM/yyyy')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <AllTransactionsTable 
+                  purchaseTransactions={purchaseTransactions}
+                  dailySummary={dailySummary}
+                />
               )}
             </CardContent>
           </Card>
@@ -488,5 +433,113 @@ export default function Billing() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// Component AllTransactionsTable - merge và sort theo ngày
+interface AllTransactionsTableProps {
+  purchaseTransactions: Array<{
+    id: string;
+    amount: number;
+    type: string;
+    description: string | null;
+    balance_after: number;
+    created_at: string;
+  }>;
+  dailySummary: Array<{
+    id: string;
+    usage_date: string;
+    total_keywords: number;
+    total_credits: number;
+    check_count: number;
+    balance_end: number;
+  }>;
+}
+
+function AllTransactionsTable({ purchaseTransactions, dailySummary }: AllTransactionsTableProps) {
+  // Merge và sort tất cả transactions theo ngày giảm dần
+  const allTransactions = useMemo(() => {
+    const purchaseItems = purchaseTransactions.map(tx => ({
+      type: 'purchase' as const,
+      date: new Date(tx.created_at),
+      data: tx,
+    }));
+    
+    const usageItems = dailySummary.map(day => ({
+      type: 'usage' as const,
+      date: new Date(day.usage_date),
+      data: day,
+    }));
+    
+    return [...purchaseItems, ...usageItems].sort(
+      (a, b) => b.date.getTime() - a.date.getTime()
+    );
+  }, [purchaseTransactions, dailySummary]);
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Type</TableHead>
+          <TableHead>Description</TableHead>
+          <TableHead className="text-right">Amount</TableHead>
+          <TableHead className="text-right">Balance After</TableHead>
+          <TableHead>Date</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {allTransactions.map((item) => {
+          if (item.type === 'purchase') {
+            const tx = item.data;
+            return (
+              <TableRow key={`purchase-${tx.id}`}>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-green-500" />
+                    <span className="capitalize">{tx.type}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {tx.description || '-'}
+                </TableCell>
+                <TableCell className="text-right font-medium text-green-600">
+                  +{formatCredits(tx.amount)}
+                </TableCell>
+                <TableCell className="text-right">
+                  {formatCredits(tx.balance_after)}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {format(new Date(tx.created_at), 'dd/MM/yyyy')}
+                </TableCell>
+              </TableRow>
+            );
+          } else {
+            const day = item.data;
+            return (
+              <TableRow key={`usage-${day.id}`}>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <TrendingDown className="h-4 w-4 text-red-500" />
+                    <span>Usage</span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  Checked {formatCredits(day.total_keywords)} keywords ({day.check_count} {day.check_count > 1 ? 'checks' : 'check'})
+                </TableCell>
+                <TableCell className="text-right font-medium text-red-600">
+                  -{formatCredits(day.total_credits)}
+                </TableCell>
+                <TableCell className="text-right">
+                  {formatCredits(day.balance_end)}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {format(new Date(day.usage_date), 'dd/MM/yyyy')}
+                </TableCell>
+              </TableRow>
+            );
+          }
+        })}
+      </TableBody>
+    </Table>
   );
 }
