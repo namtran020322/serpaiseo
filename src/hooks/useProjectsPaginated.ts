@@ -10,6 +10,9 @@ export interface PaginatedProject {
   updated_at: string;
   class_count: number;
   keyword_count: number;
+  top3_count: number;
+  top10_count: number;
+  top30_count: number;
 }
 
 interface ProjectsPaginatedResult {

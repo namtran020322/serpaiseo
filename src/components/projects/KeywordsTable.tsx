@@ -23,6 +23,7 @@ import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SerpResultsDialog } from "@/components/projects/SerpResultsDialog";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 interface KeywordsTableProps {
   keywords: ProjectKeyword[];
@@ -198,16 +199,39 @@ export function KeywordsTable({
       accessorKey: "keyword",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Keyword" />,
       cell: ({ row }) => {
+        const keyword = row.getValue("keyword") as string;
         const hasCompetitors = competitorDomains.length > 0;
+        const isLong = keyword.length > 35;
         
-        return (
+        const content = (
           <span 
-            className={`font-medium ${hasCompetitors ? 'cursor-pointer hover:text-primary hover:underline' : ''}`}
+            className={cn(
+              "font-medium block max-w-[220px] truncate relative",
+              hasCompetitors && 'cursor-pointer hover:text-primary hover:underline'
+            )}
             onClick={() => hasCompetitors && row.toggleExpanded()}
           >
-            {row.getValue("keyword")}
+            {keyword}
+            {isLong && (
+              <span className="absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background to-transparent pointer-events-none" />
+            )}
           </span>
         );
+        
+        if (isLong) {
+          return (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {content}
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[400px]">
+                <p className="break-words">{keyword}</p>
+              </TooltipContent>
+            </Tooltip>
+          );
+        }
+        
+        return content;
       },
       enableHiding: false,
     },
@@ -250,10 +274,42 @@ export function KeywordsTable({
       maxSize: 400,
       cell: ({ row }) => {
         const url = row.getValue("found_url") as string | null;
+        if (!url) return <span className="text-muted-foreground">-</span>;
+        
+        const fullUrl = url.startsWith("http") ? url : `https://${url}`;
+        
+        const handleClick = (e: React.MouseEvent) => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(fullUrl);
+          toast.success("URL copied to clipboard");
+        };
+        
+        const handleDoubleClick = (e: React.MouseEvent) => {
+          e.stopPropagation();
+          window.open(fullUrl, "_blank");
+        };
+        
         return (
-          <span className="text-sm text-muted-foreground truncate block max-w-[400px]" title={url || ""}>
-            {extractSlug(url)}
-          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span 
+                className="text-sm text-muted-foreground truncate block max-w-[400px] cursor-pointer hover:text-primary"
+                onClick={handleClick}
+                onDoubleClick={handleDoubleClick}
+              >
+                {extractSlug(url)}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[500px]">
+              <p className="break-all text-xs">
+                <span className="text-muted-foreground">Click: Copy</span>
+                <span className="mx-2">|</span>
+                <span className="text-muted-foreground">Double-click: Open</span>
+                <br />
+                {fullUrl}
+              </p>
+            </TooltipContent>
+          </Tooltip>
         );
       },
     },

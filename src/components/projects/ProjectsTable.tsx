@@ -111,6 +111,33 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
       ),
     },
     {
+      id: "top3",
+      header: "1-3",
+      cell: ({ row }) => (
+        <span className="text-emerald-600 font-medium">
+          {row.original.top3_count || 0}
+        </span>
+      ),
+    },
+    {
+      id: "top10",
+      header: "4-10",
+      cell: ({ row }) => (
+        <span className="text-blue-600 font-medium">
+          {row.original.top10_count || 0}
+        </span>
+      ),
+    },
+    {
+      id: "top30",
+      header: "11-30",
+      cell: ({ row }) => (
+        <span className="text-amber-600 font-medium">
+          {row.original.top30_count || 0}
+        </span>
+      ),
+    },
+    {
       accessorKey: "updated_at",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" className="justify-end" />,
       cell: ({ row }) => (
@@ -173,9 +200,11 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
                           ? "min-w-[120px] max-w-[200px]"
                           : header.id === "classes" || header.id === "keywords"
                             ? "hidden md:table-cell"
-                            : header.id === "updated_at"
-                              ? "hidden lg:table-cell w-[100px]"
-                              : ""
+                            : header.id === "top3" || header.id === "top10" || header.id === "top30"
+                              ? "hidden lg:table-cell w-[60px] text-center"
+                              : header.id === "updated_at"
+                                ? "hidden lg:table-cell w-[100px]"
+                                : ""
                     }
                   >
                     {header.isPlaceholder
@@ -198,9 +227,11 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
                           ? "hidden sm:table-cell"
                           : cell.column.id === "classes" || cell.column.id === "keywords"
                             ? "hidden md:table-cell"
-                            : cell.column.id === "updated_at"
-                              ? "hidden lg:table-cell w-[100px]"
-                              : ""
+                            : cell.column.id === "top3" || cell.column.id === "top10" || cell.column.id === "top30"
+                              ? "hidden lg:table-cell w-[60px] text-center"
+                              : cell.column.id === "updated_at"
+                                ? "hidden lg:table-cell w-[100px]"
+                                : ""
                       }
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
