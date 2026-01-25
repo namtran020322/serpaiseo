@@ -12,9 +12,7 @@ import {
   RowSelectionState,
 } from "@tanstack/react-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Monitor, Smartphone, Tablet } from "lucide-react";
 import { useDeleteProject } from "@/hooks/useProjects";
 import { DataTableToolbar } from "@/components/ui/data-table-toolbar";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
@@ -24,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { PaginatedProject } from "@/hooks/useProjectsPaginated";
+import { cn } from "@/lib/utils";
 
 // Ultra-compact time format helper
 function formatCompactTime(date: Date): string {
@@ -44,12 +43,6 @@ function formatCompactTime(date: Date): string {
 interface ProjectsTableProps {
   projects: PaginatedProject[];
 }
-
-const deviceIcons = {
-  desktop: Monitor,
-  mobile: Smartphone,
-  tablet: Tablet,
-};
 
 export function ProjectsTable({ projects }: ProjectsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -79,11 +72,11 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
     },
     {
       accessorKey: "name",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Name" className="justify-start" />,
       cell: ({ row }) => (
         <Link
           to={`/dashboard/projects/${row.original.id}`}
-          className="font-medium hover:underline block max-w-[200px] truncate"
+          className="font-medium hover:underline block max-w-[200px] truncate text-left"
           title={row.getValue("name") as string}
         >
           {row.getValue("name")}
@@ -92,54 +85,87 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
     },
     {
       accessorKey: "domain",
-      header: "Domain",
-      cell: ({ row }) => <DomainWithFavicon domain={row.original.domain} showFullDomain />,
+      header: () => <span className="block text-right">Domain</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <DomainWithFavicon domain={row.original.domain} showFullDomain />
+        </div>
+      ),
     },
     {
       id: "classes",
-      header: "Classes",
+      header: () => <span className="block text-right">Classes</span>,
       cell: ({ row }) => (
-        <Badge variant="outline">{row.original.class_count}</Badge>
+        <div className="text-right">
+          <Badge variant="outline">{row.original.class_count}</Badge>
+        </div>
       ),
     },
     {
       id: "keywords",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Keywords" />,
+      header: () => <span className="block text-right">Keywords</span>,
       accessorFn: (row) => row.keyword_count,
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.keyword_count}</span>
+        <span className="font-medium block text-right">{row.original.keyword_count}</span>
       ),
     },
     {
       id: "top3",
-      header: "1-3",
-      cell: ({ row }) => (
-        <span className="text-emerald-600 font-medium">
-          {row.original.top3_count || 0}
-        </span>
-      ),
+      header: () => <span className="whitespace-nowrap block text-right">1-3</span>,
+      cell: ({ row }) => {
+        const count = row.original.top3_count || 0;
+        const change = row.original.top3_change || 0;
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <span className="text-emerald-600 font-medium">{count}</span>
+            {change !== 0 && (
+              <span className={cn("text-xs font-medium", change > 0 ? "text-emerald-500" : "text-destructive")}>
+                {change > 0 ? `↗${change}` : `↘${Math.abs(change)}`}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "top10",
-      header: "4-10",
-      cell: ({ row }) => (
-        <span className="text-blue-600 font-medium">
-          {row.original.top10_count || 0}
-        </span>
-      ),
+      header: () => <span className="whitespace-nowrap block text-right">4-10</span>,
+      cell: ({ row }) => {
+        const count = row.original.top10_count || 0;
+        const change = row.original.top10_change || 0;
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <span className="text-blue-600 font-medium">{count}</span>
+            {change !== 0 && (
+              <span className={cn("text-xs font-medium", change > 0 ? "text-emerald-500" : "text-destructive")}>
+                {change > 0 ? `↗${change}` : `↘${Math.abs(change)}`}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "top30",
-      header: "11-30",
-      cell: ({ row }) => (
-        <span className="text-amber-600 font-medium">
-          {row.original.top30_count || 0}
-        </span>
-      ),
+      header: () => <span className="whitespace-nowrap block text-right">11-30</span>,
+      cell: ({ row }) => {
+        const count = row.original.top30_count || 0;
+        const change = row.original.top30_change || 0;
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <span className="text-amber-600 font-medium">{count}</span>
+            {change !== 0 && (
+              <span className={cn("text-xs font-medium", change > 0 ? "text-emerald-500" : "text-destructive")}>
+                {change > 0 ? `↗${change}` : `↘${Math.abs(change)}`}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "updated_at",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" className="justify-end" />,
+      header: () => <span className="block text-right">Updated</span>,
       cell: ({ row }) => (
         <div className="text-right">
           <span className="text-muted-foreground text-sm">
@@ -193,19 +219,14 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className={
-                      header.id === "select" || header.id === "expand"
-                        ? "w-10 hidden sm:table-cell"
-                        : header.id === "name"
-                          ? "min-w-[120px] max-w-[200px]"
-                          : header.id === "classes" || header.id === "keywords"
-                            ? "hidden md:table-cell"
-                            : header.id === "top3" || header.id === "top10" || header.id === "top30"
-                              ? "hidden lg:table-cell w-[60px] text-center"
-                              : header.id === "updated_at"
-                                ? "hidden lg:table-cell w-[100px]"
-                                : ""
-                    }
+                    className={cn(
+                      "whitespace-nowrap",
+                      header.id === "select" ? "w-10 hidden sm:table-cell" : "",
+                      header.id === "name" ? "text-left" : "text-right",
+                      header.id === "classes" || header.id === "keywords" ? "hidden md:table-cell" : "",
+                      (header.id === "top3" || header.id === "top10" || header.id === "top30") ? "hidden lg:table-cell" : "",
+                      header.id === "updated_at" ? "hidden lg:table-cell" : ""
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -222,17 +243,13 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className={
-                        cell.column.id === "select"
-                          ? "hidden sm:table-cell"
-                          : cell.column.id === "classes" || cell.column.id === "keywords"
-                            ? "hidden md:table-cell"
-                            : cell.column.id === "top3" || cell.column.id === "top10" || cell.column.id === "top30"
-                              ? "hidden lg:table-cell w-[60px] text-center"
-                              : cell.column.id === "updated_at"
-                                ? "hidden lg:table-cell w-[100px]"
-                                : ""
-                      }
+                      className={cn(
+                        cell.column.id === "select" ? "hidden sm:table-cell" : "",
+                        cell.column.id === "name" ? "text-left" : "text-right",
+                        cell.column.id === "classes" || cell.column.id === "keywords" ? "hidden md:table-cell" : "",
+                        (cell.column.id === "top3" || cell.column.id === "top10" || cell.column.id === "top30") ? "hidden lg:table-cell" : "",
+                        cell.column.id === "updated_at" ? "hidden lg:table-cell" : ""
+                      )}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>

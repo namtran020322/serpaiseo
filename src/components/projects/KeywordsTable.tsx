@@ -69,7 +69,7 @@ const renderPositionWithChange = (position: number | null, previous: number | nu
   const change = getChangeValue(position, previous);
   
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center justify-end gap-1.5">
       <span className={`font-medium ${getPositionColor(position)}`}>
         {position ?? "-"}
       </span>
@@ -179,25 +179,29 @@ export function KeywordsTable({
       id: "select",
       size: 40,
       header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? "indeterminate" : false}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
+        <div className="text-center">
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? "indeterminate" : false}
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
+          />
+        </div>
       ),
       cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
+        <div className="text-center">
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        </div>
       ),
       enableSorting: false,
       enableHiding: false,
     },
     {
       accessorKey: "keyword",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Keyword" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Keyword" className="justify-start" />,
       cell: ({ row }) => {
         const keyword = row.getValue("keyword") as string;
         const hasCompetitors = competitorDomains.length > 0;
@@ -206,7 +210,7 @@ export function KeywordsTable({
         const content = (
           <span 
             className={cn(
-              "font-medium block max-w-[220px] truncate relative",
+              "font-medium block max-w-[220px] truncate relative text-left",
               hasCompetitors && 'cursor-pointer hover:text-primary hover:underline'
             )}
             onClick={() => hasCompetitors && row.toggleExpanded()}
@@ -237,7 +241,7 @@ export function KeywordsTable({
     },
     {
       accessorKey: "ranking_position",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Last" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Last" className="justify-end" />,
       size: 80,
       cell: ({ row }) => {
         const position = row.getValue("ranking_position") as number | null;
@@ -247,21 +251,21 @@ export function KeywordsTable({
     },
     {
       accessorKey: "first_position",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="First" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="First" className="justify-end" />,
       size: 55,
       cell: ({ row }) => {
         const position = row.getValue("first_position") as number | null;
-        return <span className="text-muted-foreground">{position ?? "-"}</span>;
+        return <span className="text-muted-foreground block text-right">{position ?? "-"}</span>;
       },
     },
     {
       accessorKey: "best_position",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Best" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Best" className="justify-end" />,
       size: 55,
       cell: ({ row }) => {
         const position = row.getValue("best_position") as number | null;
         return (
-          <span className={`font-medium ${getPositionColor(position)}`}>
+          <span className={`font-medium block text-right ${getPositionColor(position)}`}>
             {position ?? "-"}
           </span>
         );
@@ -269,12 +273,12 @@ export function KeywordsTable({
     },
     {
       accessorKey: "found_url",
-      header: "URL",
+      header: () => <span className="block text-right">URL</span>,
       size: 400,
       maxSize: 400,
       cell: ({ row }) => {
         const url = row.getValue("found_url") as string | null;
-        if (!url) return <span className="text-muted-foreground">-</span>;
+        if (!url) return <span className="text-muted-foreground text-right block">-</span>;
         
         const fullUrl = url.startsWith("http") ? url : `https://${url}`;
         
@@ -293,7 +297,7 @@ export function KeywordsTable({
           <Tooltip>
             <TooltipTrigger asChild>
               <span 
-                className="text-sm text-muted-foreground truncate block max-w-[400px] cursor-pointer hover:text-primary"
+                className="text-sm text-muted-foreground truncate block max-w-[400px] cursor-pointer hover:text-primary text-right"
                 onClick={handleClick}
                 onDoubleClick={handleDoubleClick}
               >
@@ -315,21 +319,23 @@ export function KeywordsTable({
     },
     {
       accessorKey: "last_checked_at",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" className="justify-end" />,
       cell: ({ row }) => {
         const date = row.getValue("last_checked_at") as string | null;
-        if (!date) return <span className="text-muted-foreground">-</span>;
+        if (!date) return <span className="text-muted-foreground text-right block">-</span>;
         return (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="text-sm text-muted-foreground cursor-default">
-                {formatRelativeTime(date)}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              {format(new Date(date), "HH:mm dd/MM/yyyy")}
-            </TooltipContent>
-          </Tooltip>
+          <div className="text-right">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-sm text-muted-foreground cursor-default">
+                  {formatRelativeTime(date)}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {format(new Date(date), "HH:mm dd/MM/yyyy")}
+              </TooltipContent>
+            </Tooltip>
+          </div>
         );
       },
     },
@@ -340,11 +346,13 @@ export function KeywordsTable({
       cell: ({ row }) => {
         const serpResults = row.original.serp_results as SerpResult[] | null;
         return (
-          <SerpResultsDialog 
-            keyword={row.original.keyword}
-            serpResults={serpResults}
-            userDomain={userDomain}
-          />
+          <div className="text-right">
+            <SerpResultsDialog 
+              keyword={row.original.keyword}
+              serpResults={serpResults}
+              userDomain={userDomain}
+            />
+          </div>
         );
       },
       enableSorting: false,
@@ -428,7 +436,8 @@ export function KeywordsTable({
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="border-b">
                 {headerGroup.headers.map((header) => {
-                  const isFixedWidth = header.id === "select";
+                  const isSelect = header.id === "select";
+                  const isKeyword = header.id === "keyword";
                   const isActions = header.id === "actions";
                   const columnSize = header.column.columnDef.size;
                   
@@ -436,8 +445,9 @@ export function KeywordsTable({
                     <th 
                       key={header.id} 
                       className={cn(
-                        "h-12 px-4 text-left align-middle font-medium text-muted-foreground bg-background",
-                        isFixedWidth && "w-10",
+                        "h-12 px-4 align-middle font-medium text-muted-foreground bg-background whitespace-nowrap",
+                        isSelect && "w-10 text-center",
+                        isKeyword ? "text-left" : "text-right",
                         isActions && "w-16"
                       )}
                       style={columnSize ? { width: columnSize } : undefined}
@@ -473,16 +483,19 @@ export function KeywordsTable({
                       )}
                     >
                       {row.getVisibleCells().map((cell) => {
+                        const isSelect = cell.column.id === "select";
+                        const isKeyword = cell.column.id === "keyword";
+                        
                         // Special handling for URL column when SERP Titles is ON
                         if (cell.column.id === "found_url" && showSerpTitles && serpTitle) {
                           const url = row.original.found_url;
                           return (
-                            <td key={cell.id} className="p-4 align-middle">
-                              <div className="space-y-0.5 max-w-[400px]">
-                                <div className="text-sm text-primary font-medium truncate" title={serpTitle}>
+                            <td key={cell.id} className="p-4 align-middle text-right">
+                              <div className="space-y-0.5 max-w-[400px] ml-auto">
+                                <div className="text-sm text-primary font-medium truncate text-right" title={serpTitle}>
                                   {truncateText(serpTitle, 100)}
                                 </div>
-                                <span className="text-xs text-muted-foreground truncate block" title={url || ""}>
+                                <span className="text-xs text-muted-foreground truncate block text-right" title={url || ""}>
                                   {extractSlug(url)}
                                 </span>
                               </div>
@@ -490,7 +503,14 @@ export function KeywordsTable({
                           );
                         }
                         return (
-                          <td key={cell.id} className="p-4 align-middle">
+                          <td 
+                            key={cell.id} 
+                            className={cn(
+                              "p-4 align-middle",
+                              isSelect && "text-center",
+                              isKeyword ? "text-left" : "text-right"
+                            )}
+                          >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         );
@@ -515,30 +535,30 @@ export function KeywordsTable({
                             className="bg-primary/5 hover:bg-primary/10 border-l-4 border-l-primary border-b"
                           >
                             {/* Checkbox cell - empty */}
-                            <td className="p-4 align-middle"></td>
+                            <td className="p-4 align-middle text-center"></td>
                             
                             {/* Domain (aligned with Keyword column) */}
-                            <td className="p-4 align-middle">
+                            <td className="p-4 align-middle text-left">
                               <DomainWithFavicon domain={domain} showFullDomain size="sm" />
                             </td>
                             
                             {/* Last (with change indicator) */}
                             {visibleColumnIds.includes("ranking_position") && (
-                              <td className="p-4 align-middle">
+                              <td className="p-4 align-middle text-right">
                                 {renderPositionWithChange(position ?? null, prevPos ?? null)}
                               </td>
                             )}
                             
                             {/* First */}
                             {visibleColumnIds.includes("first_position") && (
-                              <td className="p-4 align-middle text-muted-foreground">
+                              <td className="p-4 align-middle text-right text-muted-foreground">
                                 {firstPos ?? "-"}
                               </td>
                             )}
                             
                             {/* Best */}
                             {visibleColumnIds.includes("best_position") && (
-                              <td className="p-4 align-middle">
+                              <td className="p-4 align-middle text-right">
                                 <span className={`font-medium ${getPositionColor(bestPos ?? null)}`}>
                                   {bestPos ?? "-"}
                                 </span>
@@ -547,18 +567,18 @@ export function KeywordsTable({
                             
                             {/* URL */}
                             {visibleColumnIds.includes("found_url") && (
-                              <td className="p-4 align-middle">
+                              <td className="p-4 align-middle text-right">
                                 {showSerpTitles && competitorTitle ? (
-                                  <div className="space-y-0.5 max-w-[320px]">
-                                    <div className="text-sm text-primary font-medium truncate" title={competitorTitle}>
+                                  <div className="space-y-0.5 max-w-[320px] ml-auto">
+                                    <div className="text-sm text-primary font-medium truncate text-right" title={competitorTitle}>
                                       {truncateText(competitorTitle, 70)}
                                     </div>
-                                    <span className="text-xs text-muted-foreground truncate block" title={url || ""}>
+                                    <span className="text-xs text-muted-foreground truncate block text-right" title={url || ""}>
                                       {extractSlug(url)}
                                     </span>
                                   </div>
                                 ) : (
-                                  <span className="text-sm text-muted-foreground truncate block max-w-[320px]" title={url || ""}>
+                                  <span className="text-sm text-muted-foreground truncate block max-w-[320px] text-right" title={url || ""}>
                                     {extractSlug(url)}
                                   </span>
                                 )}
@@ -567,7 +587,7 @@ export function KeywordsTable({
                             
                             {/* Updated */}
                             {visibleColumnIds.includes("last_checked_at") && (
-                              <td className="p-4 align-middle">
+                              <td className="p-4 align-middle text-right">
                                 {lastChecked ? (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -585,7 +605,7 @@ export function KeywordsTable({
                             
                             {/* Actions column - empty */}
                             {visibleColumnIds.includes("actions") && (
-                              <td className="p-4 align-middle"></td>
+                              <td className="p-4 align-middle text-right"></td>
                             )}
                           </tr>
                         );
