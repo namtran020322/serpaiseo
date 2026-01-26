@@ -4,11 +4,12 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 
 export function useRankingDates(classId: string | undefined) {
-  const { user } = useAuthContext();
+  const auth = useAuthContext();
+  const user = auth?.user;
 
   return useQuery({
     queryKey: ["ranking-dates", classId, user?.id],
-    queryFn: async () => {
+    queryFn: async (): Promise<string[]> => {
       if (!classId || !user) return [];
 
       // Get keyword IDs for this class
