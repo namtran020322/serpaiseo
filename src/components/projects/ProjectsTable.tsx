@@ -85,38 +85,38 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
     },
     {
       accessorKey: "domain",
-      header: () => <span className="block text-right">Domain</span>,
+      header: () => <span className="block text-left">Domain</span>,
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           <DomainWithFavicon domain={row.original.domain} showFullDomain />
         </div>
       ),
     },
     {
       id: "classes",
-      header: () => <span className="block text-right">Classes</span>,
+      header: () => <span className="block text-left">Classes</span>,
       cell: ({ row }) => (
-        <div className="text-right">
+        <div className="text-left">
           <Badge variant="outline">{row.original.class_count}</Badge>
         </div>
       ),
     },
     {
       id: "keywords",
-      header: () => <span className="block text-right">Keywords</span>,
+      header: () => <span className="block text-left">Keywords</span>,
       accessorFn: (row) => row.keyword_count,
       cell: ({ row }) => (
-        <span className="font-medium block text-right">{row.original.keyword_count}</span>
+        <span className="font-medium block text-left">{row.original.keyword_count}</span>
       ),
     },
     {
       id: "top3",
-      header: () => <span className="whitespace-nowrap block text-right">1-3</span>,
+      header: () => <span className="whitespace-nowrap block text-left">1-3</span>,
       cell: ({ row }) => {
         const count = row.original.top3_count || 0;
         const change = row.original.top3_change || 0;
         return (
-          <div className="flex items-center justify-end gap-1">
+          <div className="flex items-center justify-start gap-1">
             <span className="text-emerald-600 font-medium">{count}</span>
             {change !== 0 && (
               <span className={cn("text-xs font-medium", change > 0 ? "text-emerald-500" : "text-destructive")}>
@@ -129,12 +129,12 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
     },
     {
       id: "top10",
-      header: () => <span className="whitespace-nowrap block text-right">4-10</span>,
+      header: () => <span className="whitespace-nowrap block text-left">4-10</span>,
       cell: ({ row }) => {
         const count = row.original.top10_count || 0;
         const change = row.original.top10_change || 0;
         return (
-          <div className="flex items-center justify-end gap-1">
+          <div className="flex items-center justify-start gap-1">
             <span className="text-blue-600 font-medium">{count}</span>
             {change !== 0 && (
               <span className={cn("text-xs font-medium", change > 0 ? "text-emerald-500" : "text-destructive")}>
@@ -147,12 +147,12 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
     },
     {
       id: "top30",
-      header: () => <span className="whitespace-nowrap block text-right">11-30</span>,
+      header: () => <span className="whitespace-nowrap block text-left">11-30</span>,
       cell: ({ row }) => {
         const count = row.original.top30_count || 0;
         const change = row.original.top30_change || 0;
         return (
-          <div className="flex items-center justify-end gap-1">
+          <div className="flex items-center justify-start gap-1">
             <span className="text-amber-600 font-medium">{count}</span>
             {change !== 0 && (
               <span className={cn("text-xs font-medium", change > 0 ? "text-emerald-500" : "text-destructive")}>
@@ -165,9 +165,9 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
     },
     {
       accessorKey: "updated_at",
-      header: () => <span className="block text-right">Updated</span>,
+      header: () => <span className="block text-left">Updated</span>,
       cell: ({ row }) => (
-        <div className="text-right">
+        <div className="text-left">
           <span className="text-muted-foreground text-sm">
             {formatCompactTime(new Date(row.original.updated_at))}
           </span>
@@ -220,9 +220,8 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
                   <TableHead
                     key={header.id}
                     className={cn(
-                      "whitespace-nowrap",
+                      "whitespace-nowrap text-left",
                       header.id === "select" ? "w-10 hidden sm:table-cell" : "",
-                      header.id === "name" ? "text-left" : "text-right",
                       header.id === "classes" || header.id === "keywords" ? "hidden md:table-cell" : "",
                       (header.id === "top3" || header.id === "top10" || header.id === "top30") ? "hidden lg:table-cell" : "",
                       header.id === "updated_at" ? "hidden lg:table-cell" : ""
@@ -244,8 +243,8 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
                     <TableCell
                       key={cell.id}
                       className={cn(
+                        "text-left",
                         cell.column.id === "select" ? "hidden sm:table-cell" : "",
-                        cell.column.id === "name" ? "text-left" : "text-right",
                         cell.column.id === "classes" || cell.column.id === "keywords" ? "hidden md:table-cell" : "",
                         (cell.column.id === "top3" || cell.column.id === "top10" || cell.column.id === "top30") ? "hidden lg:table-cell" : "",
                         cell.column.id === "updated_at" ? "hidden lg:table-cell" : ""

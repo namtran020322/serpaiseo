@@ -7,16 +7,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProject, useDeleteKeywords, useAddKeywords } from "@/hooks/useProjects";
 import { useKeywordsPaginated, useClassRankingStats, useClassMetadata } from "@/hooks/useKeywordsPaginated";
 import { useAddRankingJob } from "@/hooks/useRankingQueue";
+import { useRankingDates, useHistoricalKeywords } from "@/hooks/useRankingDates";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
 import { RankingHistoryChart } from "@/components/projects/RankingHistoryChart";
 import { KeywordsTable } from "@/components/projects/KeywordsTable";
 import { ExportButton } from "@/components/projects/ExportButton";
 import { ClassSettingsDialog } from "@/components/projects/ClassSettingsDialog";
 import { AddKeywordsDialog } from "@/components/projects/AddKeywordsDialog";
+import { HistoryDatePicker } from "@/components/projects/HistoryDatePicker";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { CompetitorsFaviconList } from "@/components/projects/CompetitorsFaviconList";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 
 const deviceIcons = {
   desktop: Monitor,
@@ -36,10 +38,19 @@ export default function ClassDetail() {
   const [sortDesc, setSortDesc] = useState(false);
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState<string | null>(null);
+  const [selectedHistoryDate, setSelectedHistoryDate] = useState<Date | undefined>(undefined);
 
   // Data hooks - server-side pagination
   const { data: classMetadata, isLoading: metaLoading } = useClassMetadata(classId);
   const { data: rankingStats, refetch: refetchStats } = useClassRankingStats(classId);
+  
+  // Fetch dates that have ranking history data
+  const { data: datesWithData = [], isLoading: datesLoading } = useRankingDates(classId);
+  
+  // Convert selectedHistoryDate to string format for query
+  const selectedDateStr = selectedHistoryDate ? format(selectedHistoryDate, "yyyy-MM-dd") : undefined;
+  
+  // Fetch current keywords (when no history date selected)
   const { data: keywordsData, isLoading: keywordsLoading, refetch: refetchKeywords } = useKeywordsPaginated({
     classId: classId || "",
     page,
@@ -49,6 +60,21 @@ export default function ClassDetail() {
     search,
     tierFilter,
   });
+  
+  // Fetch historical keywords (when a history date is selected)
+  const { data: historicalData, isLoading: historicalLoading } = useHistoricalKeywords(
+    classId,
+    selectedDateStr,
+    page,
+    pageSize,
+    search
+  );
+  
+  // Determine which data to display
+  const isViewingHistory = !!selectedHistoryDate;
+  const displayKeywords = isViewingHistory ? (historicalData?.keywords || []) : (keywordsData?.keywords || []);
+  const displayTotalCount = isViewingHistory ? (historicalData?.totalCount || 0) : (keywordsData?.totalCount || 0);
+  const displayLoading = isViewingHistory ? historicalLoading : keywordsLoading;
   
   const { data: project } = useProject(projectId);
   const addRankingJob = useAddRankingJob();
@@ -139,9 +165,15 @@ export default function ClassDetail() {
   // Build projectClass-like object for components that need it
   const projectClassForExport = {
     ...classMetadata,
-    keywords: keywordsData?.keywords || [],
-    keywordCount: keywordsData?.totalCount || 0,
+    keywords: displayKeywords || [],
+    keywordCount: displayTotalCount || 0,
     rankingStats: rankingStats || { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 },
+  };
+
+  // Handler for date selection
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedHistoryDate(date);
+    setPage(0); // Reset to first page
   };
 
   return (
@@ -206,7 +238,13 @@ export default function ClassDetail() {
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </Button>
-          <Button onClick={handleRefresh} disabled={addRankingJob.isPending}>
+          <HistoryDatePicker
+            datesWithData={datesWithData}
+            selectedDate={selectedHistoryDate}
+            onDateSelect={handleDateSelect}
+            isLoading={datesLoading}
+          />
+          <Button onClick={handleRefresh} disabled={addRankingJob.isPending || isViewingHistory}>
             <RefreshCw className={`mr-2 h-4 w-4 ${addRankingJob.isPending ? "animate-spin" : ""}`} />
             {addRankingJob.isPending ? "Starting..." : "Refresh Rankings"}
           </Button>
@@ -244,28 +282,37 @@ export default function ClassDetail() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Keywords</h2>
+            <h2 className="text-xl font-semibold">
+              Keywords
+              {isViewingHistory && selectedHistoryDate && (
+                <Badge variant="secondary" className="ml-2">
+                  {format(selectedHistoryDate, "dd/MM/yyyy")}
+                </Badge>
+              )}
+            </h2>
             <p className="text-sm text-muted-foreground">
-              {keywordsData?.totalCount || 0} keywords tracked
+              {displayTotalCount} keywords {isViewingHistory ? "recorded" : "tracked"}
             </p>
           </div>
-          <AddKeywordsDialog onAddKeywords={handleAddKeywords} isLoading={addKeywords.isPending} />
+          {!isViewingHistory && (
+            <AddKeywordsDialog onAddKeywords={handleAddKeywords} isLoading={addKeywords.isPending} />
+          )}
         </div>
         <KeywordsTable 
-          keywords={keywordsData?.keywords || []} 
+          keywords={displayKeywords} 
           competitorDomains={classMetadata.competitor_domains}
           userDomain={classMetadata.domain}
-          onDeleteKeywords={handleDeleteKeywords}
-          onRefreshKeywords={handleRefreshSelected}
+          onDeleteKeywords={isViewingHistory ? undefined : handleDeleteKeywords}
+          onRefreshKeywords={isViewingHistory ? undefined : handleRefreshSelected}
           // Server-side pagination props
-          totalCount={keywordsData?.totalCount}
+          totalCount={displayTotalCount}
           page={page}
           pageSize={pageSize}
           onPageChange={setPage}
           onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(0); }}
-          onSortChange={handleSortChange}
+          onSortChange={isViewingHistory ? undefined : handleSortChange}
           onSearchChange={handleSearchChange}
-          isLoading={keywordsLoading}
+          isLoading={displayLoading}
         />
       </div>
 
