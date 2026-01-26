@@ -15,6 +15,7 @@ import { ClassSettingsDialog } from "@/components/projects/ClassSettingsDialog";
 import { AddKeywordsDialog } from "@/components/projects/AddKeywordsDialog";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { CompetitorsFaviconList } from "@/components/projects/CompetitorsFaviconList";
+import { HistoryDatePicker } from "@/components/projects/HistoryDatePicker";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDistanceToNow } from "date-fns";
 
@@ -36,6 +37,7 @@ export default function ClassDetail() {
   const [sortDesc, setSortDesc] = useState(false);
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState<string | null>(null);
+  const [selectedHistoryDate, setSelectedHistoryDate] = useState<Date | undefined>(undefined);
 
   // Data hooks - server-side pagination
   const { data: classMetadata, isLoading: metaLoading } = useClassMetadata(classId);
@@ -206,6 +208,11 @@ export default function ClassDetail() {
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </Button>
+          <HistoryDatePicker
+            classId={classId!}
+            selectedDate={selectedHistoryDate}
+            onDateSelect={setSelectedHistoryDate}
+          />
           <Button onClick={handleRefresh} disabled={addRankingJob.isPending}>
             <RefreshCw className={`mr-2 h-4 w-4 ${addRankingJob.isPending ? "animate-spin" : ""}`} />
             {addRankingJob.isPending ? "Starting..." : "Refresh Rankings"}
