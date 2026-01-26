@@ -1,230 +1,298 @@
 
 
-## Kế hoạch Cải thiện Tables và Security
+## Kế hoạch Cải thiện Tables Alignment và Date Range Picker
 
-### Tổng quan các nhiệm vụ
+### Tổng quan
 
 | # | Nhiệm vụ | Loại |
 |---|----------|------|
-| 1 | Thêm ranking trend indicators (↗/↘) cho 3 cột ranking trong Projects table | Database + Frontend |
-| 2 | Enable password leak protection trong Auth settings | Auth Configuration |
-| 3 | Sửa Projects table: header không xuống hàng, columns linh động, căn phải (trừ Name) | Frontend |
-| 4 | Sửa Keywords table: căn phải tất cả columns (trừ Keyword) | Frontend |
+| 1 | Sửa căn lề Projects Table theo Semrush style | Frontend |
+| 2 | Sửa căn lề Keywords Table theo Semrush style | Frontend |
+| 3 | Thêm Date Range Picker với dữ liệu từ database | Frontend + Hook |
 
 ---
 
-## 1. Ranking Trend Indicators cho Projects Table
+## 1. Sửa căn lề Tables (Semrush Style)
 
-### Yêu cầu
-Hiển thị chỉ báo biến động hàng tuần (↗/↘) bên cạnh 3 cột top ranking (1-3, 4-10, 11-30)
+### Nguyên tắc căn lề mới
 
-### Cập nhật Database RPC
+Dựa trên hình ảnh Semrush:
+- **Tất cả columns**: Phân bổ không gian linh động, không có width cứng
+- **Nội dung bên trong (header name + cell content)**: Tất cả căn trái
+- **Ngoại trừ**: Cột Select (checkbox) căn giữa
 
-**File: Migration - Update `get_projects_paginated`**
-
-Thêm 3 cột mới để so sánh ranking 7 ngày trước:
-
-```sql
--- top3_change: số keyword tăng/giảm vào top 3 so với 7 ngày trước
--- top10_change: số keyword tăng/giảm vào top 4-10 so với 7 ngày trước  
--- top30_change: số keyword tăng/giảm vào top 11-30 so với 7 ngày trước
-
--- Logic: So sánh ranking_position hiện tại với dữ liệu từ keyword_ranking_history 7 ngày trước
-```
-
-### Cập nhật Interface
-
-**File: `src/hooks/useProjectsPaginated.ts`**
-
-```typescript
-export interface PaginatedProject {
-  // ... existing fields
-  top3_change: number;   // +2 = có thêm 2 keywords vào top3
-  top10_change: number;  
-  top30_change: number;
-}
-```
-
-### Cập nhật Frontend
+### Thay đổi
 
 **File: `src/components/projects/ProjectsTable.tsx`**
 
+Trước:
 ```typescript
-{
-  id: "top3",
-  header: () => <span className="whitespace-nowrap">1-3</span>,
-  cell: ({ row }) => {
-    const count = row.original.top3_count || 0;
-    const change = row.original.top3_change || 0;
-    return (
-      <div className="flex items-center justify-end gap-1">
-        <span className="text-emerald-600 font-medium">{count}</span>
-        {change !== 0 && (
-          <span className={change > 0 ? "text-emerald-500 text-xs" : "text-destructive text-xs"}>
-            {change > 0 ? `↗${change}` : `↘${Math.abs(change)}`}
-          </span>
-        )}
-      </div>
-    );
-  },
-}
+// Header căn phải
+header: () => <span className="block text-right">Domain</span>,
+// Cell căn phải
+cell: ({ row }) => <div className="flex justify-end">...</div>
 ```
 
----
-
-## 2. Enable Password Leak Protection
-
-### Thực hiện
-Sử dụng công cụ `configure-auth` để bật tính năng Leaked Password Protection trong Auth settings.
-
-Tính năng này sẽ:
-- Kiểm tra mật khẩu mới có trong database các mật khẩu bị lộ không
-- Ngăn người dùng sử dụng mật khẩu đã bị compromise
-
----
-
-## 3. Sửa Projects Table Layout (Semrush Style)
-
-### Vấn đề hiện tại
-- Header cột "4-10" và "11-30" bị xuống hàng (do width constraint)
-- Columns có width cứng nhắc, tạo nhiều khoảng trống
-- Alignment không thống nhất
-
-### Giải pháp
-
-**File: `src/components/projects/ProjectsTable.tsx`**
-
+Sau:
 ```typescript
-// Columns definition với proper alignment
-{
-  accessorKey: "name",
-  header: ({ column }) => (
-    <DataTableColumnHeader column={column} title="Name" className="justify-start" />
-  ),
-  cell: ({ row }) => (
-    <Link className="text-left ...">...</Link>  // Căn trái
-  ),
-},
-{
-  accessorKey: "domain",
-  header: () => <span className="text-right block">Domain</span>,
-  cell: ({ row }) => (
-    <div className="text-right">
-      <DomainWithFavicon ... />
-    </div>
-  ),
-},
-{
-  id: "classes",
-  header: () => <span className="text-right block">Classes</span>,
-  cell: ({ row }) => (
-    <div className="text-right">...</div>
-  ),
-},
-// ... tương tự cho các cột khác
-
-// Header styling - prevent wrapping
-{
-  id: "top3",
-  header: () => <span className="whitespace-nowrap text-right block">1-3</span>,
-  // ...
-},
-{
-  id: "top10", 
-  header: () => <span className="whitespace-nowrap text-right block">4-10</span>,
-  // ...
-},
-{
-  id: "top30",
-  header: () => <span className="whitespace-nowrap text-right block">11-30</span>,
-  // ...
-},
+// Tất cả headers căn trái
+header: () => <span className="block">Domain</span>,
+// Tất cả cells căn trái
+cell: ({ row }) => <div className="flex justify-start">...</div>
 ```
 
-### Table Layout CSS
+Thay đổi tương tự cho tất cả columns:
+- `domain`: Bỏ `text-right`, `justify-end`
+- `classes`: Bỏ `text-right`
+- `keywords`: Bỏ `text-right`
+- `top3/top10/top30`: Bỏ `justify-end`
+- `updated_at`: Bỏ `text-right`
 
+TableHead và TableCell:
 ```typescript
-// TableHead className
 <TableHead
-  key={header.id}
   className={cn(
-    "whitespace-nowrap", // Ngăn header xuống hàng
-    header.id === "name" ? "text-left" : "text-right", // Name căn trái, còn lại căn phải
-    header.id === "select" && "w-10",
-    // Bỏ các width constraints cứng nhắc
+    "whitespace-nowrap",
+    header.id === "select" ? "w-10 text-center" : "text-left",
+    // ... responsive classes
   )}
 >
 
-// TableCell className
 <TableCell
-  key={cell.id}
   className={cn(
-    cell.column.id === "name" ? "text-left" : "text-right",
-    // ...responsive classes
+    cell.column.id === "select" ? "text-center" : "text-left",
+    // ... responsive classes
   )}
 >
 ```
-
----
-
-## 4. Sửa Keywords Table Alignment
-
-### Yêu cầu
-- Cột Keyword: căn trái (giữ nguyên)
-- Tất cả các cột còn lại: căn phải
-
-### Cập nhật
 
 **File: `src/components/projects/KeywordsTable.tsx`**
 
+Áp dụng tương tự:
+- Tất cả headers: `text-left` (trừ Select: `text-center`)
+- Tất cả cells: nội dung căn trái
+- Columns: `ranking_position`, `first_position`, `best_position`, `found_url`, `last_checked_at`, `actions` - tất cả đổi sang căn trái
+- Competitor rows: cũng căn trái toàn bộ
+
+---
+
+## 2. Date Range Picker
+
+### Components mới
+
+**File: `src/components/projects/HistoryDatePicker.tsx`**
+
+Component DatePicker sử dụng Shadcn UI Popover + Calendar:
+
 ```typescript
-// Header styling
-<th 
-  className={cn(
-    "h-12 px-4 font-medium text-muted-foreground bg-background",
-    header.id === "keyword" ? "text-left" : "text-right",
-    header.id === "select" && "w-10 text-center",
-  )}
->
+interface HistoryDatePickerProps {
+  classId: string;
+  selectedDate: Date | undefined;
+  onDateSelect: (date: Date | undefined) => void;
+}
 
-// Cell styling
-<td 
-  className={cn(
-    "p-4 align-middle",
-    cell.column.id === "keyword" ? "text-left" : "text-right",
-  )}
->
-
-// Update individual column cells to use text-right
-{
-  accessorKey: "ranking_position",
-  header: ({ column }) => (
-    <DataTableColumnHeader column={column} title="Last" className="justify-end" />
-  ),
-  cell: ({ row }) => (
-    <div className="flex items-center justify-end gap-1.5">
-      ...
-    </div>
-  ),
-},
-// ... tương tự cho First, Best, URL, Updated
+export function HistoryDatePicker({ classId, selectedDate, onDateSelect }: HistoryDatePickerProps) {
+  // Hook lấy danh sách ngày có data từ keyword_ranking_history
+  const { data: datesWithData = [] } = useRankingDates(classId);
+  
+  // Custom day rendering
+  const modifiers = {
+    hasData: datesWithData.map(d => new Date(d)),
+  };
+  
+  const modifiersClassNames = {
+    hasData: 'bg-blue-100 relative', // Light blue background
+  };
+  
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="gap-2">
+          <CalendarDays className="h-4 w-4" />
+          {selectedDate ? format(selectedDate, 'dd/MM/yyyy') : 'Today'}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="center">
+        {/* Legend */}
+        <div className="p-3 pb-0 flex items-center gap-4 text-sm border-b">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-primary rounded-full" />
+            <span>Has data</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-muted rounded-full" />
+            <span>No data</span>
+          </div>
+        </div>
+        
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={onDateSelect}
+          modifiers={modifiers}
+          modifiersClassNames={modifiersClassNames}
+          className="pointer-events-auto"
+          components={{
+            DayContent: ({ date }) => {
+              const hasData = datesWithData.some(d => 
+                format(new Date(d), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+              );
+              return (
+                <div className="relative">
+                  <span>{date.getDate()}</span>
+                  {hasData && (
+                    <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
+                  )}
+                </div>
+              );
+            },
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
 ```
 
-### Competitor Rows
+### Hook lấy ngày có dữ liệu
 
-Đảm bảo các row competitor cũng căn phải:
+**File: `src/hooks/useRankingDates.ts`**
 
 ```typescript
-{/* Last (with change indicator) */}
-<td className="p-4 align-middle text-right">
-  {renderPositionWithChange(...)}
-</td>
+export function useRankingDates(classId: string | undefined) {
+  const { user } = useAuthContext();
+  
+  return useQuery({
+    queryKey: ['ranking-dates', classId, user?.id],
+    queryFn: async () => {
+      if (!classId || !user) return [];
+      
+      // Lấy keyword IDs của class này
+      const { data: keywords } = await supabase
+        .from('project_keywords')
+        .select('id')
+        .eq('class_id', classId);
+      
+      if (!keywords || keywords.length === 0) return [];
+      
+      const keywordIds = keywords.map(k => k.id);
+      
+      // Lấy distinct dates từ keyword_ranking_history
+      const { data: history } = await supabase
+        .from('keyword_ranking_history')
+        .select('checked_at')
+        .in('keyword_id', keywordIds)
+        .order('checked_at', { ascending: false });
+      
+      if (!history) return [];
+      
+      // Extract unique dates (chỉ lấy ngày, bỏ giờ)
+      const uniqueDates = [...new Set(
+        history.map(h => format(new Date(h.checked_at), 'yyyy-MM-dd'))
+      )];
+      
+      return uniqueDates;
+    },
+    enabled: !!classId && !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+```
 
-{/* First */}
-<td className="p-4 align-middle text-right text-muted-foreground">
-  {firstPos ?? "-"}
-</td>
-// ... và các cột khác
+### Hook lấy keywords theo ngày
+
+**File: `src/hooks/useKeywordsOnDate.ts`**
+
+```typescript
+export function useKeywordsOnDate(classId: string, date: Date | undefined) {
+  const { user } = useAuthContext();
+  
+  return useQuery({
+    queryKey: ['keywords-on-date', classId, date ? format(date, 'yyyy-MM-dd') : null],
+    queryFn: async () => {
+      if (!classId || !user || !date) return null;
+      
+      const dateStart = startOfDay(date);
+      const dateEnd = endOfDay(date);
+      
+      // Lấy snapshot ranking của ngày đó từ keyword_ranking_history
+      const { data: keywords } = await supabase
+        .from('project_keywords')
+        .select('id, keyword')
+        .eq('class_id', classId);
+      
+      if (!keywords) return [];
+      
+      const keywordIds = keywords.map(k => k.id);
+      
+      // Lấy ranking cuối cùng của mỗi keyword trong ngày đó
+      const { data: history } = await supabase
+        .from('keyword_ranking_history')
+        .select('keyword_id, ranking_position, found_url, competitor_rankings, checked_at')
+        .in('keyword_id', keywordIds)
+        .gte('checked_at', dateStart.toISOString())
+        .lte('checked_at', dateEnd.toISOString())
+        .order('checked_at', { ascending: false });
+      
+      if (!history) return [];
+      
+      // Merge với keyword info, lấy record cuối cùng của mỗi keyword
+      const latestByKeyword = new Map();
+      history.forEach(h => {
+        if (!latestByKeyword.has(h.keyword_id)) {
+          latestByKeyword.set(h.keyword_id, h);
+        }
+      });
+      
+      return keywords.map(k => {
+        const historyData = latestByKeyword.get(k.id);
+        return {
+          id: k.id,
+          keyword: k.keyword,
+          ranking_position: historyData?.ranking_position ?? null,
+          found_url: historyData?.found_url ?? null,
+          competitor_rankings: historyData?.competitor_rankings ?? {},
+          // ...
+        };
+      });
+    },
+    enabled: !!classId && !!user && !!date,
+    staleTime: 60 * 1000, // 1 minute
+  });
+}
+```
+
+### Cập nhật ClassDetail.tsx
+
+Thêm DatePicker vào header, giữa Settings và Refresh:
+
+```typescript
+// State
+const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+
+// Trong header actions
+<div className="flex gap-2">
+  <ExportButton projectClass={projectClassForExport} />
+  <Button variant="outline" onClick={() => setSettingsOpen(true)}>
+    <Settings className="mr-2 h-4 w-4" />
+    Settings
+  </Button>
+  
+  {/* NEW: Date Picker */}
+  <HistoryDatePicker 
+    classId={classId!}
+    selectedDate={selectedDate}
+    onDateSelect={(date) => {
+      setSelectedDate(date);
+      // Khi chọn ngày, sẽ fetch data từ history thay vì current
+    }}
+  />
+  
+  <Button onClick={handleRefresh} disabled={addRankingJob.isPending}>
+    <RefreshCw className={`mr-2 h-4 w-4 ${addRankingJob.isPending ? "animate-spin" : ""}`} />
+    {addRankingJob.isPending ? "Starting..." : "Refresh Rankings"}
+  </Button>
+</div>
 ```
 
 ---
@@ -233,28 +301,25 @@ Tính năng này sẽ:
 
 | File | Thay đổi |
 |------|----------|
-| **Migration SQL** | Update RPC `get_projects_paginated` thêm 3 cột *_change |
-| **Auth Config** | Enable Leaked Password Protection |
-| `src/hooks/useProjectsPaginated.ts` | Thêm 3 fields: top3_change, top10_change, top30_change |
-| `src/components/projects/ProjectsTable.tsx` | Header whitespace-nowrap, căn phải (trừ Name), trend indicators |
-| `src/components/projects/KeywordsTable.tsx` | Header và cell căn phải (trừ Keyword) |
+| `src/components/projects/ProjectsTable.tsx` | Đổi tất cả columns sang căn trái |
+| `src/components/projects/KeywordsTable.tsx` | Đổi tất cả columns sang căn trái |
+| `src/components/projects/HistoryDatePicker.tsx` | **NEW** - Component DatePicker với custom styling |
+| `src/hooks/useRankingDates.ts` | **NEW** - Hook lấy danh sách ngày có data |
+| `src/pages/ClassDetail.tsx` | Thêm state selectedDate + HistoryDatePicker component |
 
 ---
 
 ## Kết quả mong đợi
 
-### Projects Table
-- Header "1-3", "4-10", "11-30" không bị xuống hàng
-- Trend indicators hiển thị: `4 ↗2` hoặc `3 ↘1` 
-- Tất cả columns căn phải (trừ Name căn trái)
-- Columns tự động co giãn theo nội dung, không có khoảng trống thừa
+### Tables
+- Tất cả columns có nội dung căn trái (như Semrush)
+- Headers không bị xuống hàng (whitespace-nowrap)
+- Columns phân bổ linh động theo nội dung
 
-### Keywords Table
-- Keyword column căn trái
-- Tất cả columns còn lại (Last, First, Best, URL, Updated, Actions) căn phải
-- Competitor rows cũng tuân theo alignment này
-
-### Security
-- Password Leak Protection được bật
-- Người dùng không thể sử dụng mật khẩu đã bị lộ khi đăng ký/đổi mật khẩu
+### Date Range Picker
+- Vị trí: giữa "Settings" và "Refresh Rankings"
+- Calendar hiển thị với:
+  - Ngày có data: nền xanh nhạt + chấm tròn xanh bên dưới
+  - Legend giải thích ý nghĩa
+- Chọn ngày → hiển thị ranking snapshot của ngày đó từ history
 
