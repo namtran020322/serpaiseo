@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useCallback } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -67,7 +67,7 @@ const getChangeValue = (current: number | null, previous: number | null): number
 // Render change indicator inline with position
 const renderPositionWithChange = (position: number | null, previous: number | null) => {
   const change = getChangeValue(position, previous);
-  
+
   return (
     <div className="flex items-center justify-start gap-1.5">
       <span className={`font-medium ${getPositionColor(position)}`}>
@@ -99,6 +99,41 @@ const truncateText = (text: string | null | undefined, maxChars: number = 70) =>
   return text.length > maxChars ? text.slice(0, maxChars) + "..." : text;
 };
 
+// TruncatedTooltip: Only shows tooltip when text is actually truncated
+interface TruncatedTooltipProps {
+  text: string;
+  className?: string;
+  onClick?: () => void;
+}
+
+const TruncatedTooltip: React.FC<TruncatedTooltipProps> = ({ text, className, onClick }) => {
+  const [isTruncated, setIsTruncated] = useState(false);
+  const textRef = useRef<HTMLSpanElement>(null);
+
+  const checkTruncation = useCallback(() => {
+    if (textRef.current) {
+      setIsTruncated(textRef.current.scrollWidth > textRef.current.clientWidth);
+    }
+  }, []);
+
+  return (
+    <Tooltip open={isTruncated ? undefined : false}>
+      <TooltipTrigger asChild onMouseEnter={checkTruncation}>
+        <span
+          ref={textRef}
+          className={cn("truncate block w-full text-left", className)}
+          onClick={onClick}
+        >
+          {text}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="start" className="max-w-[400px]">
+        <p className="break-words">{text}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+};
+
 const formatRelativeTime = (dateString: string) => {
   const date = new Date(dateString);
   const now = new Date();
@@ -112,7 +147,7 @@ const formatRelativeTime = (dateString: string) => {
   if (diffDays > 7) {
     return format(date, "dd/MM/yyyy");
   }
-  
+
   // Short format: "3d ago", "11h ago", "4m ago", "14s ago"
   if (diffDays > 0) return `${diffDays}d ago`;
   if (diffHours > 0) return `${diffHours}h ago`;
@@ -127,8 +162,8 @@ const findSerpTitle = (serpResults: SerpResult[] | null, position: number | null
   return match?.title;
 };
 
-export function KeywordsTable({ 
-  keywords, 
+export function KeywordsTable({
+  keywords,
   competitorDomains,
   userDomain,
   onDeleteKeywords,
@@ -157,7 +192,7 @@ export function KeywordsTable({
   const handleSortingChange = (updater: React.SetStateAction<SortingState>) => {
     const newSorting = typeof updater === "function" ? updater(sorting) : updater;
     setSorting(newSorting);
-    
+
     if (isServerSide && onSortChange) {
       const sortCol = newSorting[0];
       onSortChange(sortCol?.id, sortCol?.desc ?? false);
@@ -202,139 +237,172 @@ export function KeywordsTable({
     {
       accessorKey: "keyword",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Keyword" className="justify-start" />,
+      size: Number.MAX_SAFE_INTEGER,
       cell: ({ row }) => {
         const keyword = row.getValue("keyword") as string;
         const hasCompetitors = competitorDomains.length > 0;
-        const isLong = keyword.length > 35;
-        
-        const content = (
-          <span 
+
+        return (
+          <TruncatedTooltip
+            text={keyword}
             className={cn(
-              "font-medium block max-w-[220px] truncate relative text-left",
+              "font-medium",
               hasCompetitors && 'cursor-pointer hover:text-primary hover:underline'
             )}
-            onClick={() => hasCompetitors && row.toggleExpanded()}
-          >
-            {keyword}
-            {isLong && (
-              <span className="absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background to-transparent pointer-events-none" />
-            )}
-          </span>
+            onClick={hasCompetitors ? () => row.toggleExpanded() : undefined}
+          />
         );
-        
-        if (isLong) {
-          return (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                {content}
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[400px]">
-                <p className="break-words">{keyword}</p>
-              </TooltipContent>
-            </Tooltip>
-          );
-        }
-        
-        return content;
       },
       enableHiding: false,
     },
     {
       accessorKey: "ranking_position",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Last" className="justify-start" />,
+      header: ({ column }) => (
+        <div className="flex justify-end">
+          <div className="w-16 text-left">
+            <DataTableColumnHeader column={column} title="Last" className="justify-start" />
+          </div>
+        </div>
+      ),
       size: 80,
       cell: ({ row }) => {
         const position = row.getValue("ranking_position") as number | null;
         const previous = row.original.previous_position;
-        return renderPositionWithChange(position, previous);
+        return (
+          <div className="flex justify-end">
+            <div className="w-16 text-left">
+              {renderPositionWithChange(position, previous)}
+            </div>
+          </div>
+        );
       },
     },
     {
       accessorKey: "first_position",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="First" className="justify-start" />,
+      header: ({ column }) => (
+        <div className="flex justify-end">
+          <div className="w-12 text-left">
+            <DataTableColumnHeader column={column} title="First" className="justify-start" />
+          </div>
+        </div>
+      ),
       size: 55,
       cell: ({ row }) => {
         const position = row.getValue("first_position") as number | null;
-        return <span className="text-muted-foreground block text-left">{position ?? "-"}</span>;
+        return (
+          <div className="flex justify-end">
+            <span className="w-12 text-muted-foreground text-left">{position ?? "-"}</span>
+          </div>
+        );
       },
     },
     {
       accessorKey: "best_position",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Best" className="justify-start" />,
+      header: ({ column }) => (
+        <div className="flex justify-end">
+          <div className="w-12 text-left">
+            <DataTableColumnHeader column={column} title="Best" className="justify-start" />
+          </div>
+        </div>
+      ),
       size: 55,
       cell: ({ row }) => {
         const position = row.getValue("best_position") as number | null;
         return (
-          <span className={`font-medium block text-left ${getPositionColor(position)}`}>
-            {position ?? "-"}
-          </span>
+          <div className="flex justify-end">
+            <span className={`w-12 font-medium text-left ${getPositionColor(position)}`}>
+              {position ?? "-"}
+            </span>
+          </div>
         );
       },
     },
     {
       accessorKey: "found_url",
-      header: () => <span className="block text-left">URL</span>,
-      size: 400,
-      maxSize: 400,
+      header: () => (
+        <div className="flex justify-end">
+          <span className="w-full max-w-[400px] text-left">URL</span>
+        </div>
+      ),
       cell: ({ row }) => {
         const url = row.getValue("found_url") as string | null;
-        if (!url) return <span className="text-muted-foreground text-left block">-</span>;
-        
+        if (!url) return (
+          <div className="flex justify-end">
+            <span className="w-full max-w-[400px] text-muted-foreground text-left">-</span>
+          </div>
+        );
+
         const fullUrl = url.startsWith("http") ? url : `https://${url}`;
-        
+
         const handleClick = (e: React.MouseEvent) => {
           e.stopPropagation();
           navigator.clipboard.writeText(fullUrl);
           toast.success("URL copied to clipboard");
         };
-        
+
         const handleDoubleClick = (e: React.MouseEvent) => {
           e.stopPropagation();
           window.open(fullUrl, "_blank");
         };
-        
+
         return (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span 
-                className="text-sm text-muted-foreground truncate block max-w-[400px] cursor-pointer hover:text-primary text-left"
-                onClick={handleClick}
-                onDoubleClick={handleDoubleClick}
-              >
-                {extractSlug(url)}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[500px]">
-              <p className="break-all text-xs">
-                <span className="text-muted-foreground">Click: Copy</span>
-                <span className="mx-2">|</span>
-                <span className="text-muted-foreground">Double-click: Open</span>
-                <br />
-                {fullUrl}
-              </p>
-            </TooltipContent>
-          </Tooltip>
+          <div className="flex justify-end">
+            <div className="w-full max-w-[400px] text-left">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="text-sm text-muted-foreground truncate block w-full cursor-pointer hover:text-primary"
+                    onClick={handleClick}
+                    onDoubleClick={handleDoubleClick}
+                  >
+                    {extractSlug(url)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[500px]">
+                  <p className="break-all text-xs">
+                    <span className="text-muted-foreground">Click: Copy</span>
+                    <span className="mx-2">|</span>
+                    <span className="text-muted-foreground">Double-click: Open</span>
+                    <br />
+                    {fullUrl}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
         );
       },
     },
     {
       accessorKey: "last_checked_at",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" className="justify-start" />,
+      header: ({ column }) => (
+        <div className="flex justify-end">
+          <div className="w-24 text-left">
+            <DataTableColumnHeader column={column} title="Updated" className="justify-start" />
+          </div>
+        </div>
+      ),
       cell: ({ row }) => {
         const date = row.getValue("last_checked_at") as string | null;
-        if (!date) return <span className="text-muted-foreground text-left block">-</span>;
+        if (!date) return (
+          <div className="flex justify-end">
+            <span className="w-24 text-muted-foreground text-left">-</span>
+          </div>
+        );
         return (
-          <div className="text-left">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-sm text-muted-foreground cursor-default">
-                  {formatRelativeTime(date)}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                {format(new Date(date), "HH:mm dd/MM/yyyy")}
-              </TooltipContent>
-            </Tooltip>
+          <div className="flex justify-end">
+            <div className="w-24 text-left">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-sm text-muted-foreground cursor-default">
+                    {formatRelativeTime(date)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {format(new Date(date), "HH:mm dd/MM/yyyy")}
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
         );
       },
@@ -347,7 +415,7 @@ export function KeywordsTable({
         const serpResults = row.original.serp_results as SerpResult[] | null;
         return (
           <div className="text-left">
-            <SerpResultsDialog 
+            <SerpResultsDialog
               keyword={row.original.keyword}
               serpResults={serpResults}
               userDomain={userDomain}
@@ -384,8 +452,8 @@ export function KeywordsTable({
     manualFiltering: isServerSide,
     pageCount: pageCount,
     onPaginationChange: isServerSide ? (updater) => {
-      const newState = typeof updater === "function" 
-        ? updater({ pageIndex: page, pageSize }) 
+      const newState = typeof updater === "function"
+        ? updater({ pageIndex: page, pageSize })
         : updater;
       if (newState.pageIndex !== page && onPageChange) {
         onPageChange(newState.pageIndex);
@@ -421,7 +489,7 @@ export function KeywordsTable({
         onToggleSerpTitles={() => setShowSerpTitles(!showSerpTitles)}
         onSearchChange={isServerSide ? handleSearchChange : undefined}
       />
-      
+
       {/* Table container with max height and overflow for sticky header */}
       <div className="rounded-md border max-h-[600px] overflow-auto relative">
         {isLoading && (
@@ -429,7 +497,7 @@ export function KeywordsTable({
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         )}
-        
+
         <table className="w-full caption-bottom text-sm">
           {/* Sticky header */}
           <thead className="sticky top-0 z-10 bg-background border-b">
@@ -440,10 +508,10 @@ export function KeywordsTable({
                   const isKeyword = header.id === "keyword";
                   const isActions = header.id === "actions";
                   const columnSize = header.column.columnDef.size;
-                  
+
                   return (
-                    <th 
-                      key={header.id} 
+                    <th
+                      key={header.id}
                       className={cn(
                         "h-12 px-4 align-middle font-medium text-muted-foreground bg-background whitespace-nowrap text-left",
                         isSelect && "w-10 text-center",
@@ -460,22 +528,22 @@ export function KeywordsTable({
               </tr>
             ))}
           </thead>
-          
+
           <tbody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const rankings = row.original.competitor_rankings as Record<string, any> | null;
                 const lastChecked = row.original.last_checked_at;
                 const visibleColumnIds = table.getVisibleLeafColumns().map(c => c.id);
-                
+
                 const serpResultsArray = row.original.serp_results as SerpResult[] | null;
                 const rankingPosition = row.original.ranking_position;
                 const serpTitle = findSerpTitle(serpResultsArray, rankingPosition);
-                
+
                 return (
                   <React.Fragment key={row.id}>
                     {/* Main keyword row */}
-                    <tr 
+                    <tr
                       className={cn(
                         "border-b transition-colors hover:bg-muted/50",
                         row.getIsSelected() && "bg-muted"
@@ -484,7 +552,7 @@ export function KeywordsTable({
                       {row.getVisibleCells().map((cell) => {
                         const isSelect = cell.column.id === "select";
                         const isKeyword = cell.column.id === "keyword";
-                        
+
                         // Special handling for URL column when SERP Titles is ON
                         if (cell.column.id === "found_url" && showSerpTitles && serpTitle) {
                           const url = row.original.found_url;
@@ -502,8 +570,8 @@ export function KeywordsTable({
                           );
                         }
                         return (
-                          <td 
-                            key={cell.id} 
+                          <td
+                            key={cell.id}
                             className={cn(
                               "p-4 align-middle text-left",
                               isSelect && "text-center"
@@ -514,9 +582,9 @@ export function KeywordsTable({
                         );
                       })}
                     </tr>
-                    
+
                     {/* Expanded competitor rows */}
-                    {row.getIsExpanded() && competitorDomains.length > 0 && 
+                    {row.getIsExpanded() && competitorDomains.length > 0 &&
                       competitorDomains.map((domain) => {
                         const data = rankings?.[domain];
                         const position = typeof data === "object" ? data?.position : data;
@@ -524,36 +592,36 @@ export function KeywordsTable({
                         const bestPos = typeof data === "object" ? data?.best_position : null;
                         const prevPos = typeof data === "object" ? data?.previous_position : null;
                         const url = typeof data === "object" ? data?.url : null;
-                        
+
                         const competitorTitle = findSerpTitle(serpResultsArray, position);
 
                         return (
-                          <tr 
-                            key={`${row.id}-competitor-${domain}`} 
+                          <tr
+                            key={`${row.id}-competitor-${domain}`}
                             className="bg-primary/5 hover:bg-primary/10 border-l-4 border-l-primary border-b"
                           >
                             {/* Checkbox cell - empty */}
                             <td className="p-4 align-middle text-center"></td>
-                            
+
                             {/* Domain (aligned with Keyword column) */}
                             <td className="p-4 align-middle text-left">
                               <DomainWithFavicon domain={domain} showFullDomain size="sm" />
                             </td>
-                            
+
                             {/* Last (with change indicator) */}
                             {visibleColumnIds.includes("ranking_position") && (
                               <td className="p-4 align-middle text-left">
                                 {renderPositionWithChange(position ?? null, prevPos ?? null)}
                               </td>
                             )}
-                            
+
                             {/* First */}
                             {visibleColumnIds.includes("first_position") && (
                               <td className="p-4 align-middle text-left text-muted-foreground">
                                 {firstPos ?? "-"}
                               </td>
                             )}
-                            
+
                             {/* Best */}
                             {visibleColumnIds.includes("best_position") && (
                               <td className="p-4 align-middle text-left">
@@ -562,7 +630,7 @@ export function KeywordsTable({
                                 </span>
                               </td>
                             )}
-                            
+
                             {/* URL */}
                             {visibleColumnIds.includes("found_url") && (
                               <td className="p-4 align-middle text-left">
@@ -582,7 +650,7 @@ export function KeywordsTable({
                                 )}
                               </td>
                             )}
-                            
+
                             {/* Updated */}
                             {visibleColumnIds.includes("last_checked_at") && (
                               <td className="p-4 align-middle text-left">
@@ -600,7 +668,7 @@ export function KeywordsTable({
                                 ) : "-"}
                               </td>
                             )}
-                            
+
                             {/* Actions column - empty */}
                             {visibleColumnIds.includes("actions") && (
                               <td className="p-4 align-middle text-left"></td>
@@ -622,7 +690,7 @@ export function KeywordsTable({
           </tbody>
         </table>
       </div>
-      
+
       <DataTablePagination table={table} />
     </div>
   );
