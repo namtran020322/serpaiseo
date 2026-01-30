@@ -15,6 +15,7 @@ import {
 import { useProject, useProjectClass } from "@/hooks/useProjects";
 import { Fragment } from "react";
 import { HeaderActions } from "@/components/HeaderActions";
+import { GlobalTaskWidget } from "@/components/GlobalTaskWidget";
 
 const routeLabels: Record<string, string> = {
   "dashboard": "Home",
@@ -129,6 +130,8 @@ export default function DashboardLayout() {
           </div>
         </main>
       </div>
+      {/* Global Task Widget - floating on all pages */}
+      <GlobalTaskWidget />
     </SidebarProvider>
   );
 }

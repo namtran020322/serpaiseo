@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarSearch } from "@/components/SidebarSearch";
-import { ProcessingTasks } from "@/components/ProcessingTasks";
+
 
 const menuItems = [{
   title: "Home",
@@ -86,8 +86,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Processing Tasks */}
-        <ProcessingTasks />
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
