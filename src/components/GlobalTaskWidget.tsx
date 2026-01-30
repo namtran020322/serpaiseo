@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -10,7 +11,9 @@ import { useEffect, useState } from "react";
 export function GlobalTaskWidget() {
   const { tasks, removeTask } = useTaskProgress();
   const navigate = useNavigate();
-  const [toastOffset, setToastOffset] = useState(0);
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const [refreshedClassIds, setRefreshedClassIds] = useState<Set<string>>(new Set());
 
   // Filter active + recently completed tasks
   const activeTasks = tasks.filter(
@@ -29,57 +32,41 @@ export function GlobalTaskWidget() {
     });
   }, [completedTasks, removeTask]);
 
-  // Observe toast container for auto slide-up
+  // Auto-refresh data when task completes on current page
   useEffect(() => {
-    const checkToastHeight = () => {
-      const toaster = document.querySelector('[data-sonner-toaster]');
-      if (toaster) {
-        const toasts = toaster.querySelectorAll('[data-sonner-toast]');
-        if (toasts.length > 0) {
-          let totalHeight = 0;
-          toasts.forEach((toast) => {
-            totalHeight += toast.getBoundingClientRect().height + 8; // 8px gap
+    tasks.forEach((task) => {
+      if (task.status === "completed" && !refreshedClassIds.has(task.classId)) {
+        const isOnClassPage = location.pathname.includes(`/classes/${task.classId}`);
+        
+        if (isOnClassPage) {
+          // Invalidate all relevant queries
+          queryClient.invalidateQueries({ 
+            queryKey: ["keywords-paginated", task.classId] 
           });
-          setToastOffset(totalHeight);
-        } else {
-          setToastOffset(0);
+          queryClient.invalidateQueries({ 
+            queryKey: ["class-ranking-stats", task.classId] 
+          });
+          queryClient.invalidateQueries({ 
+            queryKey: ["class-metadata", task.classId] 
+          });
+          
+          setRefreshedClassIds((prev) => new Set(prev).add(task.classId));
         }
       }
-    };
-
-    // Initial check
-    checkToastHeight();
-
-    // Observe DOM changes
-    const observer = new MutationObserver(() => {
-      // Small delay for toast animation to complete
-      setTimeout(checkToastHeight, 100);
     });
+  }, [tasks, location.pathname, queryClient, refreshedClassIds]);
 
-    // Start observing after a short delay to ensure toaster is mounted
-    const setupObserver = () => {
-      const toaster = document.querySelector('[data-sonner-toaster]');
-      if (toaster) {
-        observer.observe(toaster, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-        });
-      }
-    };
-
-    setupObserver();
-    // Retry setup in case toaster isn't mounted yet
-    const retryTimeout = setTimeout(setupObserver, 500);
-
-    window.addEventListener('resize', checkToastHeight);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', checkToastHeight);
-      clearTimeout(retryTimeout);
-    };
-  }, []);
+  // Clear refreshed IDs when tasks are removed
+  useEffect(() => {
+    const activeIds = new Set(tasks.map(t => t.classId));
+    setRefreshedClassIds((prev) => {
+      const newSet = new Set<string>();
+      prev.forEach(id => {
+        if (activeIds.has(id)) newSet.add(id);
+      });
+      return newSet;
+    });
+  }, [tasks]);
 
   // Show both active and recently completed tasks
   const visibleTasks = [...activeTasks, ...completedTasks];
@@ -90,13 +77,9 @@ export function GlobalTaskWidget() {
   return (
     <div 
       className={cn(
-        "fixed bottom-4 right-4 z-50",
-        "animate-in slide-in-from-bottom-5 fade-in duration-300",
-        "transition-transform duration-300 ease-out"
+        "fixed bottom-4 right-4 z-40",
+        "animate-in slide-in-from-bottom-5 fade-in duration-300"
       )}
-      style={{ 
-        transform: toastOffset > 0 ? `translateY(-${toastOffset}px)` : undefined 
-      }}
     >
       <Card className={cn(
         "w-80 max-w-[400px]",
@@ -118,6 +101,7 @@ export function GlobalTaskWidget() {
 
                 const isCompleted = task.status === "completed";
                 const isFailed = task.status === "failed";
+                const wasRefreshed = refreshedClassIds.has(task.classId);
 
                 return (
                   <div
@@ -159,11 +143,15 @@ export function GlobalTaskWidget() {
 
                     {/* Row 3: Details */}
                     <div className="flex items-center justify-between text-xs text-muted-foreground mt-1.5">
-                      <span>
+                      <span className={cn(
+                        isCompleted && wasRefreshed && "text-green-600 font-medium"
+                      )}>
                         {task.status === "pending" 
                           ? "Waiting..." 
                           : isCompleted
-                          ? "Completed"
+                          ? wasRefreshed
+                            ? "✓ Data updated"
+                            : "Completed"
                           : isFailed
                           ? "Failed"
                           : `${task.progress}/${task.total} keywords`
