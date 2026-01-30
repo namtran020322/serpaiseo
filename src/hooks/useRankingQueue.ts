@@ -49,11 +49,9 @@ export function useAddRankingJob() {
         throw err;
       }
     },
-    onSuccess: (data, variables) => {
-      toast.success("Ranking check started", {
-        description: `Checking ${data.total_keywords} keywords for ${variables.className}`,
-      });
-
+    onSuccess: () => {
+      // Widget xuất hiện là đủ tín hiệu - không cần toast
+      
       // Trigger queue processing immediately (don't wait for cron)
       supabase.functions.invoke("process-ranking-queue").catch(console.error);
     },
