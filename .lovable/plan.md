@@ -1,185 +1,225 @@
 
+## Kế hoạch Nâng cấp Global Task Widget
 
-## Kế hoạch Cải thiện Global Task Widget
+### Vấn đề 1: Xung đột Toast - Widget (Giải pháp triệt để)
 
-### Tổng quan các thay đổi
+**Phân tích nguyên nhân hiện tại không hoạt động:**
+- MutationObserver đang observe `[data-sonner-toaster]` nhưng toaster có thể chưa mount khi widget render
+- Toast animations có delay, việc đọc `getBoundingClientRect()` quá sớm cho ra kết quả không chính xác
+- CSS `bottom-4` của widget và toast cùng gốc tọa độ nên khó tính offset chính xác
 
-| # | Nhiệm vụ | File |
-|---|----------|------|
-| 1 | Thêm Scrollable List với header hiển thị số lượng | GlobalTaskWidget.tsx |
-| 2 | Xóa toast "Ranking check started" | useRankingQueue.ts |
-| 3 | Auto Slide-up khi có Toast xuất hiện | GlobalTaskWidget.tsx + sonner.tsx |
+**Giải pháp triệt để: Sử dụng Sonner `offset` prop + z-index separation**
 
----
+| Thay đổi | Chi tiết |
+|----------|----------|
+| `sonner.tsx` | Thêm `offset="80px"` để toast luôn cách bottom 80px |
+| `GlobalTaskWidget` | Giữ `bottom-4` (16px) - Widget nằm dưới |
+| z-index | Toast z-50 (mặc định), Widget z-40 - Toast sẽ hiển thị phía trên |
 
-## 1. Scrollable List với Header số lượng
-
-### Cập nhật: `src/components/GlobalTaskWidget.tsx`
-
-**Thêm ScrollArea từ Shadcn UI:**
-
-```typescript
-import { ScrollArea } from "@/components/ui/scroll-area";
-
-// Header hiển thị số lượng
-<CardHeader className="py-3 px-4 pb-0">
-  <CardTitle className="text-sm font-medium text-foreground">
-    Active Tasks ({visibleTasks.length})
-  </CardTitle>
-</CardHeader>
-
-// Scrollable content với max-height
-<CardContent className="p-2 pt-2">
-  <ScrollArea className="max-h-64">
-    <div className="space-y-1 pr-2">
-      {visibleTasks.map((task) => (...))}
-    </div>
-  </ScrollArea>
-</CardContent>
+```text
++---------------------------+
+|      Main Content         |
++---------------------------+
+|  Toast (z-50, bottom-80px)|   ← Toasts xuất hiện cao hơn
++---------------------------+
+|  Widget (z-40, bottom-16px)|  ← Widget nằm thấp, không bị che
++---------------------------+
 ```
 
-**Specs:**
-- `max-h-64` = 256px (đủ cho ~3-4 tasks)
-- Sử dụng Shadcn `ScrollArea` để có custom scrollbar đẹp
-- `pr-2` để scrollbar không đè lên content
+**Ưu điểm:**
+- Không cần MutationObserver phức tạp
+- Không cần JavaScript tính toán offset
+- Native Sonner behavior - ổn định 100%
+- Code đơn giản, dễ maintain
+
+**Files thay đổi:**
+- `src/components/ui/sonner.tsx`: Thêm `offset="80px"`
+- `src/components/GlobalTaskWidget.tsx`: Đổi `z-50` thành `z-40`, xóa toàn bộ MutationObserver code
 
 ---
 
-## 2. Xóa Toast "Ranking check started"
+### Vấn đề 2: Auto-Refresh dữ liệu khi Task hoàn thành
 
-### Cập nhật: `src/hooks/useRankingQueue.ts`
+**Flow yêu cầu:**
 
-```diff
-    onSuccess: (data, variables) => {
--     toast.success("Ranking check started", {
--       description: `Checking ${data.total_keywords} keywords for ${variables.className}`,
--     });
-+     // Widget xuất hiện là đủ tín hiệu - không cần toast
+```text
+Task status: processing → completed
+                ↓
+        Check current URL
+                ↓
+    ┌──────────────────────────────┐
+    │ URL matches task.classId?    │
+    └──────────────────────────────┘
+           ↓ YES              ↓ NO
+   invalidateQueries()      Do nothing
+   Show "Data updated"
+```
+
+**Implementation trong GlobalTaskWidget.tsx:**
+
+1. **Import thêm:**
+   - `useQueryClient` từ `@tanstack/react-query`
+   - `useLocation` từ `react-router-dom`
+
+2. **Thêm state tracking:**
+   - `refreshedClassIds: Set<string>` - Track các class đã được refresh để không refresh lặp
+
+3. **useEffect để detect task completion:**
+```typescript
+useEffect(() => {
+  tasks.forEach((task) => {
+    if (task.status === "completed" && !refreshedClassIds.has(task.classId)) {
+      // Check if user is on this class's page
+      const isOnClassPage = location.pathname.includes(`/classes/${task.classId}`);
       
-      // Trigger queue processing immediately (don't wait for cron)
-      supabase.functions.invoke("process-ranking-queue").catch(console.error);
-    },
+      if (isOnClassPage) {
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({ 
+          queryKey: ["keywords-paginated", task.classId] 
+        });
+        queryClient.invalidateQueries({ 
+          queryKey: ["class-ranking-stats", task.classId] 
+        });
+        
+        // Mark as refreshed
+        setRefreshedClassIds((prev) => new Set(prev).add(task.classId));
+      }
+    }
+  });
+}, [tasks, location.pathname, queryClient]);
 ```
+
+4. **UI hiển thị "Data updated":**
+   - Thêm dòng text màu xanh lá trong task card khi vừa hoàn thành và đã refresh
+   - Text: "✓ Data updated" với class `text-green-600`
 
 ---
 
-## 3. Auto Slide-up khi có Toast
+### Chi tiết Files cần thay đổi
 
-### Phương pháp tiếp cận
-
-Sonner library không expose event khi toast xuất hiện/biến mất một cách trực tiếp. Tuy nhiên, có thể dùng **MutationObserver** để detect khi toast container thay đổi.
-
-### Cập nhật: `src/components/GlobalTaskWidget.tsx`
-
-```typescript
-import { useEffect, useState, useRef } from "react";
-
-export function GlobalTaskWidget() {
-  const [toastOffset, setToastOffset] = useState(0);
-  
-  // Observe toast container for changes
-  useEffect(() => {
-    // Sonner renders toasts in an element with data-sonner-toaster attribute
-    const checkToastHeight = () => {
-      const toaster = document.querySelector('[data-sonner-toaster]');
-      if (toaster) {
-        const toasts = toaster.querySelectorAll('[data-sonner-toast]');
-        if (toasts.length > 0) {
-          // Calculate total height of visible toasts + gap
-          let totalHeight = 0;
-          toasts.forEach((toast) => {
-            totalHeight += toast.getBoundingClientRect().height + 8; // 8px gap
-          });
-          setToastOffset(totalHeight);
-        } else {
-          setToastOffset(0);
-        }
-      }
-    };
-
-    // Initial check
-    checkToastHeight();
-
-    // Observe DOM changes
-    const observer = new MutationObserver(() => {
-      // Small delay để toast animation hoàn thành
-      setTimeout(checkToastHeight, 100);
-    });
-
-    const toaster = document.querySelector('[data-sonner-toaster]');
-    if (toaster) {
-      observer.observe(toaster, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-      });
-    }
-
-    // Also listen to window resize
-    window.addEventListener('resize', checkToastHeight);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', checkToastHeight);
-    };
-  }, []);
-
-  return (
-    <div 
-      className={cn(
-        "fixed bottom-4 right-4 z-50",
-        "animate-in slide-in-from-bottom-5 fade-in duration-300",
-        "transition-transform duration-300 ease-out" // Smooth slide
-      )}
-      style={{ 
-        transform: toastOffset > 0 ? `translateY(-${toastOffset}px)` : undefined 
-      }}
-    >
-      {/* Widget content */}
-    </div>
-  );
-}
-```
-
-### Lưu ý về Sonner Position
-
-Sonner mặc định hiển thị ở `bottom-right`. Cần đảm bảo cả hai ở cùng vị trí để tính toán chính xác:
-
-**Cập nhật `src/components/ui/sonner.tsx`:**
+#### File 1: `src/components/ui/sonner.tsx`
 
 ```typescript
 <Sonner
-  position="bottom-right"  // Explicit position
-  // ... other props
+  theme={theme as ToasterProps["theme"]}
+  position="bottom-right"
+  offset="80px"           // ← THÊM: Toasts cách bottom 80px
+  className="toaster group"
+  // ... rest
 />
+```
+
+#### File 2: `src/components/GlobalTaskWidget.tsx`
+
+**Thay đổi chính:**
+
+1. **Imports:**
+```typescript
+import { useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+```
+
+2. **Xóa toàn bộ MutationObserver useEffect** (lines 32-82)
+
+3. **Thêm auto-refresh logic:**
+```typescript
+const location = useLocation();
+const queryClient = useQueryClient();
+const [refreshedClassIds, setRefreshedClassIds] = useState<Set<string>>(new Set());
+
+// Auto-refresh data when task completes on current page
+useEffect(() => {
+  tasks.forEach((task) => {
+    if (task.status === "completed" && !refreshedClassIds.has(task.classId)) {
+      const isOnClassPage = location.pathname.includes(`/classes/${task.classId}`);
+      
+      if (isOnClassPage) {
+        // Invalidate all relevant queries
+        queryClient.invalidateQueries({ 
+          queryKey: ["keywords-paginated", task.classId] 
+        });
+        queryClient.invalidateQueries({ 
+          queryKey: ["class-ranking-stats", task.classId] 
+        });
+        queryClient.invalidateQueries({ 
+          queryKey: ["class-metadata", task.classId] 
+        });
+        
+        setRefreshedClassIds((prev) => new Set(prev).add(task.classId));
+      }
+    }
+  });
+}, [tasks, location.pathname, queryClient, refreshedClassIds]);
+
+// Clear refreshed IDs when tasks are removed
+useEffect(() => {
+  const activeIds = new Set(tasks.map(t => t.classId));
+  setRefreshedClassIds((prev) => {
+    const newSet = new Set<string>();
+    prev.forEach(id => {
+      if (activeIds.has(id)) newSet.add(id);
+    });
+    return newSet;
+  });
+}, [tasks]);
+```
+
+4. **Thay đổi z-index trong container div:**
+```tsx
+<div 
+  className={cn(
+    "fixed bottom-4 right-4 z-40",  // ← ĐỔI: z-50 → z-40
+    "animate-in slide-in-from-bottom-5 fade-in duration-300"
+  )}
+>
+```
+
+5. **Thêm "Data updated" indicator trong task card:**
+```tsx
+{/* Row 3: Details + Data updated indicator */}
+<div className="flex items-center justify-between text-xs text-muted-foreground mt-1.5">
+  <span>
+    {task.status === "pending" 
+      ? "Waiting..." 
+      : isCompleted
+      ? refreshedClassIds.has(task.classId)
+        ? "✓ Data updated"
+        : "Completed"
+      : isFailed
+      ? "Failed"
+      : `${task.progress}/${task.total} keywords`
+    }
+  </span>
+  <span>{progressPercent}%</span>
+</div>
+```
+
+Và thêm màu xanh lá cho text khi refreshed:
+```tsx
+<span className={cn(
+  isCompleted && refreshedClassIds.has(task.classId) && "text-green-600 font-medium"
+)}>
 ```
 
 ---
 
-## Files cần thay đổi
+### Kết quả mong đợi
 
-| File | Thay đổi |
-|------|----------|
-| `src/components/GlobalTaskWidget.tsx` | ScrollArea, header count, MutationObserver cho auto slide-up |
-| `src/hooks/useRankingQueue.ts` | Xóa toast.success trong onSuccess |
-| `src/components/ui/sonner.tsx` | Thêm `position="bottom-right"` explicit |
+**Toast/Widget separation:**
+- Widget cố định ở `bottom-16px`, z-index 40
+- Toasts xuất hiện ở `bottom-80px`, z-index 50 (cao hơn widget)
+- Không còn overlap, không cần code phức tạp
+
+**Auto-refresh UX:**
+- User đang ở trang Class A → Task A hoàn thành → Data tự động refresh
+- Hiển thị "✓ Data updated" màu xanh trong widget
+- User không cần F5 để thấy dữ liệu mới
 
 ---
 
-## Kết quả mong đợi
+### Tóm tắt thay đổi
 
-### Stack List
-- Một Widget duy nhất chứa tất cả tasks
-- Header: "Active Tasks (2)" với số lượng động
-- Scrollable list với max-height 256px
-- Custom scrollbar từ Shadcn ScrollArea
-
-### Toast Behavior
-- KHÔNG hiển thị toast "Ranking check started"
-- Widget xuất hiện ngay là đủ tín hiệu
-
-### Auto Slide-up
-- Khi toast xuất hiện → Widget trượt lên smooth
-- Khi toast biến mất → Widget trượt xuống vị trí cũ
-- Animation: `transition-transform duration-300 ease-out`
-
+| File | Hành động |
+|------|-----------|
+| `src/components/ui/sonner.tsx` | Thêm `offset="80px"` |
+| `src/components/GlobalTaskWidget.tsx` | 1. Xóa MutationObserver code<br>2. Thêm auto-refresh logic<br>3. Đổi z-50 → z-40<br>4. Thêm "Data updated" UI |
