@@ -120,24 +120,32 @@ export function TaskProgressProvider({ children }: { children: ReactNode }) {
           }
 
           // Update existing task or add new one
+          // FIX: Match by ID OR by classId for pending/processing tasks to prevent duplicates
           setTasks((prev) => {
-            const existingIdx = prev.findIndex((t) => t.id === newData.id);
+            const existingIdx = prev.findIndex(
+              (t) => t.id === newData.id || 
+              (t.classId === newData.class_id && 
+               (t.status === "pending" || t.status === "processing"))
+            );
+
             const updatedTask: RunningTask = {
-              id: newData.id,
+              id: newData.id, // Always use real ID from server
               classId: newData.class_id,
-              className: prev[existingIdx]?.className || "Loading...",
+              className: existingIdx >= 0 ? prev[existingIdx].className : "Loading...",
               progress: newData.processed_keywords || 0,
               total: newData.total_keywords || 0,
               status: newData.status,
-              startedAt: prev[existingIdx]?.startedAt || new Date(newData.created_at),
+              startedAt: existingIdx >= 0 ? prev[existingIdx].startedAt : new Date(newData.created_at),
               errorMessage: newData.error_message,
             };
 
             if (existingIdx >= 0) {
+              // Update existing task (includes temp-xxx → uuid-yyy transition)
               const updated = [...prev];
               updated[existingIdx] = updatedTask;
               return updated;
             } else if (newData.status === "pending" || newData.status === "processing") {
+              // Only add new if no matching task found
               return [...prev, updatedTask];
             }
             return prev;
