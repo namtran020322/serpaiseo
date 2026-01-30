@@ -1,230 +1,249 @@
 
 
-## Kế hoạch Cải thiện Tables và Security
+## Kế hoạch Sửa lỗi Race Condition & Thiết kế Global Activity Widget
 
-### Tổng quan các nhiệm vụ
+### Tổng quan vấn đề
 
-| # | Nhiệm vụ | Loại |
-|---|----------|------|
-| 1 | Thêm ranking trend indicators (↗/↘) cho 3 cột ranking trong Projects table | Database + Frontend |
-| 2 | Enable password leak protection trong Auth settings | Auth Configuration |
-| 3 | Sửa Projects table: header không xuống hàng, columns linh động, căn phải (trừ Name) | Frontend |
-| 4 | Sửa Keywords table: căn phải tất cả columns (trừ Keyword) | Frontend |
+**Race Condition Flow hiện tại:**
+
+```text
++-------------------+    +-------------------+
+|  useRankingQueue  |    |  Supabase Realtime |
++-------------------+    +-------------------+
+         |                        |
+    addTask()                 INSERT event
+         |                        |
+    id: "temp-xxx"           id: "uuid-yyy"
+         |                        |
+         v                        v
++---------------------------------------+
+|          TaskProgressContext          |
+|  - Thêm task temp-xxx                 |
+|  - Thêm task uuid-yyy (DUPLICATE!)    |
++---------------------------------------+
+```
+
+**Logic lỗi (dòng 123-144 trong TaskProgressContext.tsx):**
+- Code hiện tại chỉ check `t.id === newData.id`
+- Không xử lý trường hợp temp ID khác với real UUID
+- Kết quả: 2 thanh progress bar cùng classId
 
 ---
 
-## 1. Ranking Trend Indicators cho Projects Table
-
-### Yêu cầu
-Hiển thị chỉ báo biến động hàng tuần (↗/↘) bên cạnh 3 cột top ranking (1-3, 4-10, 11-30)
-
-### Cập nhật Database RPC
-
-**File: Migration - Update `get_projects_paginated`**
-
-Thêm 3 cột mới để so sánh ranking 7 ngày trước:
-
-```sql
--- top3_change: số keyword tăng/giảm vào top 3 so với 7 ngày trước
--- top10_change: số keyword tăng/giảm vào top 4-10 so với 7 ngày trước  
--- top30_change: số keyword tăng/giảm vào top 11-30 so với 7 ngày trước
-
--- Logic: So sánh ranking_position hiện tại với dữ liệu từ keyword_ranking_history 7 ngày trước
-```
-
-### Cập nhật Interface
-
-**File: `src/hooks/useProjectsPaginated.ts`**
-
-```typescript
-export interface PaginatedProject {
-  // ... existing fields
-  top3_change: number;   // +2 = có thêm 2 keywords vào top3
-  top10_change: number;  
-  top30_change: number;
-}
-```
-
-### Cập nhật Frontend
-
-**File: `src/components/projects/ProjectsTable.tsx`**
-
-```typescript
-{
-  id: "top3",
-  header: () => <span className="whitespace-nowrap">1-3</span>,
-  cell: ({ row }) => {
-    const count = row.original.top3_count || 0;
-    const change = row.original.top3_change || 0;
-    return (
-      <div className="flex items-center justify-end gap-1">
-        <span className="text-emerald-600 font-medium">{count}</span>
-        {change !== 0 && (
-          <span className={change > 0 ? "text-emerald-500 text-xs" : "text-destructive text-xs"}>
-            {change > 0 ? `↗${change}` : `↘${Math.abs(change)}`}
-          </span>
-        )}
-      </div>
-    );
-  },
-}
-```
-
----
-
-## 2. Enable Password Leak Protection
-
-### Thực hiện
-Sử dụng công cụ `configure-auth` để bật tính năng Leaked Password Protection trong Auth settings.
-
-Tính năng này sẽ:
-- Kiểm tra mật khẩu mới có trong database các mật khẩu bị lộ không
-- Ngăn người dùng sử dụng mật khẩu đã bị compromise
-
----
-
-## 3. Sửa Projects Table Layout (Semrush Style)
-
-### Vấn đề hiện tại
-- Header cột "4-10" và "11-30" bị xuống hàng (do width constraint)
-- Columns có width cứng nhắc, tạo nhiều khoảng trống
-- Alignment không thống nhất
+## 1. Sửa Race Condition trong TaskProgressContext.tsx
 
 ### Giải pháp
 
-**File: `src/components/projects/ProjectsTable.tsx`**
+Thay đổi logic trong realtime subscription handler:
 
 ```typescript
-// Columns definition với proper alignment
-{
-  accessorKey: "name",
-  header: ({ column }) => (
-    <DataTableColumnHeader column={column} title="Name" className="justify-start" />
-  ),
-  cell: ({ row }) => (
-    <Link className="text-left ...">...</Link>  // Căn trái
-  ),
-},
-{
-  accessorKey: "domain",
-  header: () => <span className="text-right block">Domain</span>,
-  cell: ({ row }) => (
-    <div className="text-right">
-      <DomainWithFavicon ... />
-    </div>
-  ),
-},
-{
-  id: "classes",
-  header: () => <span className="text-right block">Classes</span>,
-  cell: ({ row }) => (
-    <div className="text-right">...</div>
-  ),
-},
-// ... tương tự cho các cột khác
+// src/contexts/TaskProgressContext.tsx - Lines 123-144
 
-// Header styling - prevent wrapping
-{
-  id: "top3",
-  header: () => <span className="whitespace-nowrap text-right block">1-3</span>,
-  // ...
-},
-{
-  id: "top10", 
-  header: () => <span className="whitespace-nowrap text-right block">4-10</span>,
-  // ...
-},
-{
-  id: "top30",
-  header: () => <span className="whitespace-nowrap text-right block">11-30</span>,
-  // ...
-},
+setTasks((prev) => {
+  // FIX: Kiểm tra bằng ID HOẶC classId cho pending/processing tasks
+  const existingIdx = prev.findIndex(
+    (t) => t.id === newData.id || 
+    (t.classId === newData.class_id && 
+     (t.status === "pending" || t.status === "processing"))
+  );
+
+  const updatedTask: RunningTask = {
+    id: newData.id, // Luôn dùng real ID từ server
+    classId: newData.class_id,
+    className: prev[existingIdx]?.className || "Loading...",
+    progress: newData.processed_keywords || 0,
+    total: newData.total_keywords || 0,
+    status: newData.status,
+    startedAt: prev[existingIdx]?.startedAt || new Date(newData.created_at),
+    errorMessage: newData.error_message,
+  };
+
+  if (existingIdx >= 0) {
+    // Update existing task (bao gồm cả temp-xxx → uuid-yyy)
+    const updated = [...prev];
+    updated[existingIdx] = updatedTask;
+    return updated;
+  } else if (newData.status === "pending" || newData.status === "processing") {
+    // Chỉ thêm mới nếu không tìm thấy task nào matching
+    return [...prev, updatedTask];
+  }
+  return prev;
+});
 ```
 
-### Table Layout CSS
+**Key changes:**
+1. `findIndex` bây giờ match theo **classId** nếu task đang pending/processing
+2. Task temp sẽ được **update thành real ID** thay vì tạo mới
+3. `startedAt` được preserve từ task cũ
+
+---
+
+## 2. Tạo Global Activity Widget (GlobalTaskWidget.tsx)
+
+### Component mới: `src/components/GlobalTaskWidget.tsx`
 
 ```typescript
-// TableHead className
-<TableHead
-  key={header.id}
-  className={cn(
-    "whitespace-nowrap", // Ngăn header xuống hàng
-    header.id === "name" ? "text-left" : "text-right", // Name căn trái, còn lại căn phải
-    header.id === "select" && "w-10",
-    // Bỏ các width constraints cứng nhắc
-  )}
->
+import { useNavigate } from "react-router-dom";
+import { Loader2, CheckCircle, XCircle, X } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { useTaskProgress } from "@/contexts/TaskProgressContext";
+import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
 
-// TableCell className
-<TableCell
-  key={cell.id}
-  className={cn(
-    cell.column.id === "name" ? "text-left" : "text-right",
-    // ...responsive classes
-  )}
->
+export function GlobalTaskWidget() {
+  const { tasks, removeTask } = useTaskProgress();
+  const navigate = useNavigate();
+  const [visibleTasks, setVisibleTasks] = useState<string[]>([]);
+
+  // Filter active + recently completed tasks
+  const activeTasks = tasks.filter(
+    (t) => t.status === "pending" || t.status === "processing"
+  );
+
+  // Auto-hide completed tasks after 3 seconds
+  useEffect(() => {
+    const completedTasks = tasks.filter(
+      (t) => t.status === "completed" || t.status === "failed"
+    );
+    
+    completedTasks.forEach((task) => {
+      setTimeout(() => removeTask(task.id), 3000);
+    });
+  }, [tasks, removeTask]);
+
+  // Don't render if no active tasks
+  if (activeTasks.length === 0) return null;
+
+  return (
+    <div className={cn(
+      "fixed bottom-4 right-4 z-50",
+      "animate-in slide-in-from-bottom-5 fade-in duration-300"
+    )}>
+      <Card className={cn(
+        "w-80 max-w-[400px]",
+        "bg-background border border-border",
+        "shadow-xl rounded-xl"
+      )}>
+        <CardHeader className="py-3 px-4">
+          <CardTitle className="text-sm font-medium text-foreground">
+            Active Tasks
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-2 pt-0 space-y-2">
+          {activeTasks.map((task) => {
+            const progressPercent = task.total > 0 
+              ? Math.round((task.progress / task.total) * 100) 
+              : 0;
+
+            return (
+              <div
+                key={task.id}
+                onClick={() => navigate(`/dashboard/classes/${task.classId}`)}
+                className={cn(
+                  "p-3 rounded-md cursor-pointer transition-colors",
+                  "hover:bg-accent/50"
+                )}
+              >
+                {/* Row 1: Class name + Status icon */}
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-sm font-medium truncate flex-1">
+                    {task.className}
+                  </span>
+                  {task.status === "processing" ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                  ) : task.status === "completed" ? (
+                    <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                  ) : task.status === "failed" ? (
+                    <XCircle className="h-4 w-4 text-destructive shrink-0" />
+                  ) : (
+                    <Loader2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                </div>
+
+                {/* Row 2: Progress bar */}
+                <Progress 
+                  value={progressPercent} 
+                  className="h-2 bg-slate-100 [&>div]:bg-primary [&>div]:transition-all"
+                />
+
+                {/* Row 3: Details */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground mt-1.5">
+                  <span>
+                    {task.status === "pending" 
+                      ? "Waiting..." 
+                      : `${task.progress}/${task.total} keywords`
+                    }
+                  </span>
+                  <span>{progressPercent}%</span>
+                </div>
+
+                {/* Error message if any */}
+                {task.errorMessage && (
+                  <p className="text-xs text-destructive mt-1 truncate">
+                    {task.errorMessage}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+```
+
+### Styling Details
+
+| Property | Value | Mô tả |
+|----------|-------|-------|
+| Position | `fixed bottom-4 right-4 z-50` | Góc dưới phải, trên mọi element |
+| Width | `w-80 max-w-[400px]` | 320px, max 400px |
+| Background | `bg-background` | Trắng (light theme) |
+| Border | `border border-border` | Viền mỏng |
+| Shadow | `shadow-xl` | Bóng đổ mạnh |
+| Corner | `rounded-xl` | Bo góc lớn |
+| Animation | `animate-in slide-in-from-bottom-5 fade-in` | Slide + fade in |
+
+---
+
+## 3. Xóa ProcessingTasks từ Sidebar
+
+### Cập nhật: `src/components/AppSidebar.tsx`
+
+```diff
+- import { ProcessingTasks } from "@/components/ProcessingTasks";
+
+// ... trong SidebarContent
+-        {/* Processing Tasks */}
+-        <ProcessingTasks />
 ```
 
 ---
 
-## 4. Sửa Keywords Table Alignment
+## 4. Nhúng GlobalTaskWidget vào DashboardLayout
 
-### Yêu cầu
-- Cột Keyword: căn trái (giữ nguyên)
-- Tất cả các cột còn lại: căn phải
-
-### Cập nhật
-
-**File: `src/components/projects/KeywordsTable.tsx`**
+### Cập nhật: `src/layouts/DashboardLayout.tsx`
 
 ```typescript
-// Header styling
-<th 
-  className={cn(
-    "h-12 px-4 font-medium text-muted-foreground bg-background",
-    header.id === "keyword" ? "text-left" : "text-right",
-    header.id === "select" && "w-10 text-center",
-  )}
->
+import { GlobalTaskWidget } from "@/components/GlobalTaskWidget";
 
-// Cell styling
-<td 
-  className={cn(
-    "p-4 align-middle",
-    cell.column.id === "keyword" ? "text-left" : "text-right",
-  )}
->
-
-// Update individual column cells to use text-right
-{
-  accessorKey: "ranking_position",
-  header: ({ column }) => (
-    <DataTableColumnHeader column={column} title="Last" className="justify-end" />
-  ),
-  cell: ({ row }) => (
-    <div className="flex items-center justify-end gap-1.5">
-      ...
-    </div>
-  ),
-},
-// ... tương tự cho First, Best, URL, Updated
+// Trong return statement, thêm sau </main>:
+<GlobalTaskWidget />
 ```
 
-### Competitor Rows
-
-Đảm bảo các row competitor cũng căn phải:
-
-```typescript
-{/* Last (with change indicator) */}
-<td className="p-4 align-middle text-right">
-  {renderPositionWithChange(...)}
-</td>
-
-{/* First */}
-<td className="p-4 align-middle text-right text-muted-foreground">
-  {firstPos ?? "-"}
-</td>
-// ... và các cột khác
+Vị trí trong JSX:
+```tsx
+<SidebarProvider>
+  <div className="flex w-full min-h-screen">
+    <AppSidebar />
+    <main>...</main>
+  </div>
+  {/* Global Task Widget - nổi trên mọi trang */}
+  <GlobalTaskWidget />
+</SidebarProvider>
 ```
 
 ---
@@ -233,28 +252,25 @@ Tính năng này sẽ:
 
 | File | Thay đổi |
 |------|----------|
-| **Migration SQL** | Update RPC `get_projects_paginated` thêm 3 cột *_change |
-| **Auth Config** | Enable Leaked Password Protection |
-| `src/hooks/useProjectsPaginated.ts` | Thêm 3 fields: top3_change, top10_change, top30_change |
-| `src/components/projects/ProjectsTable.tsx` | Header whitespace-nowrap, căn phải (trừ Name), trend indicators |
-| `src/components/projects/KeywordsTable.tsx` | Header và cell căn phải (trừ Keyword) |
+| `src/contexts/TaskProgressContext.tsx` | Sửa logic realtime handler - match by classId |
+| `src/components/GlobalTaskWidget.tsx` | **Tạo mới** - Widget nổi góc dưới phải |
+| `src/components/AppSidebar.tsx` | Xóa import và sử dụng ProcessingTasks |
+| `src/layouts/DashboardLayout.tsx` | Thêm GlobalTaskWidget |
 
 ---
 
 ## Kết quả mong đợi
 
-### Projects Table
-- Header "1-3", "4-10", "11-30" không bị xuống hàng
-- Trend indicators hiển thị: `4 ↗2` hoặc `3 ↘1` 
-- Tất cả columns căn phải (trừ Name căn trái)
-- Columns tự động co giãn theo nội dung, không có khoảng trống thừa
+### Race Condition Fix
+- Khi refresh rank, chỉ hiển thị **1 thanh progress** duy nhất
+- Temp ID được thay thế bằng real UUID khi server trả về
+- `startedAt` và `className` được preserve từ optimistic update
 
-### Keywords Table
-- Keyword column căn trái
-- Tất cả columns còn lại (Last, First, Best, URL, Updated, Actions) căn phải
-- Competitor rows cũng tuân theo alignment này
-
-### Security
-- Password Leak Protection được bật
-- Người dùng không thể sử dụng mật khẩu đã bị lộ khi đăng ký/đổi mật khẩu
+### Global Task Widget
+- Widget nổi cố định góc dưới phải màn hình
+- Light theme: nền trắng, shadow mạnh, border mỏng
+- Animation: slide từ dưới lên khi xuất hiện
+- Click vào task → navigate đến class detail
+- Tự động biến mất 3 giây sau khi hoàn thành
+- Hiển thị trên mọi trang trong dashboard
 
