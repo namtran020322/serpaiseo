@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProject, useDeleteKeywords, useAddKeywords } from "@/hooks/useProjects";
 import { useKeywordsPaginated, useClassRankingStats, useClassMetadata } from "@/hooks/useKeywordsPaginated";
 import { useAddRankingJob } from "@/hooks/useRankingQueue";
-import { useRankingDates, useHistoricalKeywords } from "@/hooks/useRankingDates";
+import { useRankingDates, useHistoricalKeywords, useHistoricalStats } from "@/hooks/useRankingDates";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
 import { RankingHistoryChart } from "@/components/projects/RankingHistoryChart";
 import { KeywordsTable } from "@/components/projects/KeywordsTable";
@@ -49,6 +49,9 @@ export default function ClassDetail() {
   
   // Convert selectedHistoryDate to string format for query
   const selectedDateStr = selectedHistoryDate ? format(selectedHistoryDate, "yyyy-MM-dd") : undefined;
+  
+  // Fetch historical stats when date is selected
+  const { data: historicalStats } = useHistoricalStats(classId, selectedDateStr);
   
   // Fetch current keywords (when no history date selected)
   const { data: keywordsData, isLoading: keywordsLoading, refetch: refetchKeywords } = useKeywordsPaginated({
@@ -264,9 +267,14 @@ export default function ClassDetail() {
         </TabsList>
         <TabsContent value="stats" className="mt-4">
           <RankingStatsCards 
-            stats={rankingStats || { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 }} 
-            activeTier={tierFilter}
-            onTierClick={handleTierClick}
+            stats={
+              isViewingHistory && historicalStats 
+                ? historicalStats 
+                : (rankingStats || { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 })
+            } 
+            activeTier={isViewingHistory ? null : tierFilter}
+            onTierClick={isViewingHistory ? undefined : handleTierClick}
+            historyDate={selectedHistoryDate}
           />
         </TabsContent>
         <TabsContent value="chart" className="mt-4">

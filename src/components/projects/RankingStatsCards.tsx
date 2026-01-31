@@ -1,15 +1,18 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { RankingStats } from "@/hooks/useProjects";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 interface RankingStatsCardsProps {
   stats: RankingStats;
   activeTier?: string | null;
   onTierClick?: (tier: string | null) => void;
+  historyDate?: Date;
 }
 
-export function RankingStatsCards({ stats, activeTier, onTierClick }: RankingStatsCardsProps) {
+export function RankingStatsCards({ stats, activeTier, onTierClick, historyDate }: RankingStatsCardsProps) {
   const total = stats.total || 1; // Avoid division by zero
 
   // Helper to get improved/declined from stats
@@ -37,56 +40,70 @@ export function RankingStatsCards({ stats, activeTier, onTierClick }: RankingSta
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-      {cards.map((card) => {
-        const isTotal = card.key === "total";
-        const percentage = !isTotal && total > 0 ? Math.round((card.value / total) * 100) : 0;
-        const improved = !isTotal ? getImproved(card.key) : 0;
-        const declined = !isTotal ? getDeclined(card.key) : 0;
-        const isActive = activeTier === card.key;
-        const isClickable = !isTotal && !!onTierClick;
+    <div className="space-y-3">
+      {/* Header with history date indicator */}
+      {historyDate && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">
+            Viewing statistics for
+          </span>
+          <Badge variant="secondary">
+            {format(historyDate, "dd/MM/yyyy")}
+          </Badge>
+        </div>
+      )}
+      
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+        {cards.map((card) => {
+          const isTotal = card.key === "total";
+          const percentage = !isTotal && total > 0 ? Math.round((card.value / total) * 100) : 0;
+          const improved = !isTotal ? getImproved(card.key) : 0;
+          const declined = !isTotal ? getDeclined(card.key) : 0;
+          const isActive = activeTier === card.key;
+          const isClickable = !isTotal && !!onTierClick;
 
-        return (
-          <Card 
-            key={card.key}
-            className={cn(
-              "transition-all duration-200",
-              isClickable && "cursor-pointer hover:border-primary/50 hover:shadow-sm",
-              isActive && "ring-2 ring-primary border-primary"
-            )}
-            onClick={() => !isTotal && handleCardClick(card.key)}
-          >
-            <CardContent className="pt-4 pb-3">
-              <div className="flex flex-col gap-0.5">
-                {/* Row 1: Label */}
-                <span className="text-sm text-muted-foreground">{card.label}</span>
-                
-                {/* Row 2: Value + Percentage */}
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-bold">{card.value}</span>
-                  {!isTotal && (
-                    <span className="text-sm text-muted-foreground">{percentage}%</span>
+          return (
+            <Card 
+              key={card.key}
+              className={cn(
+                "transition-all duration-200",
+                isClickable && "cursor-pointer hover:border-primary/50 hover:shadow-sm",
+                isActive && "ring-2 ring-primary border-primary"
+              )}
+              onClick={() => !isTotal && handleCardClick(card.key)}
+            >
+              <CardContent className="pt-4 pb-3">
+                <div className="flex flex-col gap-0.5">
+                  {/* Row 1: Label */}
+                  <span className="text-sm text-muted-foreground">{card.label}</span>
+                  
+                  {/* Row 2: Value + Percentage */}
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold">{card.value}</span>
+                    {!isTotal && (
+                      <span className="text-sm text-muted-foreground">{percentage}%</span>
+                    )}
+                  </div>
+                  
+                  {/* Row 3: Trend indicators (only for current data, not history) */}
+                  {!isTotal && !historyDate && (
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="flex items-center gap-0.5 text-primary">
+                        <TrendingUp className="h-3.5 w-3.5" />
+                        {improved}
+                      </span>
+                      <span className="flex items-center gap-0.5 text-destructive">
+                        <TrendingDown className="h-3.5 w-3.5" />
+                        {declined}
+                      </span>
+                    </div>
                   )}
                 </div>
-                
-                {/* Row 3: Trend indicators (always visible for non-total) */}
-                {!isTotal && (
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="flex items-center gap-0.5 text-primary">
-                      <TrendingUp className="h-3.5 w-3.5" />
-                      {improved}
-                    </span>
-                    <span className="flex items-center gap-0.5 text-destructive">
-                      <TrendingDown className="h-3.5 w-3.5" />
-                      {declined}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
