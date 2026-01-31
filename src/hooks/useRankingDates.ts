@@ -130,45 +130,33 @@ export function useHistoricalKeywords(
         return { keywords: [], totalCount: 0 };
       }
 
-      // Get keyword IDs and base info for this class
-      const { data: keywords, error: keywordsError } = await supabase
+      // 1. Fetch history records FIRST with timezone-aware range (includes ±12h buffer)
+      const { start: startOfDay, end: endOfDay } = getDateRangeForQuery(selectedDate);
+
+      // Get all keyword IDs for this class first
+      const { data: allKeywords, error: allKeywordsError } = await supabase
         .from("project_keywords")
-        .select("id, keyword, class_id, user_id, created_at, updated_at, serp_results")
+        .select("id")
         .eq("class_id", classId);
 
-      if (keywordsError) throw keywordsError;
-      if (!keywords || keywords.length === 0) {
+      if (allKeywordsError) throw allKeywordsError;
+      if (!allKeywords || allKeywords.length === 0) {
         return { keywords: [], totalCount: 0 };
       }
 
-      // Apply search filter if provided
-      let filteredKeywords = keywords;
-      if (search && search.trim()) {
-        const searchLower = search.toLowerCase();
-        filteredKeywords = keywords.filter((k) => 
-          k.keyword.toLowerCase().includes(searchLower)
-        );
-      }
-
-      const keywordIds = filteredKeywords.map((k) => k.id);
-      if (keywordIds.length === 0) {
-        return { keywords: [], totalCount: 0 };
-      }
-
-      // Get ranking history with timezone-aware range (includes ±12h buffer)
-      const { start: startOfDay, end: endOfDay } = getDateRangeForQuery(selectedDate);
+      const allKeywordIds = allKeywords.map((k) => k.id);
 
       const { data: history, error: historyError } = await supabase
         .from("keyword_ranking_history")
         .select("*")
-        .in("keyword_id", keywordIds)
+        .in("keyword_id", allKeywordIds)
         .gte("checked_at", startOfDay)
         .lte("checked_at", endOfDay)
         .order("checked_at", { ascending: false });
 
       if (historyError) throw historyError;
 
-      // Filter to exact date (Vietnam timezone) and group by keyword_id (take latest)
+      // 2. Filter to exact date (Vietnam timezone) and group by keyword_id (take latest)
       const latestByKeyword = new Map<string, any>();
       (history || [])
         .filter((record) => utcToVnDateString(record.checked_at) === selectedDate)
@@ -178,28 +166,57 @@ export function useHistoricalKeywords(
           }
         });
 
-      // Merge with keyword base info
-      const mergedKeywords: HistoricalKeyword[] = filteredKeywords.map((kw) => {
-        const historyRecord = latestByKeyword.get(kw.id);
-        return {
-          id: kw.id,
-          keyword: kw.keyword,
-          ranking_position: historyRecord?.ranking_position ?? null,
-          found_url: historyRecord?.found_url ?? null,
-          competitor_rankings: historyRecord?.competitor_rankings ?? null,
-          first_position: null,
-          best_position: null,
-          previous_position: null,
-          last_checked_at: historyRecord?.checked_at ?? kw.updated_at,
-          class_id: kw.class_id,
-          user_id: kw.user_id,
-          created_at: kw.created_at,
-          updated_at: kw.updated_at,
-          serp_results: kw.serp_results,
-        };
-      });
+      // 3. If no history records → return empty (no fallback!)
+      if (latestByKeyword.size === 0) {
+        return { keywords: [], totalCount: 0 };
+      }
 
-      // Apply pagination
+      // 4. Fetch keyword base info ONLY for keywords that have history
+      const keywordIdsWithHistory = Array.from(latestByKeyword.keys());
+
+      const { data: keywords, error: keywordsError } = await supabase
+        .from("project_keywords")
+        .select("id, keyword, class_id, user_id, created_at, updated_at, serp_results")
+        .in("id", keywordIdsWithHistory);
+
+      if (keywordsError) throw keywordsError;
+      if (!keywords || keywords.length === 0) {
+        return { keywords: [], totalCount: 0 };
+      }
+
+      // 5. Apply search filter if provided
+      let filteredKeywords = keywords;
+      if (search && search.trim()) {
+        const searchLower = search.toLowerCase();
+        filteredKeywords = keywords.filter((k) => 
+          k.keyword.toLowerCase().includes(searchLower)
+        );
+      }
+
+      // 6. Build result - ONLY keywords with history (no fallback)
+      const mergedKeywords: HistoricalKeyword[] = filteredKeywords
+        .filter((kw) => latestByKeyword.has(kw.id)) // Double-check
+        .map((kw) => {
+          const historyRecord = latestByKeyword.get(kw.id)!;
+          return {
+            id: kw.id,
+            keyword: kw.keyword,
+            ranking_position: historyRecord.ranking_position,
+            found_url: historyRecord.found_url,
+            competitor_rankings: historyRecord.competitor_rankings,
+            first_position: null,
+            best_position: null,
+            previous_position: null,
+            last_checked_at: historyRecord.checked_at, // Always from history, no fallback!
+            class_id: kw.class_id,
+            user_id: kw.user_id,
+            created_at: kw.created_at,
+            updated_at: kw.updated_at,
+            serp_results: kw.serp_results,
+          };
+        });
+
+      // 7. Apply pagination
       const totalCount = mergedKeywords.length;
       const from = page * pageSize;
       const paginatedKeywords = mergedKeywords.slice(from, from + pageSize);
