@@ -1,225 +1,361 @@
 
-## Kế hoạch Nâng cấp Global Task Widget
 
-### Vấn đề 1: Xung đột Toast - Widget (Giải pháp triệt để)
+## Kế hoạch Sửa lỗi Timezone và Thêm Historical Stats cho History Date Picker
 
-**Phân tích nguyên nhân hiện tại không hoạt động:**
-- MutationObserver đang observe `[data-sonner-toaster]` nhưng toaster có thể chưa mount khi widget render
-- Toast animations có delay, việc đọc `getBoundingClientRect()` quá sớm cho ra kết quả không chính xác
-- CSS `bottom-4` của widget và toast cùng gốc tọa độ nên khó tính offset chính xác
+### Phân tích Nguyên nhân Lỗi
 
-**Giải pháp triệt để: Sử dụng Sonner `offset` prop + z-index separation**
+**Vấn đề Timezone:**
 
-| Thay đổi | Chi tiết |
-|----------|----------|
-| `sonner.tsx` | Thêm `offset="80px"` để toast luôn cách bottom 80px |
-| `GlobalTaskWidget` | Giữ `bottom-4` (16px) - Widget nằm dưới |
-| z-index | Toast z-50 (mặc định), Widget z-40 - Toast sẽ hiển thị phía trên |
+Database lưu timestamps theo UTC (+00), nhưng user ở Vietnam (+07:00). Khi user chọn ngày `2026-01-31`:
+- Query hiện tại: `2026-01-31T00:00:00.000Z` đến `2026-01-31T23:59:59.999Z` (UTC)
+- Record thực tế: `2026-01-30 18:18:16+00` (= `2026-01-31 01:18:16` Vietnam time)
+- **Kết quả: Không match!**
 
 ```text
-+---------------------------+
-|      Main Content         |
-+---------------------------+
-|  Toast (z-50, bottom-80px)|   ← Toasts xuất hiện cao hơn
-+---------------------------+
-|  Widget (z-40, bottom-16px)|  ← Widget nằm thấp, không bị che
-+---------------------------+
+Timeline (UTC):
+Jan 30 18:00 ─────────── Jan 31 00:00 ─────────── Jan 31 23:59
+      │                        │                        │
+      │ Record saved here      │←── Query starts ───────│
+      │ (2026-01-30 18:18 UTC) │    (2026-01-31 00:00 UTC)
+      │                        │
+      │ But this is Jan 31     │
+      │ in Vietnam timezone!   │
 ```
 
-**Ưu điểm:**
-- Không cần MutationObserver phức tạp
-- Không cần JavaScript tính toán offset
-- Native Sonner behavior - ổn định 100%
-- Code đơn giản, dễ maintain
-
-**Files thay đổi:**
-- `src/components/ui/sonner.tsx`: Thêm `offset="80px"`
-- `src/components/GlobalTaskWidget.tsx`: Đổi `z-50` thành `z-40`, xóa toàn bộ MutationObserver code
+**Vấn đề RankingStatsCards:**
+- Hiện tại chỉ dùng RPC `get_class_ranking_stats` query từ `project_keywords` (data hiện tại)
+- Không có logic tính stats từ `keyword_ranking_history` khi view history
 
 ---
 
-### Vấn đề 2: Auto-Refresh dữ liệu khi Task hoàn thành
+### Giải pháp Tổng thể
 
-**Flow yêu cầu:**
+| # | Thay đổi | File |
+|---|----------|------|
+| 1 | Helper functions cho timezone-aware date handling | `src/hooks/useRankingDates.ts` |
+| 2 | Fix `useRankingDates` - extract dates theo Vietnam timezone | `src/hooks/useRankingDates.ts` |
+| 3 | Fix `useHistoricalKeywords` - query với fallback ±12h | `src/hooks/useRankingDates.ts` |
+| 4 | Thêm hook `useHistoricalStats` - tính stats từ history | `src/hooks/useRankingDates.ts` |
+| 5 | Update ClassDetail - sử dụng historical stats | `src/pages/ClassDetail.tsx` |
+| 6 | Update RankingStatsCards - hiển thị indicator ngày | `src/components/projects/RankingStatsCards.tsx` |
 
-```text
-Task status: processing → completed
-                ↓
-        Check current URL
-                ↓
-    ┌──────────────────────────────┐
-    │ URL matches task.classId?    │
-    └──────────────────────────────┘
-           ↓ YES              ↓ NO
-   invalidateQueries()      Do nothing
-   Show "Data updated"
+---
+
+## Chi tiết Implementation
+
+### 1. Helper Functions cho Timezone (useRankingDates.ts)
+
+Thêm các helper functions để xử lý timezone consistently:
+
+```typescript
+// Vietnam timezone offset: +07:00
+const VN_OFFSET_HOURS = 7;
+
+/**
+ * Convert UTC timestamp to Vietnam date string (yyyy-MM-dd)
+ * This ensures dates are extracted based on Vietnam timezone
+ */
+function utcToVnDateString(utcTimestamp: string): string {
+  const date = new Date(utcTimestamp);
+  // Add 7 hours to get Vietnam time
+  const vnDate = new Date(date.getTime() + VN_OFFSET_HOURS * 60 * 60 * 1000);
+  const year = vnDate.getUTCFullYear();
+  const month = String(vnDate.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(vnDate.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Parse a local date string (yyyy-MM-dd) and return UTC range for querying
+ * with fallback buffer of ±12 hours to handle timezone edge cases
+ */
+function getDateRangeForQuery(dateStr: string): { start: string; end: string } {
+  // Parse as local date components
+  const [year, month, day] = dateStr.split("-").map(Number);
+  
+  // Create date at start of day in Vietnam timezone
+  // Vietnam is UTC+7, so start of day in VN = previous day 17:00 UTC
+  const vnStartOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  const utcStart = new Date(vnStartOfDay.getTime() - VN_OFFSET_HOURS * 60 * 60 * 1000);
+  
+  // End of day in VN = same day 16:59:59 UTC
+  const vnEndOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+  const utcEnd = new Date(vnEndOfDay.getTime() - VN_OFFSET_HOURS * 60 * 60 * 1000);
+  
+  // Add ±12 hour fallback buffer
+  const startWithBuffer = new Date(utcStart.getTime() - 12 * 60 * 60 * 1000);
+  const endWithBuffer = new Date(utcEnd.getTime() + 12 * 60 * 60 * 1000);
+  
+  return {
+    start: startWithBuffer.toISOString(),
+    end: endWithBuffer.toISOString(),
+  };
+}
 ```
 
-**Implementation trong GlobalTaskWidget.tsx:**
+---
 
-1. **Import thêm:**
-   - `useQueryClient` từ `@tanstack/react-query`
-   - `useLocation` từ `react-router-dom`
+### 2. Fix `useRankingDates` - Extract Dates theo Vietnam Timezone
 
-2. **Thêm state tracking:**
-   - `refreshedClassIds: Set<string>` - Track các class đã được refresh để không refresh lặp
+**Thay đổi logic extract unique dates:**
 
-3. **useEffect để detect task completion:**
 ```typescript
-useEffect(() => {
-  tasks.forEach((task) => {
-    if (task.status === "completed" && !refreshedClassIds.has(task.classId)) {
-      // Check if user is on this class's page
-      const isOnClassPage = location.pathname.includes(`/classes/${task.classId}`);
-      
-      if (isOnClassPage) {
-        // Invalidate queries to refresh data
-        queryClient.invalidateQueries({ 
-          queryKey: ["keywords-paginated", task.classId] 
-        });
-        queryClient.invalidateQueries({ 
-          queryKey: ["class-ranking-stats", task.classId] 
-        });
-        
-        // Mark as refreshed
-        setRefreshedClassIds((prev) => new Set(prev).add(task.classId));
+// Trước (lỗi):
+const date = format(parseISO(record.checked_at), "yyyy-MM-dd");
+
+// Sau (đúng):
+const date = utcToVnDateString(record.checked_at);
+```
+
+---
+
+### 3. Fix `useHistoricalKeywords` - Query với Timezone-aware Range
+
+**Thay đổi logic tạo date range:**
+
+```typescript
+// Trước (lỗi):
+const startOfDay = `${selectedDate}T00:00:00.000Z`;
+const endOfDay = `${selectedDate}T23:59:59.999Z`;
+
+// Sau (đúng):
+const { start: startOfDay, end: endOfDay } = getDateRangeForQuery(selectedDate);
+```
+
+**Thêm logic filter chính xác sau khi fetch (vì dùng buffer ±12h):**
+
+```typescript
+// Filter records that actually belong to the selected date (Vietnam timezone)
+const recordsForDate = (history || []).filter((record) => {
+  const recordDateVn = utcToVnDateString(record.checked_at);
+  return recordDateVn === selectedDate;
+});
+```
+
+---
+
+### 4. Hook mới: `useHistoricalStats`
+
+Thêm hook tính toán stats từ historical data:
+
+```typescript
+export interface HistoricalRankingStats {
+  top3: number;
+  top10: number;
+  top30: number;
+  top100: number;
+  notFound: number;
+  total: number;
+}
+
+export function useHistoricalStats(
+  classId: string | undefined,
+  selectedDate: string | undefined // format: yyyy-MM-dd
+) {
+  const { user } = useAuthContext();
+
+  return useQuery({
+    queryKey: ["historical-stats", classId, selectedDate, user?.id],
+    queryFn: async (): Promise<HistoricalRankingStats> => {
+      if (!user || !classId || !selectedDate) {
+        return { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 };
       }
-    }
-  });
-}, [tasks, location.pathname, queryClient]);
-```
 
-4. **UI hiển thị "Data updated":**
-   - Thêm dòng text màu xanh lá trong task card khi vừa hoàn thành và đã refresh
-   - Text: "✓ Data updated" với class `text-green-600`
+      // Get keyword IDs for this class
+      const { data: keywords, error: keywordsError } = await supabase
+        .from("project_keywords")
+        .select("id")
+        .eq("class_id", classId);
+
+      if (keywordsError) throw keywordsError;
+      if (!keywords || keywords.length === 0) {
+        return { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 };
+      }
+
+      const keywordIds = keywords.map((k) => k.id);
+      const { start, end } = getDateRangeForQuery(selectedDate);
+
+      // Fetch history with buffer
+      const { data: history, error: historyError } = await supabase
+        .from("keyword_ranking_history")
+        .select("keyword_id, ranking_position, checked_at")
+        .in("keyword_id", keywordIds)
+        .gte("checked_at", start)
+        .lte("checked_at", end);
+
+      if (historyError) throw historyError;
+
+      // Filter to exact date and group by keyword (latest record per keyword)
+      const latestByKeyword = new Map<string, number | null>();
+      
+      (history || [])
+        .filter((r) => utcToVnDateString(r.checked_at) === selectedDate)
+        .sort((a, b) => new Date(b.checked_at).getTime() - new Date(a.checked_at).getTime())
+        .forEach((record) => {
+          if (!latestByKeyword.has(record.keyword_id)) {
+            latestByKeyword.set(record.keyword_id, record.ranking_position);
+          }
+        });
+
+      // Calculate stats
+      let top3 = 0, top10 = 0, top30 = 0, top100 = 0, notFound = 0;
+      
+      latestByKeyword.forEach((position) => {
+        if (position === null || position > 100) {
+          notFound++;
+        } else if (position <= 3) {
+          top3++;
+        } else if (position <= 10) {
+          top10++;
+        } else if (position <= 30) {
+          top30++;
+        } else {
+          top100++;
+        }
+      });
+
+      return {
+        top3,
+        top10,
+        top30,
+        top100,
+        notFound,
+        total: latestByKeyword.size,
+      };
+    },
+    enabled: !!user && !!classId && !!selectedDate,
+    staleTime: 60 * 1000,
+  });
+}
+```
 
 ---
 
-### Chi tiết Files cần thay đổi
+### 5. Update ClassDetail.tsx
 
-#### File 1: `src/components/ui/sonner.tsx`
+**Thêm import và sử dụng useHistoricalStats:**
 
 ```typescript
-<Sonner
-  theme={theme as ToasterProps["theme"]}
-  position="bottom-right"
-  offset="80px"           // ← THÊM: Toasts cách bottom 80px
-  className="toaster group"
-  // ... rest
+import { useRankingDates, useHistoricalKeywords, useHistoricalStats } from "@/hooks/useRankingDates";
+
+// Inside component:
+// Fetch historical stats when date is selected
+const { data: historicalStats } = useHistoricalStats(classId, selectedDateStr);
+
+// Determine which stats to display
+const displayStats = isViewingHistory && historicalStats 
+  ? historicalStats 
+  : (rankingStats || { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 });
+```
+
+**Truyền thêm props cho RankingStatsCards:**
+
+```tsx
+<RankingStatsCards 
+  stats={displayStats}
+  activeTier={tierFilter}
+  onTierClick={isViewingHistory ? undefined : handleTierClick}
+  historyDate={selectedHistoryDate}
 />
 ```
 
-#### File 2: `src/components/GlobalTaskWidget.tsx`
+**Disable tier filter khi viewing history** (vì historical data không support server-side tier filter):
 
-**Thay đổi chính:**
-
-1. **Imports:**
-```typescript
-import { useLocation } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+```tsx
+onTierClick={isViewingHistory ? undefined : handleTierClick}
 ```
 
-2. **Xóa toàn bộ MutationObserver useEffect** (lines 32-82)
+---
 
-3. **Thêm auto-refresh logic:**
+### 6. Update RankingStatsCards.tsx
+
+**Thêm props và indicator:**
+
 ```typescript
-const location = useLocation();
-const queryClient = useQueryClient();
-const [refreshedClassIds, setRefreshedClassIds] = useState<Set<string>>(new Set());
+interface RankingStatsCardsProps {
+  stats: RankingStats;
+  activeTier?: string | null;
+  onTierClick?: (tier: string | null) => void;
+  historyDate?: Date; // NEW: để hiển thị indicator
+}
+```
 
-// Auto-refresh data when task completes on current page
-useEffect(() => {
-  tasks.forEach((task) => {
-    if (task.status === "completed" && !refreshedClassIds.has(task.classId)) {
-      const isOnClassPage = location.pathname.includes(`/classes/${task.classId}`);
+**Thêm header với date indicator:**
+
+```tsx
+export function RankingStatsCards({ stats, activeTier, onTierClick, historyDate }: RankingStatsCardsProps) {
+  // ...existing code...
+
+  return (
+    <div className="space-y-3">
+      {/* Header với date indicator */}
+      {historyDate && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">
+            Viewing statistics for
+          </span>
+          <Badge variant="secondary">
+            {format(historyDate, "dd/MM/yyyy")}
+          </Badge>
+        </div>
+      )}
       
-      if (isOnClassPage) {
-        // Invalidate all relevant queries
-        queryClient.invalidateQueries({ 
-          queryKey: ["keywords-paginated", task.classId] 
-        });
-        queryClient.invalidateQueries({ 
-          queryKey: ["class-ranking-stats", task.classId] 
-        });
-        queryClient.invalidateQueries({ 
-          queryKey: ["class-metadata", task.classId] 
-        });
-        
-        setRefreshedClassIds((prev) => new Set(prev).add(task.classId));
-      }
-    }
-  });
-}, [tasks, location.pathname, queryClient, refreshedClassIds]);
-
-// Clear refreshed IDs when tasks are removed
-useEffect(() => {
-  const activeIds = new Set(tasks.map(t => t.classId));
-  setRefreshedClassIds((prev) => {
-    const newSet = new Set<string>();
-    prev.forEach(id => {
-      if (activeIds.has(id)) newSet.add(id);
-    });
-    return newSet;
-  });
-}, [tasks]);
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+        {/* ...existing cards... */}
+      </div>
+    </div>
+  );
+}
 ```
 
-4. **Thay đổi z-index trong container div:**
-```tsx
-<div 
-  className={cn(
-    "fixed bottom-4 right-4 z-40",  // ← ĐỔI: z-50 → z-40
-    "animate-in slide-in-from-bottom-5 fade-in duration-300"
-  )}
->
-```
+**Ẩn trend indicators khi viewing history** (vì không có dữ liệu improved/declined cho historical):
 
-5. **Thêm "Data updated" indicator trong task card:**
 ```tsx
-{/* Row 3: Details + Data updated indicator */}
-<div className="flex items-center justify-between text-xs text-muted-foreground mt-1.5">
-  <span>
-    {task.status === "pending" 
-      ? "Waiting..." 
-      : isCompleted
-      ? refreshedClassIds.has(task.classId)
-        ? "✓ Data updated"
-        : "Completed"
-      : isFailed
-      ? "Failed"
-      : `${task.progress}/${task.total} keywords`
-    }
-  </span>
-  <span>{progressPercent}%</span>
-</div>
-```
-
-Và thêm màu xanh lá cho text khi refreshed:
-```tsx
-<span className={cn(
-  isCompleted && refreshedClassIds.has(task.classId) && "text-green-600 font-medium"
-)}>
+{/* Row 3: Trend indicators (only for current data) */}
+{!isTotal && !historyDate && (
+  <div className="flex items-center gap-3 text-xs">
+    {/* ...trend indicators... */}
+  </div>
+)}
 ```
 
 ---
 
 ### Kết quả mong đợi
 
-**Toast/Widget separation:**
-- Widget cố định ở `bottom-16px`, z-index 40
-- Toasts xuất hiện ở `bottom-80px`, z-index 50 (cao hơn widget)
-- Không còn overlap, không cần code phức tạp
+**Timezone Fix:**
+- Dates được extract và hiển thị theo Vietnam timezone (+07:00)
+- Query sử dụng range với buffer ±12h để không bỏ sót data
+- Filter chính xác theo ngày sau khi fetch
 
-**Auto-refresh UX:**
-- User đang ở trang Class A → Task A hoàn thành → Data tự động refresh
-- Hiển thị "✓ Data updated" màu xanh trong widget
-- User không cần F5 để thấy dữ liệu mới
+**Historical Stats:**
+- RankingStatsCards cập nhật theo ngày được chọn
+- Hiển thị badge "Viewing statistics for dd/MM/yyyy"
+- Ẩn trend indicators (↗↘) khi xem history
+- Disable tier click khi xem history
+
+**Data Flow:**
+
+```text
+User chọn ngày 31/01/2026
+         ↓
+Query với buffer: 30/01 05:00 UTC → 01/02 11:59 UTC
+         ↓
+Filter kết quả: chỉ lấy records có VN date = 31/01/2026
+         ↓
+├── KeywordsTable: hiển thị ranking history
+└── RankingStatsCards: tính toán từ history data
+         ↓
+User thấy data chính xác của ngày 31/01/2026
+```
 
 ---
 
-### Tóm tắt thay đổi
+### Files cần thay đổi
 
-| File | Hành động |
-|------|-----------|
-| `src/components/ui/sonner.tsx` | Thêm `offset="80px"` |
-| `src/components/GlobalTaskWidget.tsx` | 1. Xóa MutationObserver code<br>2. Thêm auto-refresh logic<br>3. Đổi z-50 → z-40<br>4. Thêm "Data updated" UI |
+| File | Thay đổi |
+|------|----------|
+| `src/hooks/useRankingDates.ts` | Thêm helpers, fix timezone logic, thêm `useHistoricalStats` |
+| `src/pages/ClassDetail.tsx` | Sử dụng `useHistoricalStats`, truyền `historyDate` prop |
+| `src/components/projects/RankingStatsCards.tsx` | Thêm `historyDate` prop, hiển thị indicator |
+
