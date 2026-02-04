@@ -1,171 +1,259 @@
 
 
-## Kế hoạch Sửa lỗi Logic History Mode - Chỉ hiển thị Keywords có Data
+## Kế hoạch Thêm Cơ chế Chống Spam Refresh và Xác nhận Hành động Quan trọng
 
-### Vấn đề
+### Phân tích Hiện trạng
 
-Trong `useHistoricalKeywords`, logic hiện tại:
+**1. Nút Refresh Rankings:**
+- **ClassDetail.tsx (dòng 250):** Nút "Refresh Rankings" chỉ disable khi `addRankingJob.isPending` (chỉ trong thời gian ngắn khi gọi API)
+- **ClassRow.tsx (dòng 117):** Tương tự, chỉ disable khi `isChecking`
+- **ProjectRow.tsx (dòng 143):** Tương tự pattern
 
+**Vấn đề:** User có thể spam click liên tục vì nút chỉ bị disable trong ~1-2 giây. Nếu class đang có job running, user vẫn có thể tạo thêm job mới.
+
+**2. Xác nhận Xóa:**
+- **ClassRow.tsx (dòng 138-157):** Đã có AlertDialog xác nhận xóa Class
+- **ProjectRow.tsx (dòng 169-188):** Đã có AlertDialog xác nhận xóa Project
+- **KeywordsTable.tsx:** Xóa keyword KHÔNG có dialog xác nhận - xóa trực tiếp!
+- **ProjectsTable.tsx (dòng 246-251):** Xóa project (multi-select) KHÔNG có xác nhận!
+
+---
+
+### Giải pháp Đề xuất
+
+#### 1. Chống Spam Refresh: Kiểm tra Task đang chạy
+
+Sử dụng `TaskProgressContext` để kiểm tra class có đang trong hàng đợi không trước khi cho phép refresh.
+
+**Logic:**
 ```text
-filteredKeywords.map((kw) => {
-  const historyRecord = latestByKeyword.get(kw.id);
-  return {
-    ...
-    ranking_position: historyRecord?.ranking_position ?? null,  // fallback null
-    last_checked_at: historyRecord?.checked_at ?? kw.updated_at, // fallback hiện tại ← SAI
-  };
-});
+┌─────────────────────────────────────────────────────────────┐
+│  User click "Refresh Rankings"                               │
+│       ↓                                                      │
+│  Check: tasks.find(t => t.classId === classId &&            │
+│         (t.status === 'pending' || t.status === 'processing'))│
+│       ↓                                                      │
+│  ├── Có task đang chạy → Disable button + Toast "Already     │
+│  │                       running"                            │
+│  │                                                           │
+│  └── Không có task → Cho phép refresh bình thường           │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Kết quả:** Keyword không có history vẫn được trả về với `last_checked_at = kw.updated_at` (thời gian hiện tại), gây nhầm lẫn.
+**Files cần sửa:**
+| File | Thay đổi |
+|------|----------|
+| `src/pages/ClassDetail.tsx` | Thêm logic kiểm tra task đang chạy cho nút Refresh |
+| `src/components/projects/ClassRow.tsx` | Thêm logic tương tự cho menu Refresh |
+| `src/components/projects/ProjectRow.tsx` | Thêm logic cho nút "Refresh All Classes" |
 
-### Giải pháp
+**Chi tiết ClassDetail.tsx:**
+```typescript
+// Import thêm
+import { useTaskProgress } from "@/contexts/TaskProgressContext";
 
-Thay đổi logic từ **"lấy tất cả keywords, merge với history"** sang **"chỉ lấy keywords có trong history"**:
+// Trong component
+const { tasks } = useTaskProgress();
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│  TRƯỚC (SAI)                                                 │
-├──────────────────────────────────────────────────────────────┤
-│  All Keywords (12) + History Records (10)                    │
-│       ↓                                                      │
-│  Merge: Keyword có history → lấy history data                │
-│         Keyword không có → fallback dữ liệu hiện tại         │
-│       ↓                                                      │
-│  Result: 12 keywords (2 keywords hiện "xx minutes ago")      │
-└──────────────────────────────────────────────────────────────┘
+// Check if class has running task
+const isClassRunning = tasks.some(
+  (t) => t.classId === classId && 
+         (t.status === "pending" || t.status === "processing")
+);
 
-┌──────────────────────────────────────────────────────────────┐
-│  SAU (ĐÚNG)                                                  │
-├──────────────────────────────────────────────────────────────┤
-│  History Records (10) + Keyword Base Info                    │
-│       ↓                                                      │
-│  Filter: Chỉ lấy keywords CÓ history record                  │
-│       ↓                                                      │
-│  Result: 10 keywords (tất cả có data của ngày đó)            │
-└──────────────────────────────────────────────────────────────┘
+// Disable button khi đang running
+<Button 
+  onClick={handleRefresh} 
+  disabled={addRankingJob.isPending || isViewingHistory || isClassRunning}
+>
+  <RefreshCw className={`mr-2 h-4 w-4 ${isClassRunning ? "animate-spin" : ""}`} />
+  {isClassRunning ? "Checking..." : "Refresh Rankings"}
+</Button>
 ```
 
 ---
 
-### Chi tiết thay đổi
+#### 2. Dialog Xác nhận cho Xóa Keyword
 
-**File:** `src/hooks/useRankingDates.ts`
+Tạo component `ConfirmDeleteDialog` có thể tái sử dụng, hiển thị số lượng items sẽ bị xóa.
 
-**Hàm:** `useHistoricalKeywords` (dòng 117-214)
-
-**Logic mới:**
+**Component mới: `src/components/projects/ConfirmDeleteDialog.tsx`**
 
 ```typescript
-// 1. Fetch history records trước
-const { data: history, error: historyError } = await supabase
-  .from("keyword_ranking_history")
-  .select("*")
-  .eq("class_id", classId)  // Có thể query trực tiếp nếu có index
-  .gte("checked_at", startOfDay)
-  .lte("checked_at", endOfDay)
-  .order("checked_at", { ascending: false });
+interface ConfirmDeleteDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  itemCount?: number;
+  itemType?: string; // "keyword", "project", "class"
+  onConfirm: () => void;
+  isLoading?: boolean;
+}
+```
 
-// 2. Filter theo exact date và lấy latest per keyword
-const latestByKeyword = new Map<string, any>();
-(history || [])
-  .filter((record) => utcToVnDateString(record.checked_at) === selectedDate)
-  .forEach((record) => {
-    if (!latestByKeyword.has(record.keyword_id)) {
-      latestByKeyword.set(record.keyword_id, record);
-    }
-  });
+**Files cần sửa:**
 
-// 3. Nếu không có history records nào → trả về empty
-if (latestByKeyword.size === 0) {
-  return { keywords: [], totalCount: 0 };
+| File | Thay đổi |
+|------|----------|
+| `src/components/projects/ConfirmDeleteDialog.tsx` | Tạo mới component |
+| `src/components/projects/KeywordsTable.tsx` | Thêm dialog xác nhận trước khi xóa keywords |
+| `src/components/projects/ProjectsTable.tsx` | Thêm dialog xác nhận trước khi xóa projects (multi-select) |
+| `src/components/ui/data-table-toolbar.tsx` | Truyền callback để hiển thị dialog thay vì xóa trực tiếp |
+
+---
+
+### Chi tiết Implementation
+
+#### A. Component ConfirmDeleteDialog
+
+```typescript
+// src/components/projects/ConfirmDeleteDialog.tsx
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface ConfirmDeleteDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  itemCount?: number;
+  onConfirm: () => void;
+  isLoading?: boolean;
 }
 
-// 4. Fetch keyword base info CHỈ CHO những keyword có history
-const keywordIdsWithHistory = Array.from(latestByKeyword.keys());
-
-const { data: keywords, error: keywordsError } = await supabase
-  .from("project_keywords")
-  .select("id, keyword, class_id, user_id, created_at, updated_at, serp_results")
-  .in("id", keywordIdsWithHistory);
-
-// 5. Apply search filter (nếu có)
-let filteredKeywords = keywords || [];
-if (search && search.trim()) {
-  const searchLower = search.toLowerCase();
-  filteredKeywords = filteredKeywords.filter((k) => 
-    k.keyword.toLowerCase().includes(searchLower)
+export function ConfirmDeleteDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  itemCount,
+  onConfirm,
+  isLoading,
+}: ConfirmDeleteDialogProps) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {description}
+            {itemCount && itemCount > 1 && (
+              <span className="block mt-2 font-medium text-foreground">
+                {itemCount} items will be deleted.
+              </span>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isLoading ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
-
-// 6. Build kết quả - CHỈ keywords có history
-const mergedKeywords: HistoricalKeyword[] = filteredKeywords
-  .filter((kw) => latestByKeyword.has(kw.id))  // Double-check
-  .map((kw) => {
-    const historyRecord = latestByKeyword.get(kw.id)!;
-    return {
-      id: kw.id,
-      keyword: kw.keyword,
-      ranking_position: historyRecord.ranking_position,
-      found_url: historyRecord.found_url,
-      competitor_rankings: historyRecord.competitor_rankings,
-      first_position: null,
-      best_position: null,
-      previous_position: null,
-      last_checked_at: historyRecord.checked_at,  // Luôn từ history, không fallback
-      class_id: kw.class_id,
-      user_id: kw.user_id,
-      created_at: kw.created_at,
-      updated_at: kw.updated_at,
-      serp_results: kw.serp_results,
-    };
-  });
-
-// 7. Apply pagination
-const totalCount = mergedKeywords.length;
-const from = page * pageSize;
-const paginatedKeywords = mergedKeywords.slice(from, from + pageSize);
-
-return {
-  keywords: paginatedKeywords,
-  totalCount,
-};
 ```
 
 ---
 
-### Thay đổi cụ thể trong code
+#### B. Sửa KeywordsTable.tsx
 
-| Dòng | Trước | Sau |
-|------|-------|-----|
-| 133-142 | Fetch ALL keywords của class trước | Fetch history records trước |
-| 153-156 | Filter keywords by search, lấy IDs | Check history empty → return early |
-| 161-167 | Query history với keyword IDs | Query keywords CHỈ những có history |
-| 182-200 | Map ALL keywords, fallback | Map CHỈ keywords có history, không fallback |
-| 193 | `historyRecord?.checked_at ?? kw.updated_at` | `historyRecord.checked_at` (bắt buộc có) |
+```typescript
+// Thêm state cho dialog
+const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+const [isDeleting, setIsDeleting] = useState(false);
+
+// Handler mới - mở dialog thay vì xóa trực tiếp
+const handleDeleteClick = (ids: string[]) => {
+  setPendingDeleteIds(ids);
+  setDeleteDialogOpen(true);
+};
+
+// Confirm handler
+const handleConfirmDelete = async () => {
+  if (!onDeleteKeywords) return;
+  setIsDeleting(true);
+  try {
+    await onDeleteKeywords(pendingDeleteIds);
+    setRowSelection({});
+  } finally {
+    setIsDeleting(false);
+    setDeleteDialogOpen(false);
+    setPendingDeleteIds([]);
+  }
+};
+
+// Trong toolbar - thay đổi callback
+<DataTableToolbar
+  ...
+  onDeleteSelected={onDeleteKeywords ? () => handleDeleteClick(selectedIds) : undefined}
+/>
+
+// Thêm dialog
+<ConfirmDeleteDialog
+  open={deleteDialogOpen}
+  onOpenChange={setDeleteDialogOpen}
+  title="Delete Keywords"
+  description="Are you sure you want to delete the selected keywords? This will also delete all ranking history associated with them. This action cannot be undone."
+  itemCount={pendingDeleteIds.length}
+  onConfirm={handleConfirmDelete}
+  isLoading={isDeleting}
+/>
+```
+
+---
+
+#### C. Sửa ProjectsTable.tsx
+
+Tương tự pattern như KeywordsTable.
+
+---
+
+#### D. Sửa ClassDetail.tsx, ClassRow.tsx, ProjectRow.tsx
+
+Thêm logic kiểm tra task đang chạy từ `TaskProgressContext`.
+
+---
+
+### Tổng kết Files cần thay đổi
+
+| File | Thay đổi |
+|------|----------|
+| `src/components/projects/ConfirmDeleteDialog.tsx` | **Tạo mới** - Reusable confirm dialog |
+| `src/pages/ClassDetail.tsx` | Thêm kiểm tra `isClassRunning` để disable nút Refresh |
+| `src/components/projects/ClassRow.tsx` | Thêm kiểm tra task running + import TaskProgressContext |
+| `src/components/projects/ProjectRow.tsx` | Thêm kiểm tra any class running + import TaskProgressContext |
+| `src/components/projects/KeywordsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa keywords |
+| `src/components/projects/ProjectsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa projects |
 
 ---
 
 ### Kết quả mong đợi
 
-**Trước:**
-- User chọn ngày 19/01/2026
-- Statistics hiển thị: Total = 10 keywords
-- Bảng hiển thị: 12 keywords (2 keywords có "Updated: xx minutes ago")
-- **Không nhất quán!**
+**Chống Spam Refresh:**
+- Nút "Refresh Rankings" bị disable và hiển thị "Checking..." khi class đã có task trong queue
+- Icon RefreshCw quay liên tục để báo hiệu đang xử lý
+- User không thể tạo thêm job mới cho cùng một class
 
-**Sau:**
-- User chọn ngày 19/01/2026  
-- Statistics hiển thị: Total = 10 keywords
-- Bảng hiển thị: **10 keywords** (tất cả đều có data của ngày 19/01)
-- Tất cả Updated column hiển thị thời gian trong ngày 19/01/2026
-- **Nhất quán!**
-
----
-
-### Tóm tắt
-
-| File | Thay đổi |
-|------|----------|
-| `src/hooks/useRankingDates.ts` | Refactor `useHistoricalKeywords` để chỉ trả về keywords có history record, không fallback |
+**Xác nhận Xóa:**
+- Xóa keyword(s): Hiện dialog "Delete X keywords? This action cannot be undone."
+- Xóa project(s) từ multi-select: Hiện dialog tương tự
+- Dialog hiển thị số lượng items sẽ bị xóa
+- Button "Delete" chuyển thành "Deleting..." khi đang xử lý
 
