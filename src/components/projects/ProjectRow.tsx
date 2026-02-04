@@ -27,6 +27,7 @@ import { formatDistanceToNow } from "date-fns";
 import { AddClassDialog } from "./AddClassDialog";
 import { EditProjectDialog } from "./EditProjectDialog";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
+import { useTaskProgress } from "@/contexts/TaskProgressContext";
 
 interface ProjectRowProps {
   project: ProjectWithClasses;
@@ -42,8 +43,15 @@ export function ProjectRow({ project, isExpanded, onToggle }: ProjectRowProps) {
   const [addClassDialogOpen, setAddClassDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  
+  // Check if any class in project has running task (anti-spam refresh)
+  const { tasks } = useTaskProgress();
+  const hasRunningTask = project.classes.some((cls) =>
+    tasks.some((t) => t.classId === cls.id && (t.status === "pending" || t.status === "processing"))
+  );
 
   const handleRefreshAll = async () => {
+    if (hasRunningTask) return; // Prevent spam
     setIsChecking(true);
     try {
       await checkRankings.mutateAsync(project.id);
@@ -140,9 +148,9 @@ export function ProjectRow({ project, isExpanded, onToggle }: ProjectRowProps) {
                 <Plus className="mr-2 h-4 w-4" />
                 Add Class
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleRefreshAll} disabled={isChecking}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
-                {isChecking ? 'Checking...' : 'Refresh All Classes'}
+              <DropdownMenuItem onClick={handleRefreshAll} disabled={isChecking || hasRunningTask}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isChecking || hasRunningTask ? 'animate-spin' : ''}`} />
+                {hasRunningTask ? 'Checking...' : isChecking ? 'Starting...' : 'Refresh All Classes'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>

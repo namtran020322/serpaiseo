@@ -22,6 +22,7 @@ import { DataTableColumnHeader } from "@/components/ui/data-table-column-header"
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SerpResultsDialog } from "@/components/projects/SerpResultsDialog";
+import { ConfirmDeleteDialog } from "@/components/projects/ConfirmDeleteDialog";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -183,6 +184,11 @@ export function KeywordsTable({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [showSerpTitles, setShowSerpTitles] = useState(false);
+  
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Determine if we're using server-side pagination
   const isServerSide = totalCount !== undefined && onPageChange !== undefined;
@@ -468,6 +474,26 @@ export function KeywordsTable({
     .map((index) => keywords[parseInt(index)]?.id)
     .filter(Boolean);
 
+  // Handler to open delete confirmation dialog
+  const handleDeleteClick = (ids: string[]) => {
+    setPendingDeleteIds(ids);
+    setDeleteDialogOpen(true);
+  };
+
+  // Confirm delete handler
+  const handleConfirmDelete = async () => {
+    if (!onDeleteKeywords) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteKeywords(pendingDeleteIds);
+      setRowSelection({});
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setPendingDeleteIds([]);
+    }
+  };
+
   if (keywords.length === 0 && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
@@ -483,11 +509,22 @@ export function KeywordsTable({
         searchKey="keyword"
         searchPlaceholder="Filter keywords..."
         selectedCount={selectedIds.length}
-        onDeleteSelected={onDeleteKeywords ? () => onDeleteKeywords(selectedIds) : undefined}
+        onDeleteSelected={onDeleteKeywords ? () => handleDeleteClick(selectedIds) : undefined}
         onRefreshSelected={onRefreshKeywords ? () => onRefreshKeywords(selectedIds) : undefined}
         showSerpTitles={showSerpTitles}
         onToggleSerpTitles={() => setShowSerpTitles(!showSerpTitles)}
         onSearchChange={isServerSide ? handleSearchChange : undefined}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Keywords"
+        description="Are you sure you want to delete the selected keywords? This will also delete all ranking history associated with them. This action cannot be undone."
+        itemCount={pendingDeleteIds.length}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
       />
 
       {/* Table container with max height and overflow for sticky header */}

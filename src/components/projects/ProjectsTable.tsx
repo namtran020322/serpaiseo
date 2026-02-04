@@ -23,6 +23,7 @@ import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { PaginatedProject } from "@/hooks/useProjectsPaginated";
 import { cn } from "@/lib/utils";
+import { ConfirmDeleteDialog } from "@/components/projects/ConfirmDeleteDialog";
 
 // Ultra-compact time format helper
 function formatCompactTime(date: Date): string {
@@ -49,6 +50,10 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const deleteProject = useDeleteProject();
+  
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const columns = useMemo<ColumnDef<PaginatedProject>[]>(() => [
     {
@@ -243,11 +248,23 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
 
   const selectedIds = Object.keys(rowSelection).map((index) => projects[parseInt(index)]?.id).filter(Boolean);
 
-  const handleDeleteSelected = async () => {
-    for (const id of selectedIds) {
-      await deleteProject.mutateAsync(id);
+  // Handler to open delete confirmation dialog
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  // Confirm delete handler
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      for (const id of selectedIds) {
+        await deleteProject.mutateAsync(id);
+      }
+      setRowSelection({});
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
     }
-    setRowSelection({});
   };
 
   return (
@@ -257,7 +274,18 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
         searchKey="name"
         searchPlaceholder="Filter projects..."
         selectedCount={selectedIds.length}
-        onDeleteSelected={handleDeleteSelected}
+        onDeleteSelected={handleDeleteClick}
+      />
+      
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Projects"
+        description="Are you sure you want to delete the selected projects? This will also delete all classes, keywords, and ranking history associated with them. This action cannot be undone."
+        itemCount={selectedIds.length}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
       />
       <div className="rounded-md border">
         <Table>

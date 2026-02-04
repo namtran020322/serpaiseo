@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ProjectClassWithKeywords, useDeleteClass, useCheckRankings } from "@/hooks/useProjects";
 import { formatDistanceToNow } from "date-fns";
+import { useTaskProgress } from "@/contexts/TaskProgressContext";
 
 interface ClassRowProps {
   projectClass: ProjectClassWithKeywords;
@@ -42,8 +43,15 @@ export function ClassRow({ projectClass, projectId }: ClassRowProps) {
   const checkRankings = useCheckRankings();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  
+  // Check if class has running task (anti-spam refresh)
+  const { tasks } = useTaskProgress();
+  const isClassRunning = tasks.some(
+    (t) => t.classId === projectClass.id && (t.status === "pending" || t.status === "processing")
+  );
 
   const handleRefreshRankings = async () => {
+    if (isClassRunning) return; // Prevent spam
     setIsChecking(true);
     try {
       await checkRankings.mutateAsync(projectClass.id);
@@ -114,9 +122,9 @@ export function ClassRow({ projectClass, projectId }: ClassRowProps) {
                 <Eye className="mr-2 h-4 w-4" />
                 View Details
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleRefreshRankings} disabled={isChecking}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
-                {isChecking ? 'Checking...' : 'Refresh Rankings'}
+              <DropdownMenuItem onClick={handleRefreshRankings} disabled={isChecking || isClassRunning}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isChecking || isClassRunning ? 'animate-spin' : ''}`} />
+                {isClassRunning ? 'Checking...' : isChecking ? 'Starting...' : 'Refresh Rankings'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
