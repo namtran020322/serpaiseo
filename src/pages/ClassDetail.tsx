@@ -19,6 +19,7 @@ import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { CompetitorsFaviconList } from "@/components/projects/CompetitorsFaviconList";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDistanceToNow, format } from "date-fns";
+import { useTaskProgress } from "@/contexts/TaskProgressContext";
 
 const deviceIcons = {
   desktop: Monitor,
@@ -84,6 +85,12 @@ export default function ClassDetail() {
   const deleteKeywords = useDeleteKeywords();
   const addKeywords = useAddKeywords();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  
+  // Check if class has running task (anti-spam refresh)
+  const { tasks } = useTaskProgress();
+  const isClassRunning = tasks.some(
+    (t) => t.classId === classId && (t.status === "pending" || t.status === "processing")
+  );
 
   const refetchAll = () => {
     refetchStats();
@@ -247,9 +254,9 @@ export default function ClassDetail() {
             onDateSelect={handleDateSelect}
             isLoading={datesLoading}
           />
-          <Button onClick={handleRefresh} disabled={addRankingJob.isPending || isViewingHistory}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${addRankingJob.isPending ? "animate-spin" : ""}`} />
-            {addRankingJob.isPending ? "Starting..." : "Refresh Rankings"}
+          <Button onClick={handleRefresh} disabled={addRankingJob.isPending || isViewingHistory || isClassRunning}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${addRankingJob.isPending || isClassRunning ? "animate-spin" : ""}`} />
+            {isClassRunning ? "Checking..." : addRankingJob.isPending ? "Starting..." : "Refresh Rankings"}
           </Button>
         </div>
       </div>
