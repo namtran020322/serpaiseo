@@ -88,76 +88,106 @@ Deno.serve(async (req) => {
 
     console.log(`[INFO] Found ${classesToCheck.length} classes to check`)
 
-    // Process each class
-    const results = await Promise.allSettled(
-      classesToCheck.map(async (cls) => {
-        try {
-          const keywordCount = cls.project_keywords?.[0]?.count || 0
-          if (keywordCount === 0) {
-            console.log(`[INFO] Skipping class ${cls.id} - no keywords`)
-            return { classId: cls.id, success: true, skipped: true, reason: 'no_keywords' }
-          }
+    // Process each class — insert into queue instead of calling check-project-keywords directly
+    const results: { classId: string; success: boolean; skipped?: boolean; reason?: string; jobId?: string }[] = []
 
-          // Check user's credit balance
-          const { data: userCredits, error: creditsError } = await supabase
-            .from('user_credits')
-            .select('balance')
-            .eq('user_id', cls.user_id)
-            .maybeSingle()
-
-          if (creditsError) {
-            console.error(`[ERROR] Failed to fetch credits for user ${cls.user_id}:`, creditsError)
-            return { classId: cls.id, success: false, reason: 'credits_error' }
-          }
-
-          const creditsNeeded = calculateCreditsNeeded(cls.top_results || 100, keywordCount)
-          const currentBalance = userCredits?.balance || 0
-
-          if (currentBalance < creditsNeeded) {
-            console.log(`[INFO] Skipping class ${cls.id} - insufficient credits (need ${creditsNeeded}, have ${currentBalance})`)
-            // Still update last_checked_at to prevent repeated attempts
-            await supabase
-              .from('project_classes')
-              .update({ last_checked_at: now.toISOString() })
-              .eq('id', cls.id)
-            return { classId: cls.id, success: false, reason: 'insufficient_credits', needed: creditsNeeded, available: currentBalance }
-          }
-
-          // Call the check-project-keywords function directly via HTTP
-          // Using internal Supabase function URL
-          const functionUrl = `${supabaseUrl}/functions/v1/check-project-keywords`
-          
-          const checkResponse = await fetch(functionUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseServiceKey}`,
-            },
-            body: JSON.stringify({ classId: cls.id }),
-          })
-
-          if (!checkResponse.ok) {
-            const errorText = await checkResponse.text()
-            console.error(`[ERROR] Check failed for class ${cls.id}:`, errorText)
-            return { classId: cls.id, success: false, reason: 'check_failed', error: errorText }
-          }
-
-          const checkResult = await checkResponse.json()
-          console.log(`[INFO] Successfully checked class ${cls.id}:`, checkResult)
-
-          return { classId: cls.id, success: true, result: checkResult }
-        } catch (err) {
-          console.error(`[ERROR] Failed to process class ${cls.id}:`, err)
-          return { classId: cls.id, success: false, reason: 'exception', error: String(err) }
+    for (const cls of classesToCheck) {
+      try {
+        const keywordCount = cls.project_keywords?.[0]?.count || 0
+        if (keywordCount === 0) {
+          console.log(`[INFO] Skipping class ${cls.id} - no keywords`)
+          results.push({ classId: cls.id, success: true, skipped: true, reason: 'no_keywords' })
+          continue
         }
-      })
-    )
 
-    const successful = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length
-    const skipped = results.filter(r => r.status === 'fulfilled' && (r.value as any).skipped).length
-    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !(r.value as any).success && !(r.value as any).skipped)).length
+        // Check user's credit balance (pre-filter before creating queue job)
+        const { data: userCredits, error: creditsError } = await supabase
+          .from('user_credits')
+          .select('balance')
+          .eq('user_id', cls.user_id)
+          .maybeSingle()
 
-    console.log(`[INFO] Scheduled check completed: ${successful} successful, ${skipped} skipped, ${failed} failed`)
+        if (creditsError) {
+          console.error(`[ERROR] Failed to fetch credits for user ${cls.user_id}:`, creditsError)
+          results.push({ classId: cls.id, success: false, reason: 'credits_error' })
+          continue
+        }
+
+        const creditsNeeded = calculateCreditsNeeded(cls.top_results || 100, keywordCount)
+        const currentBalance = userCredits?.balance || 0
+
+        if (currentBalance < creditsNeeded) {
+          console.log(`[INFO] Skipping class ${cls.id} - insufficient credits (need ${creditsNeeded}, have ${currentBalance})`)
+          // Still update last_checked_at to prevent repeated attempts
+          await supabase
+            .from('project_classes')
+            .update({ last_checked_at: now.toISOString() })
+            .eq('id', cls.id)
+          results.push({ classId: cls.id, success: false, reason: 'insufficient_credits' })
+          continue
+        }
+
+        // Check for existing pending/processing job (prevent duplicates)
+        const { data: existingJob } = await supabase
+          .from('ranking_check_queue')
+          .select('id, status')
+          .eq('class_id', cls.id)
+          .in('status', ['pending', 'processing'])
+          .maybeSingle()
+
+        if (existingJob) {
+          console.log(`[INFO] Skipping class ${cls.id} - job already ${existingJob.status}`)
+          results.push({ classId: cls.id, success: true, skipped: true, reason: 'already_queued' })
+          continue
+        }
+
+        // Insert job into queue (service role bypasses RLS)
+        const { data: job, error: insertError } = await supabase
+          .from('ranking_check_queue')
+          .insert({
+            class_id: cls.id,
+            user_id: cls.user_id,
+            keyword_ids: [],
+            total_keywords: keywordCount,
+            processed_keywords: 0,
+            status: 'pending',
+          })
+          .select('id')
+          .single()
+
+        if (insertError) {
+          console.error(`[ERROR] Failed to create job for class ${cls.id}:`, insertError)
+          results.push({ classId: cls.id, success: false, reason: 'insert_error' })
+          continue
+        }
+
+        console.log(`[INFO] Created queue job ${job.id} for class ${cls.id}`)
+        results.push({ classId: cls.id, success: true, jobId: job.id })
+      } catch (err) {
+        console.error(`[ERROR] Failed to process class ${cls.id}:`, err)
+        results.push({ classId: cls.id, success: false, reason: 'exception' })
+      }
+    }
+
+    // Trigger process-ranking-queue once — auto-continuation handles the rest
+    const jobsCreated = results.filter(r => r.success && r.jobId).length
+    if (jobsCreated > 0) {
+      console.log(`[INFO] Triggering queue processing for ${jobsCreated} new jobs`)
+      fetch(`${supabaseUrl}/functions/v1/process-ranking-queue`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({}),
+      }).catch(err => console.error('[ERROR] Failed to trigger queue processing:', err))
+    }
+
+    const successful = jobsCreated
+    const skipped = results.filter(r => r.skipped).length
+    const failed = results.filter(r => !r.success).length
+
+    console.log(`[INFO] Scheduled check completed: ${successful} jobs created, ${skipped} skipped, ${failed} failed`)
 
     return new Response(
       JSON.stringify({
@@ -167,7 +197,7 @@ Deno.serve(async (req) => {
         skipped,
         failed,
         currentTime,
-        details: results.map(r => r.status === 'fulfilled' ? r.value : { error: r.reason })
+        details: results
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

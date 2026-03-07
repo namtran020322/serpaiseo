@@ -8,6 +8,9 @@ const corsHeaders = {
 // Process max 10 keywords per invocation to stay within timeout
 const BATCH_SIZE = 10
 
+// Safety limit to prevent infinite self-invoke loops
+const MAX_CONTINUATIONS = 100
+
 // Calculate credits needed for a check
 function calculateCreditsNeeded(topResults: number, keywordCount: number): number {
   const creditsPerKeyword = Math.ceil(topResults / 10)
@@ -24,16 +27,45 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Get next pending or processing job
-    const { data: job, error: jobError } = await supabase
-      .from('ranking_check_queue')
-      .select('*')
-      .in('status', ['pending', 'processing'])
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .single()
+    // Parse optional continuation counter from request body
+    let continuation = 0
+    try {
+      const body = await req.json()
+      continuation = body.continuation || 0
+    } catch {
+      // No body is fine for initial invocation
+    }
 
-    if (jobError || !job) {
+    // Safety check: prevent infinite continuation loops
+    if (continuation >= MAX_CONTINUATIONS) {
+      console.log(`[INFO] Max continuations (${MAX_CONTINUATIONS}) reached, stopping`)
+      return new Response(
+        JSON.stringify({ message: 'Max continuations reached' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Reset any stale jobs (stuck in processing for >10 minutes)
+    const { data: resetCount } = await supabase.rpc('reset_stale_queue_jobs')
+    if (resetCount && resetCount > 0) {
+      console.log(`[INFO] Reset ${resetCount} stale jobs`)
+    }
+
+    // Atomically claim the next job (round-robin by updated_at)
+    const { data: claimedJobs, error: claimError } = await supabase.rpc('claim_next_queue_job')
+
+    if (claimError) {
+      console.error('[ERROR] Failed to claim job:', claimError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to claim job' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // RPC with RETURNS SETOF returns an array
+    const job = claimedJobs?.[0] || null
+
+    if (!job) {
       console.log('[INFO] No jobs in queue')
       return new Response(
         JSON.stringify({ message: 'No jobs to process' }),
@@ -41,18 +73,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log(`[INFO] Processing job ${job.id} for class ${job.class_id}`)
-
-    // If pending, mark as processing
-    if (job.status === 'pending') {
-      await supabase
-        .from('ranking_check_queue')
-        .update({ 
-          status: 'processing', 
-          started_at: new Date().toISOString() 
-        })
-        .eq('id', job.id)
-    }
+    console.log(`[INFO] Processing job ${job.id} for class ${job.class_id} (continuation: ${continuation})`)
 
     // Get class details
     const { data: classData, error: classError } = await supabase
@@ -65,10 +86,11 @@ Deno.serve(async (req) => {
       console.error('[ERROR] Class not found:', job.class_id)
       await supabase
         .from('ranking_check_queue')
-        .update({ 
-          status: 'failed', 
+        .update({
+          status: 'failed',
           error_message: 'Class not found',
-          completed_at: new Date().toISOString()
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .eq('id', job.id)
       return new Response(
@@ -94,9 +116,10 @@ Deno.serve(async (req) => {
       console.log('[INFO] No keywords to process')
       await supabase
         .from('ranking_check_queue')
-        .update({ 
-          status: 'completed', 
-          completed_at: new Date().toISOString()
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .eq('id', job.id)
       return new Response(
@@ -113,9 +136,10 @@ Deno.serve(async (req) => {
       // All done
       await supabase
         .from('ranking_check_queue')
-        .update({ 
-          status: 'completed', 
-          completed_at: new Date().toISOString()
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .eq('id', job.id)
 
@@ -126,6 +150,10 @@ Deno.serve(async (req) => {
         .eq('id', job.class_id)
 
       console.log(`[INFO] Job ${job.id} completed`)
+
+      // Self-invoke to pick up the next pending job (if any)
+      selfInvoke(supabaseUrl, supabaseServiceKey, continuation)
+
       return new Response(
         JSON.stringify({ message: 'Job completed', job_id: job.id }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -145,12 +173,17 @@ Deno.serve(async (req) => {
       console.log(`[INFO] Insufficient credits for job ${job.id}`)
       await supabase
         .from('ranking_check_queue')
-        .update({ 
-          status: 'failed', 
+        .update({
+          status: 'failed',
           error_message: `Insufficient credits (need ${creditsNeeded}, have ${currentBalance})`,
-          completed_at: new Date().toISOString()
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .eq('id', job.id)
+
+      // Self-invoke to pick up the next job (other users may have credits)
+      selfInvoke(supabaseUrl, supabaseServiceKey, continuation)
+
       return new Response(
         JSON.stringify({ error: 'Insufficient credits' }),
         { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -158,7 +191,6 @@ Deno.serve(async (req) => {
     }
 
     // Call check-project-keywords for this batch
-    // Include userId for internal service-role auth
     const functionUrl = `${supabaseUrl}/functions/v1/check-project-keywords`
     const checkResponse = await fetch(functionUrl, {
       method: 'POST',
@@ -166,17 +198,24 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${supabaseServiceKey}`,
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         classId: job.class_id,
         keywordIds: remainingKeywords.map(k => k.id),
-        userId: job.user_id  // Pass userId for service role auth
+        userId: job.user_id
       }),
     })
 
     if (!checkResponse.ok) {
       const errorText = await checkResponse.text()
       console.error(`[ERROR] Check failed:`, errorText)
-      // Don't fail job, let it retry
+      // Update updated_at to prevent stale detection while waiting for retry
+      await supabase
+        .from('ranking_check_queue')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', job.id)
+      // Self-invoke with longer delay (5s) to retry and process other pending jobs
+      // The claim function will pick a different job first (round-robin by updated_at)
+      selfInvoke(supabaseUrl, supabaseServiceKey, continuation, 5000)
       return new Response(
         JSON.stringify({ error: 'Check failed, will retry' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -189,10 +228,11 @@ Deno.serve(async (req) => {
 
     await supabase
       .from('ranking_check_queue')
-      .update({ 
+      .update({
         processed_keywords: newProcessed,
         status: isComplete ? 'completed' : 'processing',
-        completed_at: isComplete ? new Date().toISOString() : null
+        completed_at: isComplete ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString()
       })
       .eq('id', job.id)
 
@@ -202,9 +242,14 @@ Deno.serve(async (req) => {
         .from('project_classes')
         .update({ last_checked_at: new Date().toISOString() })
         .eq('id', job.class_id)
+
+      console.log(`[INFO] Job ${job.id} completed`)
+    } else {
+      console.log(`[INFO] Job ${job.id} progress: ${newProcessed}/${allKeywords.length}`)
     }
 
-    console.log(`[INFO] Job ${job.id} progress: ${newProcessed}/${allKeywords.length}`)
+    // Self-invoke to continue (next batch of same job or next job via round-robin)
+    selfInvoke(supabaseUrl, supabaseServiceKey, continuation)
 
     return new Response(
       JSON.stringify({
@@ -224,3 +269,22 @@ Deno.serve(async (req) => {
     )
   }
 })
+
+/**
+ * Non-blocking self-invoke to continue processing.
+ * Uses setTimeout to avoid blocking the current response.
+ * The claim_next_queue_job() RPC handles round-robin scheduling.
+ * @param delayMs - Delay before invoking. Default 100ms. Use longer delay (e.g. 5000ms) for error retries.
+ */
+function selfInvoke(supabaseUrl: string, supabaseServiceKey: string, continuation: number, delayMs = 100) {
+  setTimeout(() => {
+    fetch(`${supabaseUrl}/functions/v1/process-ranking-queue`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({ continuation: continuation + 1 }),
+    }).catch(err => console.error('[ERROR] Self-invoke failed:', err))
+  }, delayMs)
+}

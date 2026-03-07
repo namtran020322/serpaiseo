@@ -17,9 +17,9 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
     origin.endsWith('.lovable.app') ||
     origin.endsWith('.lovableproject.com')
   )
-  
+
   const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0]
-  
+
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -110,7 +110,7 @@ function checkApiError(xmlText: string): { code: string; message: string; retrya
       retryable: errorInfo?.retryable ?? false
     }
   }
-  
+
   const simpleErrorMatch = xmlText.match(/<error>([\s\S]*?)<\/error>/i)
   if (simpleErrorMatch) {
     return {
@@ -119,7 +119,7 @@ function checkApiError(xmlText: string): { code: string; message: string; retrya
       retryable: false
     }
   }
-  
+
   return null
 }
 
@@ -139,39 +139,39 @@ function cleanText(text: string): string {
 // Parse XML results from SERP API
 function parseXmlResults(xmlText: string, startPosition: number): SerpResult[] {
   const results: SerpResult[] = []
-  
+
   const errorInfo = checkApiError(xmlText)
   if (errorInfo) {
     throw new Error(errorInfo.message)
   }
-  
+
   const docRegex = /<doc>([\s\S]*?)<\/doc>/gi
   let docMatch
   let position = startPosition
-  
+
   while ((docMatch = docRegex.exec(xmlText)) !== null) {
     const docContent = docMatch[1]
-    
+
     const contenttypeMatch = docContent.match(/<contenttype>\s*([\s\S]*?)\s*<\/contenttype>/i)
     const contenttype = contenttypeMatch ? contenttypeMatch[1].trim().toLowerCase() : ''
-    
+
     if (contenttype !== 'organic') {
       continue
     }
-    
+
     const urlMatch = docContent.match(/<url>\s*([\s\S]*?)\s*<\/url>/i)
     if (!urlMatch) continue
     const url = urlMatch[1].trim()
-    
+
     const titleMatch = docContent.match(/<title>\s*([\s\S]*?)\s*<\/title>/i)
     const title = cleanText(titleMatch ? titleMatch[1] : '')
-    
+
     const passageMatch = docContent.match(/<passage>\s*([\s\S]*?)\s*<\/passage>/i)
     const description = cleanText(passageMatch ? passageMatch[1] : '')
-    
+
     const breadcrumbMatch = docContent.match(/<breadcrumbs>\s*([\s\S]*?)\s*<\/breadcrumbs>/i)
     const breadcrumbs = breadcrumbMatch ? breadcrumbMatch[1].trim() : ''
-    
+
     results.push({
       position: position,
       title,
@@ -179,10 +179,10 @@ function parseXmlResults(xmlText: string, startPosition: number): SerpResult[] {
       description,
       breadcrumbs
     })
-    
+
     position++
   }
-  
+
   return results
 }
 
@@ -206,19 +206,19 @@ function findTargetRanking(results: SerpResult[], targetUrl: string): { position
   if (!targetUrl || targetUrl.trim() === '') {
     return { position: null, foundUrl: null }
   }
-  
+
   const targetDomain = normalizeForComparison(targetUrl)
-  
+
   for (const result of results) {
     const resultDomain = normalizeForComparison(result.url)
-    
-    if (resultDomain === targetDomain || 
-        resultDomain.includes(targetDomain) || 
-        targetDomain.includes(resultDomain)) {
+
+    if (resultDomain === targetDomain ||
+      resultDomain.includes(targetDomain) ||
+      targetDomain.includes(resultDomain)) {
       return { position: result.position, foundUrl: result.url }
     }
   }
-  
+
   return { position: null, foundUrl: null }
 }
 
@@ -226,7 +226,7 @@ function findTargetRanking(results: SerpResult[], targetUrl: string): { position
 async function fetchWithTimeout(url: string, timeoutMs: number = 90000): Promise<Response> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-  
+
   try {
     const response = await fetch(url, { signal: controller.signal })
     clearTimeout(timeoutId)
@@ -243,22 +243,22 @@ async function fetchWithTimeout(url: string, timeoutMs: number = 90000): Promise
 
 // Fetch with retry for retryable errors
 async function fetchWithRetry(
-  url: string, 
-  maxRetries: number = 3, 
+  url: string,
+  maxRetries: number = 3,
   baseDelay: number = 1000
 ): Promise<{ response: Response; text: string }> {
   let lastError: Error | null = null
-  
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await fetchWithTimeout(url, 90000)
-      
+
       if (!response.ok) {
         throw new Error(`API error: HTTP ${response.status}`)
       }
-      
+
       const text = await response.text()
-      
+
       // Check for API error in response
       const errorInfo = checkApiError(text)
       if (errorInfo) {
@@ -270,11 +270,11 @@ async function fetchWithRetry(
         }
         throw new Error(errorInfo.message)
       }
-      
+
       return { response, text }
     } catch (err) {
       lastError = err as Error
-      
+
       // Network errors are retryable
       if (attempt < maxRetries - 1 && !lastError.message.includes('API')) {
         const delay = baseDelay * Math.pow(2, attempt)
@@ -284,7 +284,7 @@ async function fetchWithRetry(
       }
     }
   }
-  
+
   throw lastError || new Error('Request failed after retries')
 }
 
@@ -352,13 +352,13 @@ async function processBatch<T, R>(
   concurrency: number
 ): Promise<(R | null)[]> {
   const results: (R | null)[] = []
-  
+
   for (let i = 0; i < items.length; i += concurrency) {
     const batch = items.slice(i, i + concurrency)
     const batchResults = await Promise.allSettled(
       batch.map(item => processor(item))
     )
-    
+
     for (const result of batchResults) {
       if (result.status === 'fulfilled') {
         results.push(result.value)
@@ -367,13 +367,13 @@ async function processBatch<T, R>(
         console.error(`[ERROR] Batch item failed`)
       }
     }
-    
+
     // Delay between batches to avoid rate limiting
     if (i + concurrency < items.length) {
       await new Promise(resolve => setTimeout(resolve, 500))
     }
   }
-  
+
   return results
 }
 
@@ -397,14 +397,14 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
-    
+
     const token = authHeader.replace('Bearer ', '')
-    
+
     // Service client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
-    
+
     let userId: string
-    
+
     // Check if this is a service role call (internal from process-ranking-queue)
     if (token === supabaseServiceKey) {
       // Internal call - userId must be provided in body
@@ -416,14 +416,14 @@ Deno.serve(async (req) => {
         )
       }
       userId = body.userId
-      // Restore request body for later parsing
-      ;(req as any)._parsedBody = body
+        // Restore request body for later parsing
+        ; (req as any)._parsedBody = body
     } else {
       // User JWT call - validate token
       const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } }
       })
-      
+
       const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getUser(token)
       if (claimsError || !claimsData?.user) {
         return new Response(
@@ -489,7 +489,7 @@ Deno.serve(async (req) => {
 
     // Fetch class(es) to process
     let classesToProcess: any[] = []
-    
+
     if (classId) {
       const { data: cls, error: clsError } = await supabase
         .from('project_classes')
@@ -497,7 +497,7 @@ Deno.serve(async (req) => {
         .eq('id', classId)
         .eq('user_id', userId)
         .single()
-      
+
       if (clsError || !cls) {
         return new Response(
           JSON.stringify({ error: 'Class not found' }),
@@ -518,7 +518,7 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('project_id', projectId)
         .eq('user_id', userId)
-      
+
       if (classesError) {
         console.error('[ERROR] Failed to fetch classes')
         return new Response(
@@ -537,22 +537,22 @@ Deno.serve(async (req) => {
     // Calculate total credits needed
     let totalKeywordsCount = 0
     let totalCreditsNeeded = 0
-    
+
     for (const cls of classesToProcess) {
       let keywordsQuery = supabase
         .from('project_keywords')
         .select('id', { count: 'exact' })
         .eq('class_id', cls.id)
         .eq('user_id', userId)
-      
+
       if (keywordIds && keywordIds.length > 0) {
         keywordsQuery = keywordsQuery.in('id', keywordIds)
       }
-      
+
       const { count } = await keywordsQuery
       const keywordCount = count || 0
       const creditsPerKeyword = Math.ceil(cls.top_results / 10)
-      
+
       totalKeywordsCount += keywordCount
       totalCreditsNeeded += keywordCount * creditsPerKeyword
     }
@@ -635,27 +635,27 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('class_id', cls.id)
         .eq('user_id', userId)
-      
+
       if (keywordIds && keywordIds.length > 0) {
         keywordsQuery = keywordsQuery.in('id', keywordIds)
       }
 
       const { data: keywords, error: kwError } = await keywordsQuery
-      
+
       if (kwError) {
         console.error(`[ERROR] Failed to fetch keywords for class ${cls.id}`)
         continue
       }
 
       const competitorDomains = (cls.competitor_domains as string[]) || []
-      
+
       console.log(`[INFO] Class ${cls.name}: Processing ${keywords?.length || 0} keywords`)
 
       // Process keywords in batches with concurrent limit
       const processKeyword = async (kw: any): Promise<{ found: boolean; processed: boolean }> => {
         try {
           console.log(`[INFO] Checking keyword: "${kw.keyword}"`)
-          
+
           // Fetch SERP results
           const results = await fetchSerpResults(
             kw.keyword,
@@ -680,20 +680,20 @@ Deno.serve(async (req) => {
             best_position: number | null;
             previous_position: number | null;
           }> = {}
-          
+
           for (const compDomain of competitorDomains) {
             const { position: compPosition, foundUrl: compUrl } = findTargetRanking(results, compDomain)
-            
+
             const existingData = existingCompRankings[compDomain]
             const existingPos = typeof existingData === 'object' ? existingData?.position : existingData
             const existingFirst = typeof existingData === 'object' ? existingData?.first_position : null
             const existingBest = typeof existingData === 'object' ? existingData?.best_position : null
-            
+
             competitorRankings[compDomain] = {
               position: compPosition,
               url: compUrl,
               first_position: existingFirst ?? compPosition,
-              best_position: compPosition !== null 
+              best_position: compPosition !== null
                 ? (existingBest !== null ? Math.min(existingBest, compPosition) : compPosition)
                 : existingBest,
               previous_position: existingPos ?? null
@@ -750,7 +750,7 @@ Deno.serve(async (req) => {
 
       // Process keywords with concurrent limit
       const results = await processBatch(keywords || [], processKeyword, CONCURRENT_LIMIT)
-      
+
       for (const result of results) {
         if (result?.processed) {
           totalProcessed++

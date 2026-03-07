@@ -53,9 +53,9 @@ export default function Billing() {
 
   const handlePurchase = async (packageId: string) => {
     if (!user) return;
-    
+
     setPurchaseLoading(packageId);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('create-sepay-order', {
         body: { package_id: packageId },
@@ -69,14 +69,14 @@ export default function Billing() {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = data.checkout_action;
-        
+
         // Thêm fields theo đúng thứ tự SePay yêu cầu
         const fieldOrder = [
           'merchant', 'currency', 'order_amount', 'operation',
           'order_description', 'order_invoice_number',
           'success_url', 'error_url', 'cancel_url', 'signature'
         ];
-        
+
         fieldOrder.forEach(key => {
           if (data.form_data[key]) {
             const input = document.createElement('input');
@@ -86,7 +86,7 @@ export default function Billing() {
             form.appendChild(input);
           }
         });
-        
+
         document.body.appendChild(form);
         form.submit(); // Redirect toàn trang đến SePay checkout
       } else {
@@ -131,7 +131,7 @@ export default function Billing() {
       { icon: RefreshCw, text: "Auto-check scheduling" },
       { icon: Shield, text: "SERP data accuracy" },
     ];
-    
+
     return baseFeatures;
   };
 
@@ -196,15 +196,15 @@ export default function Billing() {
           <h2 className="text-2xl font-bold mb-2">Choose Your Plan</h2>
           <p className="text-muted-foreground">Select the perfect plan for your SEO tracking needs</p>
         </div>
-        
+
         <div className="grid gap-6 lg:grid-cols-3">
           {PRICING_PACKAGES.map((pkg) => {
             const isCurrentTier = currentTier === pkg.id;
             const isPro = pkg.popular;
-            
+
             return (
-              <Card 
-                key={pkg.id} 
+              <Card
+                key={pkg.id}
                 className={cn(
                   "relative flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl",
                   isPro && "border-2 border-primary shadow-lg scale-[1.02]",
@@ -219,7 +219,7 @@ export default function Billing() {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Current Tier Badge */}
                 {isCurrentTier && (
                   <div className="absolute top-0 left-0">
@@ -228,18 +228,18 @@ export default function Billing() {
                     </div>
                   </div>
                 )}
-                
+
                 <CardHeader className={cn(
                   "text-center pb-4 pt-8",
                   isPro && "bg-gradient-to-br from-primary/5 to-primary/10"
                 )}>
                   <CardTitle className="text-xl font-bold">{pkg.name}</CardTitle>
-                  
+
                   {/* Price */}
                   <div className="mt-4">
                     <span className="text-4xl font-extrabold">{formatVND(pkg.price)}</span>
                   </div>
-                  
+
                   {/* Credits Highlight */}
                   <div className={cn(
                     "mt-4 py-3 px-4 rounded-lg",
@@ -253,13 +253,13 @@ export default function Billing() {
                       credits
                     </div>
                   </div>
-                  
+
                   {/* Price per credit */}
                   <p className="text-sm text-muted-foreground mt-2">
                     ~{pkg.pricePerCredit.toFixed(1)}đ per credit
                   </p>
                 </CardHeader>
-                
+
                 <CardContent className="flex-1 pt-4">
                   {/* Features List */}
                   <ul className="space-y-3">
@@ -270,7 +270,7 @@ export default function Billing() {
                         Up to <strong className="text-primary">{pkg.maxCompetitors}</strong> competitors per class
                       </span>
                     </li>
-                    
+
                     {getFeatures(pkg.id).map((feature, idx) => (
                       <li key={idx} className="flex items-center gap-3">
                         <feature.icon className="h-4 w-4 text-green-500 shrink-0" />
@@ -279,9 +279,9 @@ export default function Billing() {
                     ))}
                   </ul>
                 </CardContent>
-                
+
                 <CardFooter className="pt-4 pb-6">
-                  <Button 
+                  <Button
                     className={cn(
                       "w-full h-12 text-base font-semibold",
                       isPro && "bg-primary hover:bg-primary/90"
@@ -345,7 +345,7 @@ export default function Billing() {
           <TabsTrigger value="transactions">Transaction History</TabsTrigger>
           <TabsTrigger value="orders">Order History</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="transactions">
           <Card>
             <CardHeader>
