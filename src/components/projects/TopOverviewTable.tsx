@@ -69,8 +69,8 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
     <div className="flex flex-col gap-4">
       {/* Box 1 — Header */}
       <div className="rounded-2xl bg-slate-50 dark:bg-slate-900 p-8">
-        <h2 className="text-[28px] font-bold tracking-tight">Domain Comparison</h2>
-        <p className="text-[17px] text-muted-foreground mt-1">Your domain vs competitors</p>
+        <h2 className="text-2xl font-bold tracking-tight">Domain Comparison</h2>
+        <p className="text-sm text-muted-foreground mt-1">Your domain vs competitors</p>
       </div>
 
       {/* Box 2 — Table */}

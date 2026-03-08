@@ -90,7 +90,7 @@ export default function ProjectDetail() {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
             </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
               <DomainWithFavicon domain={project.domain} showFullDomain />
@@ -133,7 +133,7 @@ export default function ProjectDetail() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Classes</h2>
+            <h2 className="text-lg font-semibold">Classes</h2>
             <p className="text-sm text-muted-foreground">Click on a class to view detailed keyword rankings</p>
           </div>
           <AddClassDialog projectId={projectId!} projectDomain={project.domain} />
