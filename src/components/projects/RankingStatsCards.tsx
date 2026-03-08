@@ -50,6 +50,15 @@ export function RankingStatsCards({ stats, activeTier, onTierClick, historyDate 
     }
   };
 
+  const getValueColor = (key: string): string => {
+    switch (key) {
+      case "top3": return "text-emerald-600 dark:text-emerald-400";
+      case "top10": return "text-blue-600 dark:text-blue-400";
+      case "top30": return "text-amber-600 dark:text-amber-400";
+      default: return "";
+    }
+  };
+
   const handleCardClick = (key: string) => {
     if (!onTierClick) return;
     onTierClick(activeTier === key ? null : key);
@@ -81,7 +90,7 @@ export function RankingStatsCards({ stats, activeTier, onTierClick, historyDate 
             <Card 
               key={card.key}
               className={cn(
-                "transition-all duration-200",
+                "transition-all duration-200 bg-slate-50 dark:bg-slate-900",
                 isClickable && "cursor-pointer hover:border-primary/50 hover:shadow-sm",
                 isActive && "ring-2 ring-primary border-primary"
               )}
@@ -94,7 +103,7 @@ export function RankingStatsCards({ stats, activeTier, onTierClick, historyDate 
                   
                   {/* Row 2: Value + Percentage Badge */}
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold">{card.value}</span>
+                    <span className={cn("text-3xl font-bold", getValueColor(card.key))}>{card.value}</span>
                     {!isTotal && (
                       <Badge 
                         variant="secondary" 

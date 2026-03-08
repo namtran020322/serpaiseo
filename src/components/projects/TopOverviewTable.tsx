@@ -89,7 +89,7 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
               <tbody>
                 {/* User domain rows — sticky below header */}
                 {userDomainEntries.map(([domain, stats]) => (
-                  <tr key={domain} className="sticky top-10 z-10 bg-primary/5 border-b">
+                  <tr key={domain} className="sticky top-10 z-10 bg-blue-50 dark:bg-blue-950 border-b">
                     <td className="p-4 align-middle font-medium">
                       <DomainWithFavicon domain={domain} maxLength={25} />
                     </td>
