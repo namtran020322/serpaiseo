@@ -100,17 +100,13 @@ export function RankingHistoryChart({
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-8 w-48" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-[300px] w-full" />
-        </CardContent>
-      </Card>
+      <div className="bg-muted/50 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-8 w-48" />
+        </div>
+        <Skeleton className="h-[300px] w-full" />
+      </div>
     );
   }
 
