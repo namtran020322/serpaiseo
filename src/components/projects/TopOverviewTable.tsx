@@ -1,8 +1,5 @@
-import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { ChevronDown } from "lucide-react";
 import { ProjectClassWithKeywords } from "@/hooks/useProjects";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 
@@ -11,14 +8,15 @@ interface TopOverviewTableProps {
 }
 
 export function TopOverviewTable({ classes }: TopOverviewTableProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  
   // Collect all unique domains (user domains + competitor domains)
   const domainStats = new Map<string, { top3: number; top10: number; top30: number; top100: number; notFound: number; total: number }>();
 
+  // Track user domains
+  const userDomains = new Set<string>();
+
   classes.forEach((cls) => {
-    // Add user domain stats
     const userDomain = cls.domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+    userDomains.add(userDomain);
     if (!domainStats.has(userDomain)) {
       domainStats.set(userDomain, { top3: 0, top10: 0, top30: 0, top100: 0, notFound: 0, total: 0 });
     }
@@ -30,11 +28,9 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
     userStats.notFound += cls.rankingStats.notFound;
     userStats.total += cls.rankingStats.total;
 
-    // Process competitor rankings from keywords
     cls.keywords.forEach((kw) => {
       if (kw.competitor_rankings) {
         Object.entries(kw.competitor_rankings).forEach(([compDomain, data]) => {
-          // Support both old format (number) and new format (object with position)
           const position = typeof data === 'number' ? data : (data as any)?.position ?? null;
           
           if (!domainStats.has(compDomain)) {
@@ -62,26 +58,14 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
   });
 
   const sortedDomains = Array.from(domainStats.entries()).sort((a, b) => {
-    // Sort by weighted score (top3 matters more)
     const scoreA = a[1].top3 * 4 + a[1].top10 * 3 + a[1].top30 * 2 + a[1].top100;
     const scoreB = b[1].top3 * 4 + b[1].top10 * 3 + b[1].top30 * 2 + b[1].top100;
     return scoreB - scoreA;
   });
 
-  const visibleDomains = sortedDomains.slice(0, 5);
-  const hiddenDomains = sortedDomains.slice(5);
-
-  const renderDomainRow = ([domain, stats]: [string, { top3: number; top10: number; top30: number; top100: number }], index: number, isFirst: boolean = false) => (
-    <TableRow key={domain} className={isFirst && index === 0 ? "bg-primary/5" : ""}>
-      <TableCell className="font-medium">
-        <DomainWithFavicon domain={domain} maxLength={25} />
-      </TableCell>
-      <TableCell className="text-center text-emerald-600 font-medium">{stats.top3}</TableCell>
-      <TableCell className="text-center text-blue-600 font-medium">{stats.top10}</TableCell>
-      <TableCell className="text-center text-amber-600 font-medium">{stats.top30}</TableCell>
-      <TableCell className="text-center text-orange-600 font-medium">{stats.top100}</TableCell>
-    </TableRow>
-  );
+  // Separate user domain(s) from competitors
+  const userDomainEntries = sortedDomains.filter(([domain]) => userDomains.has(domain));
+  const competitorEntries = sortedDomains.filter(([domain]) => !userDomains.has(domain));
 
   return (
     <Card>
@@ -91,34 +75,44 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
       </CardHeader>
       <CardContent>
         {sortedDomains.length > 0 ? (
-          <div className="space-y-2">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Domain</TableHead>
-                  <TableHead className="text-center w-20 whitespace-nowrap">1-3</TableHead>
-                  <TableHead className="text-center w-20 whitespace-nowrap">4-10</TableHead>
-                  <TableHead className="text-center w-20 whitespace-nowrap">11-30</TableHead>
-                  <TableHead className="text-center w-20 whitespace-nowrap">31-100</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleDomains.map((entry, index) => renderDomainRow(entry, index, true))}
-                {isExpanded && hiddenDomains.map((entry, index) => renderDomainRow(entry, index))}
-              </TableBody>
-            </Table>
-            
-            {hiddenDomains.length > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="w-full"
-                onClick={() => setIsExpanded(!isExpanded)}
-              >
-                {isExpanded ? "Show less" : `Show ${hiddenDomains.length} more domains`}
-                <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-              </Button>
-            )}
+          <div className="relative max-h-[280px] overflow-y-auto rounded-md border">
+            <table className="w-full caption-bottom text-sm">
+              <thead className="sticky top-0 z-20 bg-background border-b">
+                <tr>
+                  <th className="h-10 px-4 text-left align-middle font-medium text-muted-foreground">Domain</th>
+                  <th className="h-10 px-4 text-center align-middle font-medium text-muted-foreground w-20 whitespace-nowrap">1-3</th>
+                  <th className="h-10 px-4 text-center align-middle font-medium text-muted-foreground w-20 whitespace-nowrap">4-10</th>
+                  <th className="h-10 px-4 text-center align-middle font-medium text-muted-foreground w-20 whitespace-nowrap">11-30</th>
+                  <th className="h-10 px-4 text-center align-middle font-medium text-muted-foreground w-20 whitespace-nowrap">31-100</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* User domain rows — sticky below header */}
+                {userDomainEntries.map(([domain, stats]) => (
+                  <tr key={domain} className="sticky top-10 z-10 bg-primary/5 border-b">
+                    <td className="p-4 align-middle font-medium">
+                      <DomainWithFavicon domain={domain} maxLength={25} />
+                    </td>
+                    <td className="p-4 align-middle text-center text-emerald-600 font-medium">{stats.top3}</td>
+                    <td className="p-4 align-middle text-center text-blue-600 font-medium">{stats.top10}</td>
+                    <td className="p-4 align-middle text-center text-amber-600 font-medium">{stats.top30}</td>
+                    <td className="p-4 align-middle text-center text-orange-600 font-medium">{stats.top100}</td>
+                  </tr>
+                ))}
+                {/* Competitor rows — scrollable */}
+                {competitorEntries.map(([domain, stats]) => (
+                  <tr key={domain} className="border-b last:border-0">
+                    <td className="p-4 align-middle font-medium">
+                      <DomainWithFavicon domain={domain} maxLength={25} />
+                    </td>
+                    <td className="p-4 align-middle text-center text-emerald-600 font-medium">{stats.top3}</td>
+                    <td className="p-4 align-middle text-center text-blue-600 font-medium">{stats.top10}</td>
+                    <td className="p-4 align-middle text-center text-amber-600 font-medium">{stats.top30}</td>
+                    <td className="p-4 align-middle text-center text-orange-600 font-medium">{stats.top100}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
           <div className="flex items-center justify-center h-[200px] text-muted-foreground">
