@@ -123,6 +123,12 @@ export function RankingDistributionChart({ stats, lastUpdatedAt }: RankingDistri
               ))}
             </div>
           </div>
+          <div className="mt-4 text-center">
+            <h3 className="text-lg font-bold">Distribution health</h3>
+            <p className="text-sm text-muted-foreground">
+              Updated {lastUpdatedAt ? formatDistanceToNow(new Date(lastUpdatedAt), { addSuffix: true }) : 'never'}
+            </p>
+          </div>
         ) : (
           <div className="flex items-center justify-center h-[200px] text-muted-foreground">
             No ranking data available
