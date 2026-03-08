@@ -320,7 +320,7 @@ export function ProjectsTable({ projects, onSearchChange }: ProjectsTableProps) 
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"} className="bg-background rounded-xl border-none hover:bg-accent/30 transition-colors">
                   {row.getVisibleCells().map((cell) => {
                     const columnSize = cell.column.columnDef.size;
                     return (
