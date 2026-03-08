@@ -24,7 +24,7 @@ export default function Projects() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
           <p className="text-muted-foreground mt-2">
             Manage your keyword tracking projects and classes
           </p>
@@ -46,7 +46,7 @@ export default function Projects() {
           <p className="text-sm text-muted-foreground">{(error as Error).message}</p>
         </div>
       ) : data && data.projects.length > 0 ? (
-        <>
+        <div className="bg-muted/50 rounded-2xl p-5">
           <ProjectsTable projects={data.projects} onSearchChange={handleSearchChange} />
           {/* Pagination */}
           {totalPages > 1 && (
@@ -77,7 +77,7 @@ export default function Projects() {
               </div>
             </div>
           )}
-        </>
+        </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
           <p className="text-muted-foreground">
