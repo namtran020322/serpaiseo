@@ -181,9 +181,9 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <Tabs defaultValue="general">
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="general">General</TabsTrigger>
-                <TabsTrigger value="search">Search Settings</TabsTrigger>
-                <TabsTrigger value="competitors">Competitors</TabsTrigger>
+                <TabsTrigger value="general" className="gap-1.5"><Settings2 className="h-4 w-4" />General</TabsTrigger>
+                <TabsTrigger value="search" className="gap-1.5"><Search className="h-4 w-4" />Search Settings</TabsTrigger>
+                <TabsTrigger value="competitors" className="gap-1.5"><Users className="h-4 w-4" />Competitors</TabsTrigger>
               </TabsList>
 
               <TabsContent value="general" className="space-y-4 pt-4">
