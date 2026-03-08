@@ -112,21 +112,17 @@ export function RankingHistoryChart({
 
   if (!historyData || historyData.data.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Ranking History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground">
-              No ranking history available yet.
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Rankings will be recorded each time you refresh.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="bg-muted/50 rounded-2xl p-6">
+        <h3 className="text-lg font-semibold mb-4">Ranking History</h3>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-muted-foreground">
+            No ranking history available yet.
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Rankings will be recorded each time you refresh.
+          </p>
+        </div>
+      </div>
     );
   }
 
