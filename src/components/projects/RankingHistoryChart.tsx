@@ -127,29 +127,27 @@ export function RankingHistoryChart({
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-lg">Ranking History</CardTitle>
-          <ToggleGroup
-            type="single"
-            value={timeRange}
-            onValueChange={(value) => value && setTimeRange(value as TimeRange)}
-            className="justify-start"
-          >
-            <ToggleGroupItem value="7d" aria-label="Last 7 days" size="sm">
-              7 days
-            </ToggleGroupItem>
-            <ToggleGroupItem value="30d" aria-label="Last 30 days" size="sm">
-              30 days
-            </ToggleGroupItem>
-            <ToggleGroupItem value="3m" aria-label="Last 3 months" size="sm">
-              3 months
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="bg-muted/50 rounded-2xl p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <h3 className="text-lg font-semibold">Ranking History</h3>
+        <ToggleGroup
+          type="single"
+          value={timeRange}
+          onValueChange={(value) => value && setTimeRange(value as TimeRange)}
+          className="justify-start"
+        >
+          <ToggleGroupItem value="7d" aria-label="Last 7 days" size="sm">
+            7 days
+          </ToggleGroupItem>
+          <ToggleGroupItem value="30d" aria-label="Last 30 days" size="sm">
+            30 days
+          </ToggleGroupItem>
+          <ToggleGroupItem value="3m" aria-label="Last 3 months" size="sm">
+            3 months
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+      <div className="space-y-4">
         {/* Domain visibility toggles */}
         <div className="flex flex-wrap gap-4">
           {historyData.domains.map((domainConfig: DomainConfig) => (
