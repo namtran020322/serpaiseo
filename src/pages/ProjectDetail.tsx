@@ -121,7 +121,7 @@ export default function ProjectDetail() {
           stats={aggregatedStats}
           lastUpdatedAt={
             project.classes.reduce<string | null>((latest, cls) => {
-              const t = cls.last_checked_at || cls.updated_at;
+              const t = cls.last_checked_at || cls.updated_at || cls.created_at;
               return !latest || t > latest ? t : latest;
             }, null)
           }
