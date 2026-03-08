@@ -1,259 +1,58 @@
 
 
-## Kế hoạch Thêm Cơ chế Chống Spam Refresh và Xác nhận Hành động Quan trọng
+## Review: Queue System Upgrade - Critical Issues Found
 
-### Phân tích Hiện trạng
+### Issue 1: Migration Did Not Apply (CRITICAL)
 
-**1. Nút Refresh Rankings:**
-- **ClassDetail.tsx (dòng 250):** Nút "Refresh Rankings" chỉ disable khi `addRankingJob.isPending` (chỉ trong thời gian ngắn khi gọi API)
-- **ClassRow.tsx (dòng 117):** Tương tự, chỉ disable khi `isChecking`
-- **ProjectRow.tsx (dòng 143):** Tương tự pattern
+The migration `20260307100000_queue_system_upgrade.sql` was **not applied** to the database. Evidence:
 
-**Vấn đề:** User có thể spam click liên tục vì nút chỉ bị disable trong ~1-2 giây. Nếu class đang có job running, user vẫn có thể tạo thêm job mới.
+- `ranking_check_queue` table is **missing the `updated_at` column**
+- Database functions `claim_next_queue_job()`, `reset_stale_queue_jobs()`, `cleanup_old_queue_jobs()` **do not exist**
+- Cron jobs for cleanup/stale recovery were **not created**
 
-**2. Xác nhận Xóa:**
-- **ClassRow.tsx (dòng 138-157):** Đã có AlertDialog xác nhận xóa Class
-- **ProjectRow.tsx (dòng 169-188):** Đã có AlertDialog xác nhận xóa Project
-- **KeywordsTable.tsx:** Xóa keyword KHÔNG có dialog xác nhận - xóa trực tiếp!
-- **ProjectsTable.tsx (dòng 246-251):** Xóa project (multi-select) KHÔNG có xác nhận!
+**Impact:** The rewritten `process-ranking-queue/index.ts` calls `supabase.rpc('claim_next_queue_job')` and `supabase.rpc('reset_stale_queue_jobs')` — both will return errors since these functions don't exist. Any new ranking jobs will **fail to process**.
+
+**Fix:** Run the migration SQL via the database migration tool to create the column, functions, and cron jobs.
 
 ---
 
-### Giải pháp Đề xuất
+### Issue 2: Stale Job Timeout (10 min) May Be Too Short
 
-#### 1. Chống Spam Refresh: Kiểm tra Task đang chạy
+`check-project-keywords` processes keywords in batches of 10 with XMLRiver. Each keyword can require up to 10 API pages (top 100), each with 90s timeout + 300ms delay. Worst case per keyword: ~15s. A batch of 10 keywords: ~150s (2.5 min).
 
-Sử dụng `TaskProgressContext` để kiểm tra class có đang trong hàng đợi không trước khi cho phép refresh.
+However, the queue processor only processes **one batch of 10 keywords per invocation** then self-invokes. So the 10-minute timeout per job is actually fine — each invocation takes 2-3 minutes max. Between invocations, `updated_at` is refreshed, resetting the stale timer.
 
-**Logic:**
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  User click "Refresh Rankings"                               │
-│       ↓                                                      │
-│  Check: tasks.find(t => t.classId === classId &&            │
-│         (t.status === 'pending' || t.status === 'processing'))│
-│       ↓                                                      │
-│  ├── Có task đang chạy → Disable button + Toast "Already     │
-│  │                       running"                            │
-│  │                                                           │
-│  └── Không có task → Cho phép refresh bình thường           │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Files cần sửa:**
-| File | Thay đổi |
-|------|----------|
-| `src/pages/ClassDetail.tsx` | Thêm logic kiểm tra task đang chạy cho nút Refresh |
-| `src/components/projects/ClassRow.tsx` | Thêm logic tương tự cho menu Refresh |
-| `src/components/projects/ProjectRow.tsx` | Thêm logic cho nút "Refresh All Classes" |
-
-**Chi tiết ClassDetail.tsx:**
-```typescript
-// Import thêm
-import { useTaskProgress } from "@/contexts/TaskProgressContext";
-
-// Trong component
-const { tasks } = useTaskProgress();
-
-// Check if class has running task
-const isClassRunning = tasks.some(
-  (t) => t.classId === classId && 
-         (t.status === "pending" || t.status === "processing")
-);
-
-// Disable button khi đang running
-<Button 
-  onClick={handleRefresh} 
-  disabled={addRankingJob.isPending || isViewingHistory || isClassRunning}
->
-  <RefreshCw className={`mr-2 h-4 w-4 ${isClassRunning ? "animate-spin" : ""}`} />
-  {isClassRunning ? "Checking..." : "Refresh Rankings"}
-</Button>
-```
+**Verdict:** 10 minutes is sufficient. No change needed.
 
 ---
 
-#### 2. Dialog Xác nhận cho Xóa Keyword
+### Issue 3: Error Recovery After Max Continuations
 
-Tạo component `ConfirmDeleteDialog` có thể tái sử dụng, hiển thị số lượng items sẽ bị xóa.
+If errors persist (e.g., XMLRiver down), self-invoke loops max 100 times × 5s = ~8 minutes then stops. Recovery paths:
 
-**Component mới: `src/components/projects/ConfirmDeleteDialog.tsx`**
+- **pg_cron `process-ranking-queue-job`** runs every minute — it will trigger a fresh invocation with `continuation: 0`, restarting the loop
+- **`reset_stale_queue_jobs`** (once the migration is applied) runs every 5 minutes and resets stuck processing jobs back to pending
 
-```typescript
-interface ConfirmDeleteDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  itemCount?: number;
-  itemType?: string; // "keyword", "project", "class"
-  onConfirm: () => void;
-  isLoading?: boolean;
-}
-```
-
-**Files cần sửa:**
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/projects/ConfirmDeleteDialog.tsx` | Tạo mới component |
-| `src/components/projects/KeywordsTable.tsx` | Thêm dialog xác nhận trước khi xóa keywords |
-| `src/components/projects/ProjectsTable.tsx` | Thêm dialog xác nhận trước khi xóa projects (multi-select) |
-| `src/components/ui/data-table-toolbar.tsx` | Truyền callback để hiển thị dialog thay vì xóa trực tiếp |
+**Verdict:** Adequate. The cron job provides the safety net.
 
 ---
 
-### Chi tiết Implementation
+### Issue 4: `selfInvoke` Uses `setTimeout` in Deno Edge Functions
 
-#### A. Component ConfirmDeleteDialog
+`setTimeout` inside `Deno.serve` may not execute after the response is returned — Deno edge functions can terminate the isolate once the response is sent. The `fetch` inside `setTimeout` may never fire.
 
-```typescript
-// src/components/projects/ConfirmDeleteDialog.tsx
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-
-interface ConfirmDeleteDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  itemCount?: number;
-  onConfirm: () => void;
-  isLoading?: boolean;
-}
-
-export function ConfirmDeleteDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  itemCount,
-  onConfirm,
-  isLoading,
-}: ConfirmDeleteDialogProps) {
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {description}
-            {itemCount && itemCount > 1 && (
-              <span className="block mt-2 font-medium text-foreground">
-                {itemCount} items will be deleted.
-              </span>
-            )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            disabled={isLoading}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            {isLoading ? "Deleting..." : "Delete"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-```
+**Fix:** Replace `setTimeout` with `await`-based delay before returning the response, or use fire-and-forget `fetch` without `setTimeout` wrapping.
 
 ---
 
-#### B. Sửa KeywordsTable.tsx
+### Plan
 
-```typescript
-// Thêm state cho dialog
-const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
-const [isDeleting, setIsDeleting] = useState(false);
+1. **Apply the missing migration** — create `updated_at` column, the 3 database functions, and 2 new cron jobs
+2. **Fix `selfInvoke`** — remove `setTimeout` wrapper, use direct fire-and-forget `fetch` (no await needed, but must happen before response)
+3. **Verify cron job for stale recovery** — ensure the 5-minute cleanup cron is created
 
-// Handler mới - mở dialog thay vì xóa trực tiếp
-const handleDeleteClick = (ids: string[]) => {
-  setPendingDeleteIds(ids);
-  setDeleteDialogOpen(true);
-};
-
-// Confirm handler
-const handleConfirmDelete = async () => {
-  if (!onDeleteKeywords) return;
-  setIsDeleting(true);
-  try {
-    await onDeleteKeywords(pendingDeleteIds);
-    setRowSelection({});
-  } finally {
-    setIsDeleting(false);
-    setDeleteDialogOpen(false);
-    setPendingDeleteIds([]);
-  }
-};
-
-// Trong toolbar - thay đổi callback
-<DataTableToolbar
-  ...
-  onDeleteSelected={onDeleteKeywords ? () => handleDeleteClick(selectedIds) : undefined}
-/>
-
-// Thêm dialog
-<ConfirmDeleteDialog
-  open={deleteDialogOpen}
-  onOpenChange={setDeleteDialogOpen}
-  title="Delete Keywords"
-  description="Are you sure you want to delete the selected keywords? This will also delete all ranking history associated with them. This action cannot be undone."
-  itemCount={pendingDeleteIds.length}
-  onConfirm={handleConfirmDelete}
-  isLoading={isDeleting}
-/>
-```
-
----
-
-#### C. Sửa ProjectsTable.tsx
-
-Tương tự pattern như KeywordsTable.
-
----
-
-#### D. Sửa ClassDetail.tsx, ClassRow.tsx, ProjectRow.tsx
-
-Thêm logic kiểm tra task đang chạy từ `TaskProgressContext`.
-
----
-
-### Tổng kết Files cần thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/projects/ConfirmDeleteDialog.tsx` | **Tạo mới** - Reusable confirm dialog |
-| `src/pages/ClassDetail.tsx` | Thêm kiểm tra `isClassRunning` để disable nút Refresh |
-| `src/components/projects/ClassRow.tsx` | Thêm kiểm tra task running + import TaskProgressContext |
-| `src/components/projects/ProjectRow.tsx` | Thêm kiểm tra any class running + import TaskProgressContext |
-| `src/components/projects/KeywordsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa keywords |
-| `src/components/projects/ProjectsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa projects |
-
----
-
-### Kết quả mong đợi
-
-**Chống Spam Refresh:**
-- Nút "Refresh Rankings" bị disable và hiển thị "Checking..." khi class đã có task trong queue
-- Icon RefreshCw quay liên tục để báo hiệu đang xử lý
-- User không thể tạo thêm job mới cho cùng một class
-
-**Xác nhận Xóa:**
-- Xóa keyword(s): Hiện dialog "Delete X keywords? This action cannot be undone."
-- Xóa project(s) từ multi-select: Hiện dialog tương tự
-- Dialog hiển thị số lượng items sẽ bị xóa
-- Button "Delete" chuyển thành "Deleting..." khi đang xử lý
+| File | Change |
+|------|--------|
+| Migration SQL | Run via migration tool |
+| `supabase/functions/process-ranking-queue/index.ts` | Fix `selfInvoke` to not use `setTimeout` |
 
