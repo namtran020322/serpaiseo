@@ -269,8 +269,8 @@ export default function ClassDetail() {
       {/* Stats & Chart Tabs */}
       <Tabs defaultValue="stats" className="w-full">
         <TabsList>
-          <TabsTrigger value="stats">Statistics</TabsTrigger>
-          <TabsTrigger value="chart">Ranking Chart</TabsTrigger>
+          <TabsTrigger value="stats" className="gap-1.5"><BarChart3 className="h-4 w-4" />Statistics</TabsTrigger>
+          <TabsTrigger value="chart" className="gap-1.5"><TrendingUp className="h-4 w-4" />Ranking Chart</TabsTrigger>
         </TabsList>
         <TabsContent value="stats" className="mt-4">
           <RankingStatsCards 

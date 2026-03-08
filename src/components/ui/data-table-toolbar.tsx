@@ -112,16 +112,28 @@ export function DataTableToolbar<TData>({
             {table
               .getAllColumns()
               .filter((column) => column.getCanHide())
-              .map((column) => (
-                <DropdownMenuCheckboxItem
-                  key={column.id}
-                  className="capitalize"
-                  checked={column.getIsVisible()}
-                  onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                >
-                  {column.id}
-                </DropdownMenuCheckboxItem>
-              ))}
+              .map((column) => {
+                const columnLabels: Record<string, string> = {
+                  ranking_position: "Ranking",
+                  first_position: "First Position",
+                  best_position: "Best Position",
+                  found_url: "URL",
+                  last_checked_at: "Last Checked",
+                  previous_position: "Previous",
+                  competitor_rankings: "Competitors",
+                  serp_results: "SERP Results",
+                };
+                const label = columnLabels[column.id] || column.id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                  >
+                    {label}
+                  </DropdownMenuCheckboxItem>
+                );
+              })}
           </DropdownMenuContent>
         </DropdownMenu>
         {onToggleSerpTitles !== undefined && (

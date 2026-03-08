@@ -342,8 +342,8 @@ export default function Billing() {
       {/* Transaction History */}
       <Tabs defaultValue="transactions">
         <TabsList>
-          <TabsTrigger value="transactions">Transaction History</TabsTrigger>
-          <TabsTrigger value="orders">Order History</TabsTrigger>
+          <TabsTrigger value="transactions" className="gap-1.5"><History className="h-4 w-4" />Transaction History</TabsTrigger>
+          <TabsTrigger value="orders" className="gap-1.5"><Receipt className="h-4 w-4" />Order History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="transactions">
