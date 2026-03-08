@@ -1,40 +1,259 @@
 
 
-## Plan: Apple Design cho Sidebar
+## Kế hoạch Thêm Cơ chế Chống Spam Refresh và Xác nhận Hành động Quan trọng
 
-Tham khảo hình Apple Music - giao diện sạch, tối giản, không border nặng, khoảng cách thoáng, typography rõ ràng.
+### Phân tích Hiện trạng
 
-### Changes to `AppSidebar.tsx`
+**1. Nút Refresh Rankings:**
+- **ClassDetail.tsx (dòng 250):** Nút "Refresh Rankings" chỉ disable khi `addRankingJob.isPending` (chỉ trong thời gian ngắn khi gọi API)
+- **ClassRow.tsx (dòng 117):** Tương tự, chỉ disable khi `isChecking`
+- **ProjectRow.tsx (dòng 143):** Tương tự pattern
 
-1. **Sidebar background**: Thêm prop để sidebar nền trắng tinh (`bg-white`) thay vì `bg-sidebar` xám nhạt hiện tại — giống Apple Music sidebar
-2. **Logo header**: Tăng padding, thêm khoảng cách dưới logo
-3. **Search button**: Style lại thành dạng pill nhẹ nhàng hơn — `rounded-xl bg-muted/50` không border, giống search bar Apple
-4. **Menu items**: 
-   - Bỏ `SidebarGroupLabel` ("Main Menu") — Apple không dùng label cho menu chính
-   - Menu item: `rounded-xl` thay vì `rounded-lg`, padding rộng hơn (`px-3 py-2.5`)
-   - Active state: `bg-accent` nhẹ nhàng, font-medium
-   - Icon size giữ `h-4 w-4`, text `text-[13px]` (Apple dùng font nhỏ hơn)
-5. **Footer user section**: 
-   - Bỏ `border-t` — Apple dùng khoảng cách thay vì đường kẻ
-   - Avatar nhỏ hơn (`h-8 w-8`), text compact hơn
-   - Dropdown trigger: icon nhẹ hơn, hover tinh tế
+**Vấn đề:** User có thể spam click liên tục vì nút chỉ bị disable trong ~1-2 giây. Nếu class đang có job running, user vẫn có thể tạo thêm job mới.
 
-### Changes to `SidebarSearch.tsx`
+**2. Xác nhận Xóa:**
+- **ClassRow.tsx (dòng 138-157):** Đã có AlertDialog xác nhận xóa Class
+- **ProjectRow.tsx (dòng 169-188):** Đã có AlertDialog xác nhận xóa Project
+- **KeywordsTable.tsx:** Xóa keyword KHÔNG có dialog xác nhận - xóa trực tiếp!
+- **ProjectsTable.tsx (dòng 246-251):** Xóa project (multi-select) KHÔNG có xác nhận!
 
-- Button style: `border-0 bg-muted/40 rounded-xl` — flat, không viền, bo góc mềm
-- Font size nhỏ hơn (`text-[13px]`)
-- Kbd badge nhẹ hơn
+---
 
-### Changes to `index.css`
+### Giải pháp Đề xuất
 
-- Update `--sidebar-background` thành `0 0% 100%` (trắng tinh) hoặc `0 0% 99%` (gần trắng)
-- Update `--sidebar-border` thành trong suốt hơn hoặc rất nhạt
+#### 1. Chống Spam Refresh: Kiểm tra Task đang chạy
 
-### Files to modify
+Sử dụng `TaskProgressContext` để kiểm tra class có đang trong hàng đợi không trước khi cho phép refresh.
 
-| File | Change |
-|------|--------|
-| `src/components/AppSidebar.tsx` | Restructure: bỏ group label, tăng spacing, rounded-xl items, bỏ border-t footer |
-| `src/components/SidebarSearch.tsx` | Flat search button, no border, rounded-xl |
-| `src/index.css` | Sidebar CSS variables: trắng hơn, border nhạt hơn |
+**Logic:**
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  User click "Refresh Rankings"                               │
+│       ↓                                                      │
+│  Check: tasks.find(t => t.classId === classId &&            │
+│         (t.status === 'pending' || t.status === 'processing'))│
+│       ↓                                                      │
+│  ├── Có task đang chạy → Disable button + Toast "Already     │
+│  │                       running"                            │
+│  │                                                           │
+│  └── Không có task → Cho phép refresh bình thường           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Files cần sửa:**
+| File | Thay đổi |
+|------|----------|
+| `src/pages/ClassDetail.tsx` | Thêm logic kiểm tra task đang chạy cho nút Refresh |
+| `src/components/projects/ClassRow.tsx` | Thêm logic tương tự cho menu Refresh |
+| `src/components/projects/ProjectRow.tsx` | Thêm logic cho nút "Refresh All Classes" |
+
+**Chi tiết ClassDetail.tsx:**
+```typescript
+// Import thêm
+import { useTaskProgress } from "@/contexts/TaskProgressContext";
+
+// Trong component
+const { tasks } = useTaskProgress();
+
+// Check if class has running task
+const isClassRunning = tasks.some(
+  (t) => t.classId === classId && 
+         (t.status === "pending" || t.status === "processing")
+);
+
+// Disable button khi đang running
+<Button 
+  onClick={handleRefresh} 
+  disabled={addRankingJob.isPending || isViewingHistory || isClassRunning}
+>
+  <RefreshCw className={`mr-2 h-4 w-4 ${isClassRunning ? "animate-spin" : ""}`} />
+  {isClassRunning ? "Checking..." : "Refresh Rankings"}
+</Button>
+```
+
+---
+
+#### 2. Dialog Xác nhận cho Xóa Keyword
+
+Tạo component `ConfirmDeleteDialog` có thể tái sử dụng, hiển thị số lượng items sẽ bị xóa.
+
+**Component mới: `src/components/projects/ConfirmDeleteDialog.tsx`**
+
+```typescript
+interface ConfirmDeleteDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  itemCount?: number;
+  itemType?: string; // "keyword", "project", "class"
+  onConfirm: () => void;
+  isLoading?: boolean;
+}
+```
+
+**Files cần sửa:**
+
+| File | Thay đổi |
+|------|----------|
+| `src/components/projects/ConfirmDeleteDialog.tsx` | Tạo mới component |
+| `src/components/projects/KeywordsTable.tsx` | Thêm dialog xác nhận trước khi xóa keywords |
+| `src/components/projects/ProjectsTable.tsx` | Thêm dialog xác nhận trước khi xóa projects (multi-select) |
+| `src/components/ui/data-table-toolbar.tsx` | Truyền callback để hiển thị dialog thay vì xóa trực tiếp |
+
+---
+
+### Chi tiết Implementation
+
+#### A. Component ConfirmDeleteDialog
+
+```typescript
+// src/components/projects/ConfirmDeleteDialog.tsx
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface ConfirmDeleteDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  itemCount?: number;
+  onConfirm: () => void;
+  isLoading?: boolean;
+}
+
+export function ConfirmDeleteDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  itemCount,
+  onConfirm,
+  isLoading,
+}: ConfirmDeleteDialogProps) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {description}
+            {itemCount && itemCount > 1 && (
+              <span className="block mt-2 font-medium text-foreground">
+                {itemCount} items will be deleted.
+              </span>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isLoading ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+```
+
+---
+
+#### B. Sửa KeywordsTable.tsx
+
+```typescript
+// Thêm state cho dialog
+const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+const [isDeleting, setIsDeleting] = useState(false);
+
+// Handler mới - mở dialog thay vì xóa trực tiếp
+const handleDeleteClick = (ids: string[]) => {
+  setPendingDeleteIds(ids);
+  setDeleteDialogOpen(true);
+};
+
+// Confirm handler
+const handleConfirmDelete = async () => {
+  if (!onDeleteKeywords) return;
+  setIsDeleting(true);
+  try {
+    await onDeleteKeywords(pendingDeleteIds);
+    setRowSelection({});
+  } finally {
+    setIsDeleting(false);
+    setDeleteDialogOpen(false);
+    setPendingDeleteIds([]);
+  }
+};
+
+// Trong toolbar - thay đổi callback
+<DataTableToolbar
+  ...
+  onDeleteSelected={onDeleteKeywords ? () => handleDeleteClick(selectedIds) : undefined}
+/>
+
+// Thêm dialog
+<ConfirmDeleteDialog
+  open={deleteDialogOpen}
+  onOpenChange={setDeleteDialogOpen}
+  title="Delete Keywords"
+  description="Are you sure you want to delete the selected keywords? This will also delete all ranking history associated with them. This action cannot be undone."
+  itemCount={pendingDeleteIds.length}
+  onConfirm={handleConfirmDelete}
+  isLoading={isDeleting}
+/>
+```
+
+---
+
+#### C. Sửa ProjectsTable.tsx
+
+Tương tự pattern như KeywordsTable.
+
+---
+
+#### D. Sửa ClassDetail.tsx, ClassRow.tsx, ProjectRow.tsx
+
+Thêm logic kiểm tra task đang chạy từ `TaskProgressContext`.
+
+---
+
+### Tổng kết Files cần thay đổi
+
+| File | Thay đổi |
+|------|----------|
+| `src/components/projects/ConfirmDeleteDialog.tsx` | **Tạo mới** - Reusable confirm dialog |
+| `src/pages/ClassDetail.tsx` | Thêm kiểm tra `isClassRunning` để disable nút Refresh |
+| `src/components/projects/ClassRow.tsx` | Thêm kiểm tra task running + import TaskProgressContext |
+| `src/components/projects/ProjectRow.tsx` | Thêm kiểm tra any class running + import TaskProgressContext |
+| `src/components/projects/KeywordsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa keywords |
+| `src/components/projects/ProjectsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa projects |
+
+---
+
+### Kết quả mong đợi
+
+**Chống Spam Refresh:**
+- Nút "Refresh Rankings" bị disable và hiển thị "Checking..." khi class đã có task trong queue
+- Icon RefreshCw quay liên tục để báo hiệu đang xử lý
+- User không thể tạo thêm job mới cho cùng một class
+
+**Xác nhận Xóa:**
+- Xóa keyword(s): Hiện dialog "Delete X keywords? This action cannot be undone."
+- Xóa project(s) từ multi-select: Hiện dialog tương tự
+- Dialog hiển thị số lượng items sẽ bị xóa
+- Button "Delete" chuyển thành "Deleting..." khi đang xử lý
 

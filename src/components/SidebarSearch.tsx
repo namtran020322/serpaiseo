@@ -9,7 +9,6 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
-import { Button } from "@/components/ui/button";
 import { useProjects } from "@/hooks/useProjects";
 
 export function SidebarSearch() {
@@ -36,17 +35,16 @@ export function SidebarSearch() {
 
   return (
     <>
-      <Button
-        variant="outline"
-        className="w-full justify-start text-muted-foreground bg-sidebar-accent/30 border-sidebar-border hover:bg-sidebar-accent/50"
+      <button
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-muted-foreground bg-muted/40 rounded-xl border-0 hover:bg-muted/60 transition-colors cursor-pointer"
         onClick={() => setOpen(true)}
       >
-        <Search className="mr-2 h-4 w-4" />
+        <Search className="h-3.5 w-3.5" />
         <span className="flex-1 text-left">Search...</span>
-        <kbd className="pointer-events-none text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+        <kbd className="pointer-events-none text-[10px] font-medium text-muted-foreground/60 bg-background/60 px-1.5 py-0.5 rounded-md">
           ⌘K
         </kbd>
-      </Button>
+      </button>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder="Search projects, classes, pages..." />
