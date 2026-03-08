@@ -60,7 +60,7 @@ export function RankingDistributionChart({ stats, lastUpdatedAt }: RankingDistri
       <CardContent>
         {data.length > 0 ? (
           <>
-            <div className="flex items-start gap-6">
+            <div className="flex items-center gap-6">
               {/* Chart column with health text below */}
               <div className="flex flex-col items-center flex-1 min-w-0">
                 <ChartContainer config={chartConfig} className="aspect-square h-[280px] w-full">

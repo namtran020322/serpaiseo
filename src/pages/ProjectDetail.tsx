@@ -133,7 +133,7 @@ export default function ProjectDetail() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Classes</h2>
+            <h2 className="text-lg font-semibold">Classes</h2>
             <p className="text-sm text-muted-foreground">Click on a class to view detailed keyword rankings</p>
           </div>
           <AddClassDialog projectId={projectId!} projectDomain={project.domain} />
