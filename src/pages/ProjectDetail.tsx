@@ -90,7 +90,7 @@ export default function ProjectDetail() {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
             </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
               <DomainWithFavicon domain={project.domain} showFullDomain />
