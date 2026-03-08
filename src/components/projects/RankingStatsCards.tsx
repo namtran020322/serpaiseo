@@ -13,9 +13,8 @@ interface RankingStatsCardsProps {
 }
 
 export function RankingStatsCards({ stats, activeTier, onTierClick, historyDate }: RankingStatsCardsProps) {
-  const total = stats.total || 1; // Avoid division by zero
+  const total = stats.total || 1;
 
-  // Helper to get improved/declined from stats
   const getImproved = (key: string): number => {
     return (stats as any)[`${key}_improved`] || 0;
   };
@@ -33,15 +32,31 @@ export function RankingStatsCards({ stats, activeTier, onTierClick, historyDate 
     { key: "notFound", label: "Not Found", value: stats.notFound },
   ];
 
+  // Badge color mapping per tier
+  const getBadgeClasses = (key: string): string => {
+    switch (key) {
+      case "top3":
+        return "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400";
+      case "top10":
+        return "bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400";
+      case "top30":
+        return "bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400";
+      case "top100":
+        return "bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400";
+      case "notFound":
+        return "bg-red-100 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400";
+      default:
+        return "";
+    }
+  };
+
   const handleCardClick = (key: string) => {
     if (!onTierClick) return;
-    // Toggle: if already active, clear filter; otherwise set filter
     onTierClick(activeTier === key ? null : key);
   };
 
   return (
     <div className="space-y-3">
-      {/* Header with history date indicator */}
       {historyDate && (
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-muted-foreground">
@@ -77,18 +92,23 @@ export function RankingStatsCards({ stats, activeTier, onTierClick, historyDate 
                   {/* Row 1: Label */}
                   <span className="text-sm text-muted-foreground">{card.label}</span>
                   
-                  {/* Row 2: Value + Percentage */}
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-2xl font-bold">{card.value}</span>
+                  {/* Row 2: Value + Percentage Badge */}
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold">{card.value}</span>
                     {!isTotal && (
-                      <span className="text-sm text-muted-foreground">{percentage}%</span>
+                      <Badge 
+                        variant="secondary" 
+                        className={cn("text-xs font-medium px-1.5 py-0", getBadgeClasses(card.key))}
+                      >
+                        {percentage}%
+                      </Badge>
                     )}
                   </div>
                   
-                  {/* Row 3: Trend indicators (only for current data, not history) */}
+                  {/* Row 3: Trend indicators */}
                   {!isTotal && !historyDate && (
                     <div className="flex items-center gap-3 text-xs">
-                      <span className="flex items-center gap-0.5 text-primary">
+                      <span className="flex items-center gap-0.5 text-emerald-600">
                         <TrendingUp className="h-3.5 w-3.5" />
                         {improved}
                       </span>
