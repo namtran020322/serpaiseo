@@ -75,44 +75,37 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
       </CardHeader>
       <CardContent>
         {sortedDomains.length > 0 ? (
-          <div className="relative max-h-[280px] overflow-y-auto rounded-md">
-            <table className="w-full caption-bottom text-sm">
-              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800">
-                <tr>
-                  <th className="h-10 px-4 text-left align-middle font-medium text-muted-foreground">Domain</th>
-                  <th className="h-10 px-4 text-center align-middle font-medium text-emerald-600 dark:text-emerald-400 w-20 whitespace-nowrap">1-3</th>
-                  <th className="h-10 px-4 text-center align-middle font-medium text-blue-600 dark:text-blue-400 w-20 whitespace-nowrap">4-10</th>
-                  <th className="h-10 px-4 text-center align-middle font-medium text-amber-600 dark:text-amber-400 w-20 whitespace-nowrap">11-30</th>
-                  <th className="h-10 px-4 text-center align-middle font-medium text-muted-foreground w-20 whitespace-nowrap">31-100</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* User domain rows — sticky below header */}
-                {userDomainEntries.map(([domain, stats]) => (
-                  <tr key={domain} className="sticky top-10 z-10 bg-blue-50 dark:bg-blue-950 border-b">
-                    <td className="h-10 px-4 align-middle font-medium">
-                      <DomainWithFavicon domain={domain} maxLength={25} />
-                    </td>
-                    <td className="h-10 px-4 align-middle text-center text-emerald-600 font-medium">{stats.top3}</td>
-                    <td className="h-10 px-4 align-middle text-center text-blue-600 font-medium">{stats.top10}</td>
-                    <td className="h-10 px-4 align-middle text-center text-amber-600 font-medium">{stats.top30}</td>
-                    <td className="h-10 px-4 align-middle text-center text-orange-600 font-medium">{stats.top100}</td>
-                  </tr>
-                ))}
-                {/* Competitor rows — scrollable */}
-                {competitorEntries.map(([domain, stats]) => (
-                  <tr key={domain} className="border-b last:border-0 bg-white dark:bg-slate-950">
-                    <td className="h-10 px-4 align-middle font-medium">
-                      <DomainWithFavicon domain={domain} maxLength={25} />
-                    </td>
-                    <td className="h-10 px-4 align-middle text-center text-emerald-600 font-medium">{stats.top3}</td>
-                    <td className="h-10 px-4 align-middle text-center text-blue-600 font-medium">{stats.top10}</td>
-                    <td className="h-10 px-4 align-middle text-center text-amber-600 font-medium">{stats.top30}</td>
-                    <td className="h-10 px-4 align-middle text-center text-orange-600 font-medium">{stats.top100}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="relative max-h-[320px] overflow-y-auto">
+            <div className="flex flex-col gap-1.5">
+              {/* Header row */}
+              <div className="sticky top-0 z-20 grid grid-cols-[1fr_80px_80px_80px_80px] items-center h-10 px-5 rounded-xl bg-muted/60 dark:bg-muted/30 text-xs font-medium tracking-wide uppercase">
+                <span className="text-muted-foreground">Domain</span>
+                <span className="text-center text-emerald-600 dark:text-emerald-400">1-3</span>
+                <span className="text-center text-blue-600 dark:text-blue-400">4-10</span>
+                <span className="text-center text-amber-600 dark:text-amber-400">11-30</span>
+                <span className="text-center text-muted-foreground">31-100</span>
+              </div>
+              {/* User domain rows */}
+              {userDomainEntries.map(([domain, stats]) => (
+                <div key={domain} className="sticky top-11 z-10 grid grid-cols-[1fr_80px_80px_80px_80px] items-center h-12 px-5 rounded-xl bg-blue-50 dark:bg-blue-950/60 ring-1 ring-blue-200/50 dark:ring-blue-800/30">
+                  <span className="font-medium text-sm"><DomainWithFavicon domain={domain} maxLength={30} /></span>
+                  <span className="text-center text-sm font-semibold text-emerald-600">{stats.top3}</span>
+                  <span className="text-center text-sm font-semibold text-blue-600">{stats.top10}</span>
+                  <span className="text-center text-sm font-semibold text-amber-600">{stats.top30}</span>
+                  <span className="text-center text-sm font-semibold text-orange-600">{stats.top100}</span>
+                </div>
+              ))}
+              {/* Competitor rows */}
+              {competitorEntries.map(([domain, stats]) => (
+                <div key={domain} className="grid grid-cols-[1fr_80px_80px_80px_80px] items-center h-12 px-5 rounded-xl bg-background hover:bg-muted/40 transition-colors">
+                  <span className="font-medium text-sm"><DomainWithFavicon domain={domain} maxLength={30} /></span>
+                  <span className="text-center text-sm font-semibold text-emerald-600">{stats.top3}</span>
+                  <span className="text-center text-sm font-semibold text-blue-600">{stats.top10}</span>
+                  <span className="text-center text-sm font-semibold text-amber-600">{stats.top30}</span>
+                  <span className="text-center text-sm font-semibold text-orange-600">{stats.top100}</span>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="flex items-center justify-center h-[200px] text-muted-foreground">
