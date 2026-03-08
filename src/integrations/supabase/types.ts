@@ -440,6 +440,7 @@ export type Database = {
           started_at: string | null
           status: string | null
           total_keywords: number | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -453,6 +454,7 @@ export type Database = {
           started_at?: string | null
           status?: string | null
           total_keywords?: number | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -466,6 +468,7 @@ export type Database = {
           started_at?: string | null
           status?: string | null
           total_keywords?: number | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -534,6 +537,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_next_queue_job: {
+        Args: never
+        Returns: {
+          class_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          keyword_ids: string[] | null
+          processed_keywords: number | null
+          started_at: string | null
+          status: string | null
+          total_keywords: number | null
+          updated_at: string | null
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ranking_check_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      cleanup_old_queue_jobs: { Args: never; Returns: number }
       cleanup_old_ranking_history: {
         Args: { retention_days?: number }
         Returns: number
@@ -565,6 +592,7 @@ export type Database = {
         }
         Returns: Json
       }
+      reset_stale_queue_jobs: { Args: never; Returns: number }
       upsert_daily_usage: {
         Args: {
           p_balance_after: number
