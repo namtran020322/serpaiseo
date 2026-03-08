@@ -129,25 +129,23 @@ export default function ProjectDetail() {
         <TopOverviewTable classes={project.classes} />
       </div>
 
-      {/* Classes Section - No Card wrapper */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+      {/* Classes Section */}
+      <div className="bg-muted/50 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-lg font-semibold">Classes</h2>
             <p className="text-sm text-muted-foreground">Click on a class to view detailed keyword rankings</p>
           </div>
           <AddClassDialog projectId={projectId!} projectDomain={project.domain} />
         </div>
-        <div className="rounded-md border">
-          {project.classes.map((cls, index) => {
+        <div className="space-y-3">
+          {project.classes.map((cls) => {
             const DeviceIcon = deviceIcons[cls.device as keyof typeof deviceIcons] || Monitor;
             return (
               <Link
                 key={cls.id}
                 to={`/dashboard/projects/${projectId}/classes/${cls.id}`}
-                className={`flex items-center justify-between p-4 hover:bg-accent/50 transition-colors ${
-                  index !== project.classes.length - 1 ? "border-b" : ""
-                }`}
+                className="flex items-center justify-between bg-background rounded-xl p-4 transition-colors hover:bg-accent/30"
               >
                 <div className="flex items-center gap-4">
                   <div>
@@ -183,7 +181,7 @@ export default function ProjectDetail() {
             );
           })}
           {project.classes.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="flex flex-col items-center justify-center py-12 text-center bg-background rounded-xl">
               <p className="text-muted-foreground">No classes yet</p>
               <p className="text-sm text-muted-foreground mt-1">Add a class to start tracking keywords</p>
             </div>
