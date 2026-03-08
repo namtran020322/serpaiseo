@@ -234,7 +234,7 @@ export function RankingHistoryChart({
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
