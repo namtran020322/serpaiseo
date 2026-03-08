@@ -43,9 +43,10 @@ function formatCompactTime(date: Date): string {
 
 interface ProjectsTableProps {
   projects: PaginatedProject[];
+  onSearchChange?: (value: string) => void;
 }
 
-export function ProjectsTable({ projects }: ProjectsTableProps) {
+export function ProjectsTable({ projects, onSearchChange }: ProjectsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -275,6 +276,7 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
         searchPlaceholder="Filter projects..."
         selectedCount={selectedIds.length}
         onDeleteSelected={handleDeleteClick}
+        onSearchChange={onSearchChange}
       />
       
       {/* Delete Confirmation Dialog */}

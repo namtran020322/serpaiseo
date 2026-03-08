@@ -1,5 +1,5 @@
 import { Table } from "@tanstack/react-table";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Trash2, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,17 +40,27 @@ export function DataTableToolbar<TData>({
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0;
   const [searchValue, setSearchValue] = useState("");
-  
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
   // Debounce server-side search
   useEffect(() => {
     if (!onSearchChange) return;
-    
-    const timer = setTimeout(() => {
+
+    debounceRef.current = setTimeout(() => {
       onSearchChange(searchValue);
     }, 300);
-    
-    return () => clearTimeout(timer);
+
+    return () => clearTimeout(debounceRef.current);
   }, [searchValue, onSearchChange]);
+
+  // Immediately trigger search on Enter key (bypass debounce)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && onSearchChange) {
+      e.preventDefault();
+      clearTimeout(debounceRef.current);
+      onSearchChange(searchValue);
+    }
+  };
 
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
@@ -74,6 +84,7 @@ export function DataTableToolbar<TData>({
               placeholder={searchPlaceholder}
               value={currentSearchValue}
               onChange={(event) => handleSearchChange(event.target.value)}
+              onKeyDown={handleKeyDown}
               className="h-9 w-[150px] lg:w-[250px] pl-8"
             />
           </div>

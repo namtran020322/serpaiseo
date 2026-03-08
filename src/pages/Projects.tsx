@@ -9,8 +9,14 @@ export default function Projects() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+  const [search, setSearch] = useState("");
 
-  const { data, isLoading, error } = useProjectsPaginated({ page, pageSize, search: "" });
+  const { data, isLoading, error } = useProjectsPaginated({ page, pageSize, search });
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(0);
+  };
 
   const totalPages = Math.ceil((data?.total || 0) / pageSize);
 
@@ -41,7 +47,7 @@ export default function Projects() {
         </div>
       ) : data && data.projects.length > 0 ? (
         <>
-          <ProjectsTable projects={data.projects} />
+          <ProjectsTable projects={data.projects} onSearchChange={handleSearchChange} />
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-2">

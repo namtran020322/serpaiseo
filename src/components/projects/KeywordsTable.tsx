@@ -494,7 +494,13 @@ export function KeywordsTable({
     }
   };
 
-  if (keywords.length === 0 && !isLoading) {
+  // Track if there's an active search (server-side or client-side)
+  const hasActiveSearch = isServerSide
+    ? false // Server-side: we don't know the search value here, check via totalCount
+    : columnFilters.length > 0;
+  const isClassEmpty = keywords.length === 0 && !isLoading && !hasActiveSearch && (!isServerSide || totalCount === 0);
+
+  if (isClassEmpty) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
         <p className="text-muted-foreground">No keywords added yet</p>
@@ -720,7 +726,7 @@ export function KeywordsTable({
             ) : (
               <tr>
                 <td colSpan={columns.length} className="h-24 text-center p-4">
-                  {isLoading ? "Loading..." : "No results."}
+                  {isLoading ? "Loading..." : "No keywords match your search."}
                 </td>
               </tr>
             )}
