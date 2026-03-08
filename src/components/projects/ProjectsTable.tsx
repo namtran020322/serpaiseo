@@ -289,18 +289,18 @@ export function ProjectsTable({ projects, onSearchChange }: ProjectsTableProps) 
         onConfirm={handleConfirmDelete}
         isLoading={isDeleting}
       />
-      <div className="rounded-md border">
+      <div className="rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="border-none hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
                   const columnSize = header.column.columnDef.size;
                   return (
                     <TableHead
                       key={header.id}
                       className={cn(
-                        "whitespace-nowrap text-left",
+                        "whitespace-nowrap text-left text-xs text-muted-foreground/70 uppercase tracking-wider font-medium bg-transparent border-none",
                         header.id === "select" ? "w-10 hidden sm:table-cell" : "",
                         header.id === "classes" || header.id === "keywords" ? "hidden md:table-cell" : "",
                         (header.id === "top3" || header.id === "top10" || header.id === "top30") ? "hidden lg:table-cell" : "",
