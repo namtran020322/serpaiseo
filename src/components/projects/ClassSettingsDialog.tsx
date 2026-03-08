@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectClassWithKeywords, useUpdateClass, useDeleteClass } from "@/hooks/useProjects";
-import { Loader2, Trash2, X, Plus, Lock, AlertCircle } from "lucide-react";
+import { Loader2, Trash2, X, Plus, Lock, AlertCircle, Settings2, Search, Users } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   AlertDialog,
@@ -181,9 +181,9 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <Tabs defaultValue="general">
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="general">General</TabsTrigger>
-                <TabsTrigger value="search">Search Settings</TabsTrigger>
-                <TabsTrigger value="competitors">Competitors</TabsTrigger>
+                <TabsTrigger value="general" className="gap-1.5"><Settings2 className="h-4 w-4" />General</TabsTrigger>
+                <TabsTrigger value="search" className="gap-1.5"><Search className="h-4 w-4" />Search Settings</TabsTrigger>
+                <TabsTrigger value="competitors" className="gap-1.5"><Users className="h-4 w-4" />Competitors</TabsTrigger>
               </TabsList>
 
               <TabsContent value="general" className="space-y-4 pt-4">
@@ -259,7 +259,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
 
               <TabsContent value="search" className="space-y-4 pt-4">
                 {/* Read-only search parameters */}
-                <div className="rounded-md bg-muted p-4 space-y-3">
+                <div className="rounded-2xl bg-muted/50 p-4 space-y-3">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Lock className="h-4 w-4" />
                     <span>Search parameters cannot be changed after creation to maintain data consistency</span>

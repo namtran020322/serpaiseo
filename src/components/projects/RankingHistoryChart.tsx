@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -100,64 +99,54 @@ export function RankingHistoryChart({
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-8 w-48" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-[300px] w-full" />
-        </CardContent>
-      </Card>
+      <div className="bg-muted/50 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-8 w-48" />
+        </div>
+        <Skeleton className="h-[300px] w-full" />
+      </div>
     );
   }
 
   if (!historyData || historyData.data.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Ranking History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground">
-              No ranking history available yet.
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Rankings will be recorded each time you refresh.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="bg-muted/50 rounded-2xl p-6">
+        <h3 className="text-lg font-semibold mb-4">Ranking History</h3>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-muted-foreground">
+            No ranking history available yet.
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Rankings will be recorded each time you refresh.
+          </p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-lg">Ranking History</CardTitle>
-          <ToggleGroup
-            type="single"
-            value={timeRange}
-            onValueChange={(value) => value && setTimeRange(value as TimeRange)}
-            className="justify-start"
-          >
-            <ToggleGroupItem value="7d" aria-label="Last 7 days" size="sm">
-              7 days
-            </ToggleGroupItem>
-            <ToggleGroupItem value="30d" aria-label="Last 30 days" size="sm">
-              30 days
-            </ToggleGroupItem>
-            <ToggleGroupItem value="3m" aria-label="Last 3 months" size="sm">
-              3 months
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="bg-muted/50 rounded-2xl p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <h3 className="text-lg font-semibold">Ranking History</h3>
+        <ToggleGroup
+          type="single"
+          value={timeRange}
+          onValueChange={(value) => value && setTimeRange(value as TimeRange)}
+          className="justify-start"
+        >
+          <ToggleGroupItem value="7d" aria-label="Last 7 days" size="sm">
+            7 days
+          </ToggleGroupItem>
+          <ToggleGroupItem value="30d" aria-label="Last 30 days" size="sm">
+            30 days
+          </ToggleGroupItem>
+          <ToggleGroupItem value="3m" aria-label="Last 3 months" size="sm">
+            3 months
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+      <div className="space-y-4">
         {/* Domain visibility toggles */}
         <div className="flex flex-wrap gap-4">
           {historyData.domains.map((domainConfig: DomainConfig) => (
@@ -244,7 +233,7 @@ export function RankingHistoryChart({
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

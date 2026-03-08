@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, Coins, TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Loader2, Zap, Star, Check, Users, Shield, BarChart3, RefreshCw } from "lucide-react";
+import { CreditCard, Coins, TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Loader2, Zap, Star, Check, Users, Shield, BarChart3, RefreshCw, History, Receipt } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -342,8 +342,8 @@ export default function Billing() {
       {/* Transaction History */}
       <Tabs defaultValue="transactions">
         <TabsList>
-          <TabsTrigger value="transactions">Transaction History</TabsTrigger>
-          <TabsTrigger value="orders">Order History</TabsTrigger>
+          <TabsTrigger value="transactions" className="gap-1.5"><History className="h-4 w-4" />Transaction History</TabsTrigger>
+          <TabsTrigger value="orders" className="gap-1.5"><Receipt className="h-4 w-4" />Order History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="transactions">
