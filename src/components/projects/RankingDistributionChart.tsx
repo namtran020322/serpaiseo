@@ -2,9 +2,11 @@ import { CardContent, CardDescription, CardHeader, CardTitle } from "@/component
 import { PieChart, Pie, Cell, Label } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { RankingStats } from "@/hooks/useProjects";
+import { formatDistanceToNow } from "date-fns";
 
 interface RankingDistributionChartProps {
   stats: RankingStats;
+  lastUpdatedAt?: string | null;
 }
 
 const chartConfig = {
@@ -38,7 +40,7 @@ const legendColors: Record<string, string> = {
   notFound: "bg-slate-900 dark:bg-slate-100",
 };
 
-export function RankingDistributionChart({ stats }: RankingDistributionChartProps) {
+export function RankingDistributionChart({ stats, lastUpdatedAt }: RankingDistributionChartProps) {
   const data = [
     { name: "top3", label: "Top 1-3", value: stats.top3, fill: "var(--color-top3)" },
     { name: "top10", label: "Top 4-10", value: stats.top10, fill: "var(--color-top10)" },
@@ -57,70 +59,78 @@ export function RankingDistributionChart({ stats }: RankingDistributionChartProp
       </CardHeader>
       <CardContent>
         {data.length > 0 ? (
-          <div className="flex items-center gap-6">
-            {/* Chart — takes remaining space */}
-            <ChartContainer config={chartConfig} className="aspect-square h-[280px] flex-1 min-w-0">
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={85}
-                  outerRadius={120}
-                  cornerRadius={6}
-                  paddingAngle={2}
-                  strokeWidth={0}
-                  dataKey="value"
-                  nameKey="label"
-                >
-                  {data.map((entry) => (
-                    <Cell key={entry.name} fill={entry.fill} />
-                  ))}
-                  <Label
-                    content={({ viewBox }) => {
-                      if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                        return (
-                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                            <tspan x={viewBox.cx} y={(viewBox.cy || 0) - 8} className="fill-foreground text-3xl font-bold">
-                              {total}
-                            </tspan>
-                            <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 14} className="fill-muted-foreground text-[10px] uppercase tracking-wider">
-                              Total Keywords
-                            </tspan>
-                          </text>
-                        );
-                      }
-                    }}
-                  />
-                </Pie>
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value, name) => (
-                        <span>
-                          {name}: {value} ({Math.round((Number(value) / total) * 100)}%)
-                        </span>
-                      )}
+          <>
+            <div className="flex items-center gap-6">
+              {/* Chart — takes remaining space */}
+              <ChartContainer config={chartConfig} className="aspect-square h-[280px] flex-1 min-w-0">
+                <PieChart>
+                  <Pie
+                    data={data}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={85}
+                    outerRadius={120}
+                    cornerRadius={6}
+                    paddingAngle={2}
+                    strokeWidth={0}
+                    dataKey="value"
+                    nameKey="label"
+                  >
+                    {data.map((entry) => (
+                      <Cell key={entry.name} fill={entry.fill} />
+                    ))}
+                    <Label
+                      content={({ viewBox }) => {
+                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                          return (
+                            <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                              <tspan x={viewBox.cx} y={(viewBox.cy || 0) - 8} className="fill-foreground text-3xl font-bold">
+                                {total}
+                              </tspan>
+                              <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 14} className="fill-muted-foreground text-[10px] uppercase tracking-wider">
+                                Total Keywords
+                              </tspan>
+                            </text>
+                          );
+                        }
+                      }}
                     />
-                  }
-                />
-              </PieChart>
-            </ChartContainer>
+                  </Pie>
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, name) => (
+                          <span>
+                            {name}: {value} ({Math.round((Number(value) / total) * 100)}%)
+                          </span>
+                        )}
+                      />
+                    }
+                  />
+                </PieChart>
+              </ChartContainer>
 
-            {/* Compact pill legend */}
-            <div className="flex flex-col gap-1.5 w-[220px] flex-shrink-0">
-              {data.map((item) => (
-                <div
-                  key={item.name}
-                  className="flex items-center gap-3 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-full shadow-sm"
-                >
-                  <span className={`w-3 h-3 rounded-full ${legendColors[item.name]}`} />
-                  <span className="text-sm font-medium text-foreground flex-1">{item.label}</span>
-                  <span className="text-sm font-semibold text-muted-foreground">{item.value}</span>
-                </div>
-              ))}
+              {/* Compact pill legend */}
+              <div className="flex flex-col gap-1.5 w-[220px] flex-shrink-0">
+                {data.map((item) => (
+                  <div
+                    key={item.name}
+                    className="flex items-center gap-3 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-full shadow-sm"
+                  >
+                    <span className={`w-3 h-3 rounded-full ${legendColors[item.name]}`} />
+                    <span className="text-sm font-medium text-foreground flex-1">{item.label}</span>
+                    <span className="text-sm font-semibold text-muted-foreground">{item.value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+            <div className="mt-4 text-center">
+              <h3 className="text-lg font-bold">Distribution health</h3>
+              <p className="text-sm text-muted-foreground">
+                Updated {lastUpdatedAt ? formatDistanceToNow(new Date(lastUpdatedAt), { addSuffix: true }) : 'never'}
+              </p>
+            </div>
+          </>
         ) : (
           <div className="flex items-center justify-center h-[200px] text-muted-foreground">
             No ranking data available

@@ -76,7 +76,7 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
       {/* Box 2 — Table */}
       <div className="rounded-2xl bg-slate-50 dark:bg-slate-900 p-6">
         {sortedDomains.length > 0 ? (
-          <div className="relative max-h-[320px] overflow-y-auto">
+          <div className="relative max-h-[320px] overflow-y-auto [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full dark:[&::-webkit-scrollbar-thumb]:bg-slate-600">
             <div className="flex flex-col">
               {/* Header row */}
               <div className="sticky top-0 z-20 grid grid-cols-[1fr_100px_100px_100px_100px] items-center h-10 px-4 text-xs font-semibold tracking-wider uppercase bg-slate-50 dark:bg-slate-900">

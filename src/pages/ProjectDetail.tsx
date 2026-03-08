@@ -117,7 +117,15 @@ export default function ProjectDetail() {
 
       {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <RankingDistributionChart stats={aggregatedStats} />
+        <RankingDistributionChart
+          stats={aggregatedStats}
+          lastUpdatedAt={
+            project.classes.reduce<string | null>((latest, cls) => {
+              const t = cls.last_checked_at || cls.updated_at;
+              return !latest || t > latest ? t : latest;
+            }, null)
+          }
+        />
         <TopOverviewTable classes={project.classes} />
       </div>
 
