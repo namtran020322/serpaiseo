@@ -46,7 +46,7 @@ export default function Projects() {
           <p className="text-sm text-muted-foreground">{(error as Error).message}</p>
         </div>
       ) : data && data.projects.length > 0 ? (
-        <>
+        <div className="bg-muted/50 rounded-2xl p-5">
           <ProjectsTable projects={data.projects} onSearchChange={handleSearchChange} />
           {/* Pagination */}
           {totalPages > 1 && (
