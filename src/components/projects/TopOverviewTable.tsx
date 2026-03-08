@@ -75,10 +75,10 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
       </CardHeader>
       <CardContent>
         {sortedDomains.length > 0 ? (
-          <div className="relative max-h-[320px] overflow-y-auto">
-            <div className="flex flex-col gap-1.5">
+          <div className="relative max-h-[320px] overflow-y-auto rounded-xl border border-border">
+            <div className="flex flex-col">
               {/* Header row */}
-              <div className="sticky top-0 z-20 grid grid-cols-[1fr_80px_80px_80px_80px] items-center h-10 px-5 rounded-xl bg-muted/60 dark:bg-muted/30 text-xs font-medium tracking-wide uppercase">
+              <div className="sticky top-0 z-20 grid grid-cols-[1fr_100px_100px_100px_100px] items-center h-12 px-5 bg-muted/60 dark:bg-muted/40 border-b border-border text-xs font-semibold tracking-wider uppercase">
                 <span className="text-muted-foreground">Domain</span>
                 <span className="text-center text-emerald-600 dark:text-emerald-400">1-3</span>
                 <span className="text-center text-blue-600 dark:text-blue-400">4-10</span>
@@ -87,22 +87,22 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
               </div>
               {/* User domain rows */}
               {userDomainEntries.map(([domain, stats]) => (
-                <div key={domain} className="sticky top-11 z-10 grid grid-cols-[1fr_80px_80px_80px_80px] items-center h-12 px-5 rounded-xl bg-blue-50 dark:bg-blue-950/60 ring-1 ring-blue-200/50 dark:ring-blue-800/30">
+                <div key={domain} className="grid grid-cols-[1fr_100px_100px_100px_100px] items-center h-14 px-5 border-b border-border bg-accent/30 dark:bg-accent/20">
                   <span className="font-medium text-sm"><DomainWithFavicon domain={domain} maxLength={30} /></span>
-                  <span className="text-center text-sm font-semibold text-emerald-600">{stats.top3}</span>
-                  <span className="text-center text-sm font-semibold text-blue-600">{stats.top10}</span>
-                  <span className="text-center text-sm font-semibold text-amber-600">{stats.top30}</span>
-                  <span className="text-center text-sm font-semibold text-orange-600">{stats.top100}</span>
+                  <span className="text-center text-sm font-bold text-emerald-600">{stats.top3}</span>
+                  <span className="text-center text-sm font-bold text-blue-600">{stats.top10}</span>
+                  <span className="text-center text-sm font-bold text-amber-600">{stats.top30}</span>
+                  <span className="text-center text-sm font-bold text-orange-600">{stats.top100}</span>
                 </div>
               ))}
               {/* Competitor rows */}
               {competitorEntries.map(([domain, stats]) => (
-                <div key={domain} className="grid grid-cols-[1fr_80px_80px_80px_80px] items-center h-12 px-5 rounded-xl bg-background hover:bg-muted/40 transition-colors">
+                <div key={domain} className="grid grid-cols-[1fr_100px_100px_100px_100px] items-center h-14 px-5 border-b border-border last:border-b-0 bg-background hover:bg-muted/30 transition-colors">
                   <span className="font-medium text-sm"><DomainWithFavicon domain={domain} maxLength={30} /></span>
-                  <span className="text-center text-sm font-semibold text-emerald-600">{stats.top3}</span>
-                  <span className="text-center text-sm font-semibold text-blue-600">{stats.top10}</span>
-                  <span className="text-center text-sm font-semibold text-amber-600">{stats.top30}</span>
-                  <span className="text-center text-sm font-semibold text-orange-600">{stats.top100}</span>
+                  <span className="text-center text-sm font-bold text-emerald-600">{stats.top3}</span>
+                  <span className="text-center text-sm font-bold text-blue-600">{stats.top10}</span>
+                  <span className="text-center text-sm font-bold text-amber-600">{stats.top30}</span>
+                  <span className="text-center text-sm font-bold text-orange-600">{stats.top100}</span>
                 </div>
               ))}
             </div>
