@@ -85,7 +85,7 @@ export function DataTableToolbar<TData>({
               value={currentSearchValue}
               onChange={(event) => handleSearchChange(event.target.value)}
               onKeyDown={handleKeyDown}
-              className="h-9 w-[150px] lg:w-[250px] pl-8"
+              className="h-9 w-[150px] lg:w-[250px] pl-8 bg-background border-0 rounded-xl shadow-none focus-visible:ring-1"
             />
           </div>
         )}
