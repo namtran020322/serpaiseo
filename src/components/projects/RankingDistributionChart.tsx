@@ -40,7 +40,7 @@ const legendColors: Record<string, string> = {
   notFound: "bg-slate-900 dark:bg-slate-100",
 };
 
-export function RankingDistributionChart({ stats }: RankingDistributionChartProps) {
+export function RankingDistributionChart({ stats, lastUpdatedAt }: RankingDistributionChartProps) {
   const data = [
     { name: "top3", label: "Top 1-3", value: stats.top3, fill: "var(--color-top3)" },
     { name: "top10", label: "Top 4-10", value: stats.top10, fill: "var(--color-top10)" },
