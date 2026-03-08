@@ -2,9 +2,11 @@ import { CardContent, CardDescription, CardHeader, CardTitle } from "@/component
 import { PieChart, Pie, Cell, Label } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { RankingStats } from "@/hooks/useProjects";
+import { formatDistanceToNow } from "date-fns";
 
 interface RankingDistributionChartProps {
   stats: RankingStats;
+  lastUpdatedAt?: string | null;
 }
 
 const chartConfig = {
