@@ -77,7 +77,7 @@ export default function Projects() {
               </div>
             </div>
           )}
-        </>
+        </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
           <p className="text-muted-foreground">

@@ -117,7 +117,7 @@ export function ProjectsTable({ projects, onSearchChange }: ProjectsTableProps) 
       cell: ({ row }) => (
         <div className="flex justify-end">
           <div className="w-16 text-left">
-            <Badge variant="outline">{row.original.class_count}</Badge>
+            <span className="text-[13px] text-muted-foreground font-medium">{row.original.class_count}</span>
           </div>
         </div>
       ),

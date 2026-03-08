@@ -101,7 +101,7 @@ export function DataTableToolbar<TData>({
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-1">
+            <Button variant="outline" size="sm" className="h-9 gap-1 bg-background border-0 rounded-xl shadow-none hover:bg-accent/50">
               <SlidersHorizontal className="h-4 w-4" />
               View
             </Button>
