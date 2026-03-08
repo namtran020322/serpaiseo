@@ -85,7 +85,7 @@ export function DataTableToolbar<TData>({
               value={currentSearchValue}
               onChange={(event) => handleSearchChange(event.target.value)}
               onKeyDown={handleKeyDown}
-              className="h-9 w-[150px] lg:w-[250px] pl-8 bg-background border-0 rounded-xl shadow-none focus-visible:ring-1"
+              className="h-9 w-[150px] lg:w-[250px] pl-8"
             />
           </div>
         )}
@@ -101,7 +101,7 @@ export function DataTableToolbar<TData>({
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-1 bg-background border-0 rounded-xl shadow-none hover:bg-accent/50">
+            <Button variant="outline" size="sm" className="h-9 gap-1">
               <SlidersHorizontal className="h-4 w-4" />
               View
             </Button>
