@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectClassWithKeywords, useUpdateClass, useDeleteClass } from "@/hooks/useProjects";
-import { Loader2, Trash2, X, Plus, Lock, AlertCircle } from "lucide-react";
+import { Loader2, Trash2, X, Plus, Lock, AlertCircle, Settings2, Search, Users } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   AlertDialog,
