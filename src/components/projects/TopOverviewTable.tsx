@@ -68,21 +68,21 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
   const competitorEntries = sortedDomains.filter(([domain]) => !userDomains.has(domain));
 
   return (
-    <Card>
+    <Card className="bg-slate-50 dark:bg-slate-900">
       <CardHeader>
         <CardTitle>Domain Comparison</CardTitle>
         <CardDescription>Your domain vs competitors</CardDescription>
       </CardHeader>
       <CardContent>
         {sortedDomains.length > 0 ? (
-          <div className="relative max-h-[280px] overflow-y-auto rounded-md border">
+          <div className="relative max-h-[280px] overflow-y-auto rounded-md">
             <table className="w-full caption-bottom text-sm">
-              <thead className="sticky top-0 z-20 bg-background border-b">
+              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800">
                 <tr>
                   <th className="h-10 px-4 text-left align-middle font-medium text-muted-foreground">Domain</th>
-                  <th className="h-10 px-4 text-center align-middle font-medium text-muted-foreground w-20 whitespace-nowrap">1-3</th>
-                  <th className="h-10 px-4 text-center align-middle font-medium text-muted-foreground w-20 whitespace-nowrap">4-10</th>
-                  <th className="h-10 px-4 text-center align-middle font-medium text-muted-foreground w-20 whitespace-nowrap">11-30</th>
+                  <th className="h-10 px-4 text-center align-middle font-medium text-emerald-600 dark:text-emerald-400 w-20 whitespace-nowrap">1-3</th>
+                  <th className="h-10 px-4 text-center align-middle font-medium text-blue-600 dark:text-blue-400 w-20 whitespace-nowrap">4-10</th>
+                  <th className="h-10 px-4 text-center align-middle font-medium text-amber-600 dark:text-amber-400 w-20 whitespace-nowrap">11-30</th>
                   <th className="h-10 px-4 text-center align-middle font-medium text-muted-foreground w-20 whitespace-nowrap">31-100</th>
                 </tr>
               </thead>
@@ -90,25 +90,25 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
                 {/* User domain rows — sticky below header */}
                 {userDomainEntries.map(([domain, stats]) => (
                   <tr key={domain} className="sticky top-10 z-10 bg-blue-50 dark:bg-blue-950 border-b">
-                    <td className="p-4 align-middle font-medium">
+                    <td className="h-10 px-4 align-middle font-medium">
                       <DomainWithFavicon domain={domain} maxLength={25} />
                     </td>
-                    <td className="p-4 align-middle text-center text-emerald-600 font-medium">{stats.top3}</td>
-                    <td className="p-4 align-middle text-center text-blue-600 font-medium">{stats.top10}</td>
-                    <td className="p-4 align-middle text-center text-amber-600 font-medium">{stats.top30}</td>
-                    <td className="p-4 align-middle text-center text-orange-600 font-medium">{stats.top100}</td>
+                    <td className="h-10 px-4 align-middle text-center text-emerald-600 font-medium">{stats.top3}</td>
+                    <td className="h-10 px-4 align-middle text-center text-blue-600 font-medium">{stats.top10}</td>
+                    <td className="h-10 px-4 align-middle text-center text-amber-600 font-medium">{stats.top30}</td>
+                    <td className="h-10 px-4 align-middle text-center text-orange-600 font-medium">{stats.top100}</td>
                   </tr>
                 ))}
                 {/* Competitor rows — scrollable */}
                 {competitorEntries.map(([domain, stats]) => (
-                  <tr key={domain} className="border-b last:border-0">
-                    <td className="p-4 align-middle font-medium">
+                  <tr key={domain} className="border-b last:border-0 bg-white dark:bg-slate-950">
+                    <td className="h-10 px-4 align-middle font-medium">
                       <DomainWithFavicon domain={domain} maxLength={25} />
                     </td>
-                    <td className="p-4 align-middle text-center text-emerald-600 font-medium">{stats.top3}</td>
-                    <td className="p-4 align-middle text-center text-blue-600 font-medium">{stats.top10}</td>
-                    <td className="p-4 align-middle text-center text-amber-600 font-medium">{stats.top30}</td>
-                    <td className="p-4 align-middle text-center text-orange-600 font-medium">{stats.top100}</td>
+                    <td className="h-10 px-4 align-middle text-center text-emerald-600 font-medium">{stats.top3}</td>
+                    <td className="h-10 px-4 align-middle text-center text-blue-600 font-medium">{stats.top10}</td>
+                    <td className="h-10 px-4 align-middle text-center text-amber-600 font-medium">{stats.top30}</td>
+                    <td className="h-10 px-4 align-middle text-center text-orange-600 font-medium">{stats.top100}</td>
                   </tr>
                 ))}
               </tbody>
