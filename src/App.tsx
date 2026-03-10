@@ -107,6 +107,7 @@ const App = () => (
       </TaskProgressProvider>
     </AuthProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

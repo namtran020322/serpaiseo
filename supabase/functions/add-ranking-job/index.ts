@@ -118,6 +118,38 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Get class top_results to calculate credits needed
+    const { data: classSettings } = await supabase
+      .from('project_classes')
+      .select('top_results')
+      .eq('id', classId)
+      .single()
+
+    const topResults = classSettings?.top_results || 100
+    const creditsPerKeyword = topResults <= 50 ? 5 : 10
+    const creditsNeeded = totalKeywords * creditsPerKeyword
+
+    // Check user credit balance
+    const { data: userCredits } = await supabase
+      .from('user_credits')
+      .select('balance')
+      .eq('user_id', userId)
+      .single()
+
+    const currentBalance = userCredits?.balance || 0
+
+    if (currentBalance < creditsNeeded) {
+      return new Response(
+        JSON.stringify({
+          error: 'insufficient_credits',
+          credits_needed: creditsNeeded,
+          credits_available: currentBalance,
+          keywords_count: totalKeywords,
+        }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Create job in queue
     const { data: job, error: insertError } = await supabase
       .from('ranking_check_queue')

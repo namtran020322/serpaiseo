@@ -57,6 +57,10 @@ export function AddKeywordsDialog({ onAddKeywords, isLoading }: AddKeywordsDialo
       toast({ variant: "destructive", title: t("error"), description: t("addKeywords.enterKeyword") });
       return;
     }
+    if (uniqueKeywords.length > MAX_KEYWORDS) {
+      toast({ variant: "destructive", title: t("error"), description: t("addKeywords.tooManyKeywords", { max: MAX_KEYWORDS }) });
+      return;
+    }
     setIsSubmitting(true);
     try { await onAddKeywords(uniqueKeywords); setKeywordsText(""); setOpen(false); }
     catch (error) { /* Error handled by parent */ }
