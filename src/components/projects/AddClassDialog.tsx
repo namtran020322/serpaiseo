@@ -156,6 +156,7 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
   const canProceed = () => {
     switch (step) {
       case 1:
+        if (isAtClassLimit) return false;
         return className.trim().length > 0 && domain.trim().length > 0;
       case 2:
         return parseKeywords().length > 0;
