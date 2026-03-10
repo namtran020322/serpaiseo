@@ -513,7 +513,7 @@ export function KeywordsTable({
       <DataTableToolbar
         table={table}
         searchKey="keyword"
-        searchPlaceholder="Filter keywords..."
+        searchPlaceholder={t("keywords.filterPlaceholder")}
         selectedCount={selectedIds.length}
         onDeleteSelected={onDeleteKeywords ? () => handleDeleteClick(selectedIds) : undefined}
         onRefreshSelected={onRefreshKeywords ? () => onRefreshKeywords(selectedIds) : undefined}
