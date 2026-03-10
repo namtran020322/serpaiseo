@@ -3,12 +3,13 @@ import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useTaskProgress } from "@/contexts/TaskProgressContext";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function ProcessingTasks() {
   const { tasks } = useTaskProgress();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
-  // Only show pending/processing tasks
   const activeTasks = tasks.filter((t) => t.status === "pending" || t.status === "processing");
 
   if (activeTasks.length === 0) return null;
@@ -16,7 +17,7 @@ export function ProcessingTasks() {
   return (
     <div className="px-3 pb-3 space-y-2">
       <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
-        Processing
+        {t("tasks.processing")}
       </div>
       {activeTasks.map((task) => {
         const progressPercent = task.total > 0 ? Math.round((task.progress / task.total) * 100) : 0;
@@ -47,7 +48,7 @@ export function ProcessingTasks() {
 
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
-                {task.status === "pending" ? "Waiting..." : `${task.progress}/${task.total} keywords`}
+                {task.status === "pending" ? t("tasks.waiting") : t("tasks.keywords", { progress: String(task.progress), total: String(task.total) })}
               </span>
               <span>{progressPercent}%</span>
             </div>

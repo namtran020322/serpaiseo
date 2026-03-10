@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Announcement {
   id: string;
@@ -37,6 +38,7 @@ const typeConfig = {
 
 export default function Notifications() {
   const { user } = useAuthContext();
+  const { t } = useLanguage();
 
   const { data: announcements, isLoading } = useQuery({
     queryKey: ["user-announcements", user?.id],
@@ -59,9 +61,9 @@ export default function Notifications() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t("notifications.title")}</h1>
         <p className="text-muted-foreground mt-2">
-          Stay updated with the latest announcements and news
+          {t("notifications.subtitle")}
         </p>
       </div>
 
@@ -121,9 +123,9 @@ export default function Notifications() {
             <div className="rounded-full bg-muted p-4 mb-4">
               <Bell className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No notifications yet</h3>
+            <h3 className="text-lg font-semibold mb-2">{t("notifications.noNotifications")}</h3>
             <p className="text-sm text-muted-foreground text-center max-w-sm">
-              When there are new announcements or updates, they will appear here.
+              {t("notifications.noNotificationsDesc")}
             </p>
           </CardContent>
         </Card>

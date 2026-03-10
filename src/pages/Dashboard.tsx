@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { FolderOpen, ArrowRight, Plus, TrendingUp, Target } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function Dashboard() {
   const { user } = useAuthContext();
+  const { t } = useLanguage();
   const userName = user?.user_metadata?.full_name || "there";
 
   return (
@@ -14,9 +16,9 @@ export default function Dashboard() {
       <AnnouncementBanner />
       
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Hello, {userName}!</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t("dashboard.hello", { name: userName })}</h1>
         <p className="text-muted-foreground mt-2">
-          Welcome to RankChecker - track your keyword rankings on Google.
+          {t("dashboard.welcome")}
         </p>
       </div>
 
@@ -26,15 +28,15 @@ export default function Dashboard() {
             <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
               <FolderOpen className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle>Projects</CardTitle>
+            <CardTitle>{t("dashboard.projects")}</CardTitle>
             <CardDescription>
-              Manage your keyword tracking projects and monitor rankings
+              {t("dashboard.projects.desc")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild className="w-full group">
               <Link to="/dashboard/projects">
-                View Projects
+                {t("dashboard.viewProjects")}
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
@@ -46,15 +48,15 @@ export default function Dashboard() {
             <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-4">
               <Plus className="h-6 w-6 text-emerald-500" />
             </div>
-            <CardTitle>Create Project</CardTitle>
+            <CardTitle>{t("dashboard.createProject")}</CardTitle>
             <CardDescription>
-              Start tracking keywords for a new domain
+              {t("dashboard.createProject.desc")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" asChild className="w-full group">
               <Link to="/dashboard/projects">
-                New Project
+                {t("dashboard.newProject")}
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
@@ -66,15 +68,15 @@ export default function Dashboard() {
             <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-4">
               <TrendingUp className="h-6 w-6 text-blue-500" />
             </div>
-            <CardTitle>Track Rankings</CardTitle>
+            <CardTitle>{t("dashboard.trackRankings")}</CardTitle>
             <CardDescription>
-              Monitor position changes and competitor analysis
+              {t("dashboard.trackRankings.desc")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" asChild className="w-full group">
               <Link to="/dashboard/projects">
-                Get Started
+                {t("dashboard.getStarted")}
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
@@ -84,7 +86,7 @@ export default function Dashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>How to Use</CardTitle>
+          <CardTitle>{t("dashboard.howToUse")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-4 items-start">
@@ -92,9 +94,9 @@ export default function Dashboard() {
               1
             </div>
             <div>
-              <h4 className="font-medium">Create a Project</h4>
+              <h4 className="font-medium">{t("dashboard.step1.title")}</h4>
               <p className="text-sm text-muted-foreground">
-                Start by creating a project for your domain to track keyword rankings
+                {t("dashboard.step1.desc")}
               </p>
             </div>
           </div>
@@ -103,9 +105,9 @@ export default function Dashboard() {
               2
             </div>
             <div>
-              <h4 className="font-medium">Add Keyword Classes</h4>
+              <h4 className="font-medium">{t("dashboard.step2.title")}</h4>
               <p className="text-sm text-muted-foreground">
-                Create classes with specific country, language, and device settings
+                {t("dashboard.step2.desc")}
               </p>
             </div>
           </div>
@@ -114,9 +116,9 @@ export default function Dashboard() {
               3
             </div>
             <div>
-              <h4 className="font-medium">Add Keywords to Track</h4>
+              <h4 className="font-medium">{t("dashboard.step3.title")}</h4>
               <p className="text-sm text-muted-foreground">
-                Add the keywords you want to monitor for each class
+                {t("dashboard.step3.desc")}
               </p>
             </div>
           </div>
@@ -125,9 +127,9 @@ export default function Dashboard() {
               4
             </div>
             <div>
-              <h4 className="font-medium">Monitor Rankings</h4>
+              <h4 className="font-medium">{t("dashboard.step4.title")}</h4>
               <p className="text-sm text-muted-foreground">
-                Track your positions, view trends, and analyze competitor rankings
+                {t("dashboard.step4.desc")}
               </p>
             </div>
           </div>

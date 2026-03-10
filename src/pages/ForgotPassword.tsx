@@ -7,12 +7,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/hooks/use-toast";
 import { Search, Loader2, ArrowLeft, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,14 +27,14 @@ export default function ForgotPassword() {
     if (error) {
       toast({
         variant: "destructive",
-        title: "Error",
+        title: t("error"),
         description: error.message,
       });
     } else {
       setEmailSent(true);
       toast({
-        title: "Email sent",
-        description: "Check your inbox for password reset instructions",
+        title: t("forgotPassword.emailSent"),
+        description: t("forgotPassword.emailSentDesc"),
       });
     }
 
@@ -47,14 +49,14 @@ export default function ForgotPassword() {
             <div className="mx-auto w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
               <Mail className="h-6 w-6 text-white" />
             </div>
-            <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
+            <CardTitle className="text-2xl font-bold">{t("forgotPassword.checkEmail")}</CardTitle>
             <CardDescription>
-              We've sent password reset instructions to <strong>{email}</strong>
+              {t("forgotPassword.sentTo")} <strong>{email}</strong>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="p-4 bg-muted rounded-lg text-sm text-muted-foreground">
-              <p>Didn't receive the email? Check your spam folder or try again.</p>
+              <p>{t("forgotPassword.checkSpam")}</p>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
@@ -63,11 +65,11 @@ export default function ForgotPassword() {
               className="w-full" 
               onClick={() => setEmailSent(false)}
             >
-              Try again
+              {t("forgotPassword.tryAgain")}
             </Button>
             <Link to="/login" className="text-sm text-primary hover:underline font-medium flex items-center justify-center gap-1">
               <ArrowLeft className="h-4 w-4" />
-              Back to login
+              {t("forgotPassword.backToLogin")}
             </Link>
           </CardFooter>
         </Card>
@@ -82,15 +84,15 @@ export default function ForgotPassword() {
           <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
             <Search className="h-6 w-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">Forgot Password</CardTitle>
+          <CardTitle className="text-2xl font-bold">{t("forgotPassword.title")}</CardTitle>
           <CardDescription>
-            Enter your email and we'll send you reset instructions
+            {t("forgotPassword.subtitle")}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("login.email")}</Label>
               <Input
                 id="email"
                 type="email"
@@ -104,11 +106,11 @@ export default function ForgotPassword() {
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Send Reset Link
+              {t("forgotPassword.sendResetLink")}
             </Button>
             <Link to="/login" className="text-sm text-primary hover:underline font-medium flex items-center justify-center gap-1">
               <ArrowLeft className="h-4 w-4" />
-              Back to login
+              {t("forgotPassword.backToLogin")}
             </Link>
           </CardFooter>
         </form>
