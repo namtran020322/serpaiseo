@@ -122,9 +122,13 @@ export default function ProjectDetail() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh All
+          <Button
+            variant="outline"
+            onClick={handleRefreshAll}
+            disabled={isRefreshing || hasRunningTask || !project.classes.length}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing || hasRunningTask ? 'animate-spin' : ''}`} />
+            {hasRunningTask ? 'Checking...' : isRefreshing ? 'Starting...' : 'Refresh All'}
           </Button>
           <Button variant="outline" onClick={() => setSettingsOpen(true)}>
             <Settings className="mr-2 h-4 w-4" />
