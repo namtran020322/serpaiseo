@@ -33,7 +33,23 @@ export function useAddRankingJob() {
           body: { classId, keywordIds },
         });
 
-        if (error) throw error;
+        if (error) {
+          // For non-2xx responses, try to parse the response body for details
+          let errorBody: any = null;
+          try {
+            // supabase-js v2: error.context is the Response object
+            if (error.context && typeof error.context.json === 'function') {
+              errorBody = await error.context.json();
+            }
+          } catch {}
+
+          if (errorBody?.error) {
+            const enrichedError = new Error(errorBody.error);
+            (enrichedError as any).details = errorBody;
+            throw enrichedError;
+          }
+          throw error;
+        }
         if (!data?.success) throw new Error(data?.error || "Failed to add job");
 
         // Update task with real ID and total (preserves startedAt)
