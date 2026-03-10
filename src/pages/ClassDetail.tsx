@@ -118,9 +118,9 @@ export default function ClassDetail() {
   if (!classMetadata) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
-        <p className="text-destructive">Class not found</p>
+        <p className="text-destructive">{t("classDetail.notFound")}</p>
         <Button variant="outline" onClick={() => navigate("/dashboard/projects")}>
-          Back to Projects
+          {t("projectDetail.backToProjects")}
         </Button>
       </div>
     );
