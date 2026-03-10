@@ -20,6 +20,7 @@ import { CompetitorsFaviconList } from "@/components/projects/CompetitorsFavicon
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDistanceToNow, format } from "date-fns";
 import { useTaskProgress } from "@/contexts/TaskProgressContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const deviceIcons = {
   desktop: Monitor,
