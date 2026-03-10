@@ -43,22 +43,27 @@ export function CreditAdjustDialog({
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) throw new Error("Not authenticated");
 
-      const response = await supabase.functions.invoke("admin-user-management", {
-        body: {
-          targetUserId: user?.id,
-          amount: parseInt(amount),
-          reason,
-          confirmation: confirmText,
-        },
-        headers: {
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-      });
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-user-management?action=adjust-credits`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            targetUserId: user?.id,
+            amount: parseInt(amount),
+            reason,
+            confirmation: confirmText,
+          }),
+        }
+      );
 
-      if (response.error) throw response.error;
-      if (response.data?.error) throw new Error(response.data.error);
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Request failed");
       
-      return response.data;
+      return data;
     },
     onSuccess: (data) => {
       toast.success(
