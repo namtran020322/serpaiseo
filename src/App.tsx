@@ -46,6 +46,7 @@ function PageLoader() {
 }
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TaskProgressProvider>
