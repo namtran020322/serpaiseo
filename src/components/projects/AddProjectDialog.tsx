@@ -20,6 +20,7 @@ import { languages } from "@/data/languages";
 import { useGeoData } from "@/hooks/useGeoData";
 import { LocationCombobox } from "@/components/LocationCombobox";
 import { useToast } from "@/hooks/use-toast";
+import { useTrial } from "@/hooks/useTrial";
 
 interface AddProjectDialogProps {
   open: boolean;
