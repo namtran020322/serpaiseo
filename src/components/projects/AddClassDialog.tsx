@@ -23,6 +23,10 @@ import { useGeoData } from "@/hooks/useGeoData";
 import { LocationCombobox } from "@/components/LocationCombobox";
 import { useCredits } from "@/hooks/useCredits";
 import { getMaxCompetitorsByPurchased } from "@/lib/pricing";
+import { useTrial } from "@/hooks/useTrial";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
 
 interface AddClassDialogProps {
   open?: boolean;
