@@ -265,7 +265,7 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
             <div className="space-y-4">
               {isAtClassLimit && (
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
-                  Bạn đang dùng gói dùng thử, giới hạn {trial.maxClassesPerProject} class mỗi dự án. Vui lòng nâng cấp để tạo thêm.
+                  {trial.maxClassesPerProject === 2 ? "You are on a trial plan, limited to 2 classes per project. Please upgrade to create more." : `You are on a trial plan, limited to ${trial.maxClassesPerProject} classes per project. Please upgrade to create more.`}
                 </div>
               )}
               <div className="space-y-2">
