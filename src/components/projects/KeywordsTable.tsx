@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   useReactTable,
   getCoreRowModel,
