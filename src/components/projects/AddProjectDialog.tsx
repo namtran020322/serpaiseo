@@ -166,6 +166,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
     switch (step) {
       case 1:
         if (projectType === "new") {
+          if (isAtProjectLimit) return false;
           return newProjectName.trim().length > 0 && newProjectName.length <= 50 && projectDomain.trim().length > 0 && !domainError;
         }
         return existingProjectId.length > 0;
