@@ -238,7 +238,7 @@ export default function ClassDetail() {
                       {formatDistanceToNow(new Date(classMetadata.last_checked_at), { addSuffix: true })}
                     </Badge>
                   </TooltipTrigger>
-                  <TooltipContent>Last checked</TooltipContent>
+                  <TooltipContent>{t("classDetail.lastChecked")}</TooltipContent>
                 </Tooltip>
               )}
             </div>
