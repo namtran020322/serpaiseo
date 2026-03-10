@@ -20,6 +20,7 @@ import { CompetitorsFaviconList } from "@/components/projects/CompetitorsFavicon
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDistanceToNow, format } from "date-fns";
 import { useTaskProgress } from "@/contexts/TaskProgressContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const deviceIcons = {
   desktop: Monitor,
@@ -31,6 +32,7 @@ const deviceIcons = {
 export default function ClassDetail() {
   const { projectId, classId } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   
   // Pagination and filter state
   const [page, setPage] = useState(0);
@@ -108,7 +110,7 @@ export default function ClassDetail() {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-muted-foreground">Loading class...</p>
+        <p className="text-muted-foreground">{t("classDetail.loadingClass")}</p>
       </div>
     );
   }
@@ -116,9 +118,9 @@ export default function ClassDetail() {
   if (!classMetadata) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
-        <p className="text-destructive">Class not found</p>
+        <p className="text-destructive">{t("classDetail.notFound")}</p>
         <Button variant="outline" onClick={() => navigate("/dashboard/projects")}>
-          Back to Projects
+          {t("projectDetail.backToProjects")}
         </Button>
       </div>
     );
@@ -236,7 +238,7 @@ export default function ClassDetail() {
                       {formatDistanceToNow(new Date(classMetadata.last_checked_at), { addSuffix: true })}
                     </Badge>
                   </TooltipTrigger>
-                  <TooltipContent>Last checked</TooltipContent>
+                  <TooltipContent>{t("classDetail.lastChecked")}</TooltipContent>
                 </Tooltip>
               )}
             </div>
@@ -246,7 +248,7 @@ export default function ClassDetail() {
           <ExportButton projectClass={projectClassForExport} />
           <Button variant="outline" onClick={() => setSettingsOpen(true)}>
             <Settings className="mr-2 h-4 w-4" />
-            Settings
+            {t("nav.settings")}
           </Button>
           <HistoryDatePicker
             datesWithData={datesWithData}
@@ -256,7 +258,7 @@ export default function ClassDetail() {
           />
           <Button onClick={handleRefresh} disabled={addRankingJob.isPending || isViewingHistory || isClassRunning}>
             <RefreshCw className={`mr-2 h-4 w-4 ${addRankingJob.isPending || isClassRunning ? "animate-spin" : ""}`} />
-            {isClassRunning ? "Checking..." : addRankingJob.isPending ? "Starting..." : "Refresh Rankings"}
+            {isClassRunning ? t("projects.checking") : addRankingJob.isPending ? t("projects.starting") : t("classDetail.refreshRankings")}
           </Button>
         </div>
       </div>
@@ -269,8 +271,8 @@ export default function ClassDetail() {
       {/* Stats & Chart Tabs */}
       <Tabs defaultValue="stats" className="w-full">
         <TabsList>
-          <TabsTrigger value="stats" className="gap-1.5"><BarChart3 className="h-4 w-4" />Statistics</TabsTrigger>
-          <TabsTrigger value="chart" className="gap-1.5"><TrendingUp className="h-4 w-4" />Ranking Chart</TabsTrigger>
+          <TabsTrigger value="stats" className="gap-1.5"><BarChart3 className="h-4 w-4" />{t("classDetail.statistics")}</TabsTrigger>
+          <TabsTrigger value="chart" className="gap-1.5"><TrendingUp className="h-4 w-4" />{t("classDetail.rankingChart")}</TabsTrigger>
         </TabsList>
         <TabsContent value="stats" className="mt-4">
           <RankingStatsCards 
@@ -298,7 +300,7 @@ export default function ClassDetail() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">
-              Keywords
+              {t("classDetail.keywords")}
               {isViewingHistory && selectedHistoryDate && (
                 <Badge variant="secondary" className="ml-2">
                   {format(selectedHistoryDate, "dd/MM/yyyy")}
@@ -306,7 +308,7 @@ export default function ClassDetail() {
               )}
             </h2>
             <p className="text-sm text-muted-foreground">
-              {displayTotalCount} keywords {isViewingHistory ? "recorded" : "tracked"}
+              {isViewingHistory ? t("classDetail.keywordsRecorded", { count: String(displayTotalCount) }) : t("classDetail.keywordsTracked", { count: String(displayTotalCount) })}
             </p>
           </div>
           {!isViewingHistory && (

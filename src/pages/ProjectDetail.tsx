@@ -12,6 +12,7 @@ import { ProjectSettingsDialog } from "@/components/projects/ProjectSettingsDial
 import { AddClassDialog } from "@/components/projects/AddClassDialog";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { formatDistanceToNow } from "date-fns";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const deviceIcons = {
   desktop: Monitor,
@@ -22,13 +23,13 @@ const deviceIcons = {
 export default function ProjectDetail() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { data: project, isLoading, error } = useProject(projectId);
   const checkRankings = useCheckRankings();
   const { tasks } = useTaskProgress();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Check if any class in project has running task (anti-spam)
   const hasRunningTask = project?.classes.some((cls) =>
     tasks.some((t) => t.classId === cls.id && (t.status === "pending" || t.status === "processing"))
   ) ?? false;
@@ -49,7 +50,7 @@ export default function ProjectDetail() {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-muted-foreground">Loading project...</p>
+        <p className="text-muted-foreground">{t("projectDetail.loadingProject")}</p>
       </div>
     );
   }
@@ -57,15 +58,14 @@ export default function ProjectDetail() {
   if (error || !project) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
-        <p className="text-destructive">Project not found</p>
+        <p className="text-destructive">{t("projectDetail.notFound")}</p>
         <Button variant="outline" onClick={() => navigate("/dashboard/projects")}>
-          Back to Projects
+          {t("projectDetail.backToProjects")}
         </Button>
       </div>
     );
   }
 
-  // Aggregate stats from all classes (with improved/declined)
   const totalKeywords = project.classes.reduce((acc, cls) => acc + cls.keywordCount, 0);
   const aggregatedStats = project.classes.reduce(
     (acc, cls) => {
@@ -101,7 +101,6 @@ export default function ProjectDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
@@ -128,19 +127,17 @@ export default function ProjectDetail() {
             disabled={isRefreshing || hasRunningTask || !project.classes.length}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing || hasRunningTask ? 'animate-spin' : ''}`} />
-            {hasRunningTask ? 'Checking...' : isRefreshing ? 'Starting...' : 'Refresh All'}
+            {hasRunningTask ? t("projects.checking") : isRefreshing ? t("projects.starting") : t("projects.refreshAll")}
           </Button>
           <Button variant="outline" onClick={() => setSettingsOpen(true)}>
             <Settings className="mr-2 h-4 w-4" />
-            Settings
+            {t("nav.settings")}
           </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
       <RankingStatsCards stats={aggregatedStats} />
 
-      {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         <RankingDistributionChart
           stats={aggregatedStats}
@@ -154,12 +151,11 @@ export default function ProjectDetail() {
         <TopOverviewTable classes={project.classes} />
       </div>
 
-      {/* Classes Section */}
       <div className="bg-muted/50 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-semibold">Classes</h2>
-            <p className="text-sm text-muted-foreground">Click on a class to view detailed keyword rankings</p>
+            <h2 className="text-lg font-semibold">{t("projectDetail.classes")}</h2>
+            <p className="text-sm text-muted-foreground">{t("projectDetail.classes.desc")}</p>
           </div>
           <AddClassDialog projectId={projectId!} projectDomain={project.domain} />
         </div>
@@ -207,14 +203,13 @@ export default function ProjectDetail() {
           })}
           {project.classes.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-center bg-background rounded-xl">
-              <p className="text-muted-foreground">No classes yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Add a class to start tracking keywords</p>
+              <p className="text-muted-foreground">{t("projectDetail.noClasses")}</p>
+              <p className="text-sm text-muted-foreground mt-1">{t("projectDetail.noClasses.desc")}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Settings Dialog */}
       <ProjectSettingsDialog
         project={project}
         open={settingsOpen}

@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTaskProgress } from "@/contexts/TaskProgressContext";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function GlobalTaskWidget() {
   const { tasks, removeTask } = useTaskProgress();
@@ -14,8 +15,8 @@ export function GlobalTaskWidget() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [refreshedClassIds, setRefreshedClassIds] = useState<Set<string>>(new Set());
+  const { t } = useLanguage();
 
-  // Filter active + recently completed tasks
   const activeTasks = tasks.filter(
     (t) => t.status === "pending" || t.status === "processing"
   );
@@ -24,7 +25,6 @@ export function GlobalTaskWidget() {
     (t) => t.status === "completed" || t.status === "failed"
   );
 
-  // Auto-hide completed tasks after 3 seconds
   useEffect(() => {
     completedTasks.forEach((task) => {
       const timer = setTimeout(() => removeTask(task.id), 3000);
@@ -32,23 +32,15 @@ export function GlobalTaskWidget() {
     });
   }, [completedTasks, removeTask]);
 
-  // Auto-refresh data when task completes on current page
   useEffect(() => {
     tasks.forEach((task) => {
       if (task.status === "completed" && !refreshedClassIds.has(task.classId)) {
         const isOnClassPage = location.pathname.includes(`/classes/${task.classId}`);
         
         if (isOnClassPage) {
-          // Invalidate all relevant queries
-          queryClient.invalidateQueries({ 
-            queryKey: ["keywords-paginated", task.classId] 
-          });
-          queryClient.invalidateQueries({ 
-            queryKey: ["class-ranking-stats", task.classId] 
-          });
-          queryClient.invalidateQueries({ 
-            queryKey: ["class-metadata", task.classId] 
-          });
+          queryClient.invalidateQueries({ queryKey: ["keywords-paginated", task.classId] });
+          queryClient.invalidateQueries({ queryKey: ["class-ranking-stats", task.classId] });
+          queryClient.invalidateQueries({ queryKey: ["class-metadata", task.classId] });
           
           setRefreshedClassIds((prev) => new Set(prev).add(task.classId));
         }
@@ -56,7 +48,6 @@ export function GlobalTaskWidget() {
     });
   }, [tasks, location.pathname, queryClient, refreshedClassIds]);
 
-  // Clear refreshed IDs when tasks are removed
   useEffect(() => {
     const activeIds = new Set(tasks.map(t => t.classId));
     setRefreshedClassIds((prev) => {
@@ -68,10 +59,8 @@ export function GlobalTaskWidget() {
     });
   }, [tasks]);
 
-  // Show both active and recently completed tasks
   const visibleTasks = [...activeTasks, ...completedTasks];
 
-  // Don't render if no tasks
   if (visibleTasks.length === 0) return null;
 
   return (
@@ -88,7 +77,7 @@ export function GlobalTaskWidget() {
       )}>
         <CardHeader className="py-3 px-4 pb-0">
           <CardTitle className="text-sm font-medium text-foreground">
-            Active Tasks ({visibleTasks.length})
+            {t("tasks.activeTasks", { count: String(visibleTasks.length) })}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-2 pt-2">
@@ -114,7 +103,6 @@ export function GlobalTaskWidget() {
                       isFailed && "bg-destructive/10 hover:bg-destructive/20"
                     )}
                   >
-                    {/* Row 1: Class name + Status icon */}
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <span className="text-sm font-medium truncate flex-1 text-foreground">
                         {task.className}
@@ -130,7 +118,6 @@ export function GlobalTaskWidget() {
                       )}
                     </div>
 
-                    {/* Row 2: Progress bar */}
                     <Progress 
                       value={progressPercent} 
                       className={cn(
@@ -141,26 +128,24 @@ export function GlobalTaskWidget() {
                       )}
                     />
 
-                    {/* Row 3: Details */}
                     <div className="flex items-center justify-between text-xs text-muted-foreground mt-1.5">
                       <span className={cn(
                         isCompleted && wasRefreshed && "text-green-600 font-medium"
                       )}>
                         {task.status === "pending" 
-                          ? "Waiting..." 
+                          ? t("tasks.waiting")
                           : isCompleted
                           ? wasRefreshed
-                            ? "✓ Data updated"
-                            : "Completed"
+                            ? t("tasks.dataUpdated")
+                            : t("tasks.completed")
                           : isFailed
-                          ? "Failed"
-                          : `${task.progress}/${task.total} keywords`
+                          ? t("tasks.failed")
+                          : t("tasks.keywords", { progress: String(task.progress), total: String(task.total) })
                         }
                       </span>
                       <span>{progressPercent}%</span>
                     </div>
 
-                    {/* Error message if any */}
                     {task.errorMessage && (
                       <p className="text-xs text-destructive mt-1 truncate">
                         {task.errorMessage}

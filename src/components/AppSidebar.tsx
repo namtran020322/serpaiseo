@@ -7,35 +7,31 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarSearch } from "@/components/SidebarSearch";
-
-
-const menuItems = [{
-  title: "Home",
-  url: "/dashboard",
-  icon: Home
-}, {
-  title: "Projects",
-  url: "/dashboard/projects",
-  icon: FolderOpen
-}];
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function AppSidebar() {
   const { user, signOut } = useAuthContext();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { t } = useLanguage();
+
+  const menuItems = [
+    { title: t("nav.home"), url: "/dashboard", icon: Home },
+    { title: t("nav.projects"), url: "/dashboard/projects", icon: FolderOpen },
+  ];
 
   const handleSignOut = async () => {
     const { error } = await signOut();
     if (error) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Unable to sign out"
+        title: t("error"),
+        description: t("sidebar.signOutError")
       });
     } else {
       toast({
-        title: "Signed out",
-        description: "See you soon!"
+        title: t("sidebar.signedOut"),
+        description: t("sidebar.signedOutDesc")
       });
       navigate("/login");
     }
@@ -53,7 +49,6 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Search Command */}
         <div className="px-3 pt-2 pb-1">
           <SidebarSearch />
         </div>
@@ -62,7 +57,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map(item => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild>
                     <NavLink 
                       to={item.url} 
@@ -113,24 +108,24 @@ export function AppSidebar() {
             <DropdownMenuContent align="end" side="top" className="w-48">
               <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>
                 <User className="mr-2 h-4 w-4" />
-                Account
+                {t("nav.account")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/dashboard/billing")}>
                 <CreditCard className="mr-2 h-4 w-4" />
-                Billing
+                {t("nav.billing")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/dashboard/notifications")}>
                 <Bell className="mr-2 h-4 w-4" />
-                Notifications
+                {t("nav.notifications")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>
                 <Settings className="mr-2 h-4 w-4" />
-                Settings
+                {t("nav.settings")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
-                Log out
+                {t("nav.logout")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

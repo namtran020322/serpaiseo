@@ -18,12 +18,14 @@ import { useCredits } from "@/hooks/useCredits";
 import { useHeaderAnnouncements } from "@/hooks/useHeaderAnnouncements";
 import { formatCredits } from "@/lib/pricing";
 import { formatDistanceToNow } from "date-fns";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function HeaderActions() {
   const navigate = useNavigate();
   const { user, signOut } = useAuthContext();
   const { balance } = useCredits();
   const { data: announcements } = useHeaderAnnouncements();
+  const { t } = useLanguage();
   
   const unreadCount = announcements?.length || 0;
   
@@ -42,7 +44,6 @@ export function HeaderActions() {
   
   return (
     <div className="flex items-center gap-3">
-      {/* 1. Credit Badge */}
       <Link to="/dashboard/billing">
         <Badge variant="outline" className="gap-1.5 py-1 px-2.5 cursor-pointer hover:bg-accent transition-colors">
           <Coins className="h-3.5 w-3.5" />
@@ -50,7 +51,6 @@ export function HeaderActions() {
         </Badge>
       </Link>
       
-      {/* 2. Notification Bell */}
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="relative h-9 w-9">
@@ -64,12 +64,12 @@ export function HeaderActions() {
         </PopoverTrigger>
         <PopoverContent align="end" className="w-80 p-0">
           <div className="p-3 border-b">
-            <h4 className="font-semibold text-sm">Notifications</h4>
+            <h4 className="font-semibold text-sm">{t("header.notifications")}</h4>
           </div>
           <ScrollArea className="h-72">
             {announcements?.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
-                No new notifications
+                {t("notifications.noNew")}
               </div>
             ) : (
               announcements?.map((a) => (
@@ -85,13 +85,12 @@ export function HeaderActions() {
           </ScrollArea>
           <div className="p-2 border-t">
             <Button variant="ghost" size="sm" className="w-full" asChild>
-              <Link to="/dashboard/notifications">View all notifications</Link>
+              <Link to="/dashboard/notifications">{t("notifications.viewAll")}</Link>
             </Button>
           </div>
         </PopoverContent>
       </Popover>
       
-      {/* 3. User Avatar */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
@@ -112,17 +111,17 @@ export function HeaderActions() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>
-            <User className="mr-2 h-4 w-4" /> Account
+            <User className="mr-2 h-4 w-4" /> {t("nav.account")}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => navigate("/dashboard/billing")}>
-            <CreditCard className="mr-2 h-4 w-4" /> Billing
+            <CreditCard className="mr-2 h-4 w-4" /> {t("nav.billing")}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>
-            <Settings className="mr-2 h-4 w-4" /> Settings
+            <Settings className="mr-2 h-4 w-4" /> {t("nav.settings")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
-            <LogOut className="mr-2 h-4 w-4" /> Log out
+            <LogOut className="mr-2 h-4 w-4" /> {t("nav.logout")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
