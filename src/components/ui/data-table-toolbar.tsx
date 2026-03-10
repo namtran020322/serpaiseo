@@ -5,14 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface DataTableToolbarProps<TData> {
   table: Table<TData>;
@@ -23,56 +17,44 @@ interface DataTableToolbarProps<TData> {
   onRefreshSelected?: () => void;
   showSerpTitles?: boolean;
   onToggleSerpTitles?: () => void;
-  // Server-side search callback
   onSearchChange?: (value: string) => void;
 }
 
 export function DataTableToolbar<TData>({
-  table,
-  searchKey,
-  searchPlaceholder = "Search...",
-  selectedCount = 0,
-  onDeleteSelected,
-  onRefreshSelected,
-  showSerpTitles,
-  onToggleSerpTitles,
-  onSearchChange,
+  table, searchKey, searchPlaceholder, selectedCount = 0, onDeleteSelected, onRefreshSelected, showSerpTitles, onToggleSerpTitles, onSearchChange,
 }: DataTableToolbarProps<TData>) {
+  const { t } = useLanguage();
   const isFiltered = table.getState().columnFilters.length > 0;
   const [searchValue, setSearchValue] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Debounce server-side search
   useEffect(() => {
     if (!onSearchChange) return;
-
-    debounceRef.current = setTimeout(() => {
-      onSearchChange(searchValue);
-    }, 300);
-
+    debounceRef.current = setTimeout(() => onSearchChange(searchValue), 300);
     return () => clearTimeout(debounceRef.current);
   }, [searchValue, onSearchChange]);
 
-  // Immediately trigger search on Enter key (bypass debounce)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && onSearchChange) {
-      e.preventDefault();
-      clearTimeout(debounceRef.current);
-      onSearchChange(searchValue);
-    }
+    if (e.key === "Enter" && onSearchChange) { e.preventDefault(); clearTimeout(debounceRef.current); onSearchChange(searchValue); }
   };
 
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
-    // If not using server-side search, use client-side filtering
-    if (!onSearchChange && searchKey) {
-      table.getColumn(searchKey)?.setFilterValue(value);
-    }
+    if (!onSearchChange && searchKey) table.getColumn(searchKey)?.setFilterValue(value);
   };
 
-  const currentSearchValue = onSearchChange 
-    ? searchValue 
-    : (searchKey ? (table.getColumn(searchKey)?.getFilterValue() as string) ?? "" : "");
+  const currentSearchValue = onSearchChange ? searchValue : (searchKey ? (table.getColumn(searchKey)?.getFilterValue() as string) ?? "" : "");
+
+  const columnLabels: Record<string, string> = {
+    ranking_position: t("table.columns.ranking"),
+    first_position: t("table.columns.firstPosition"),
+    best_position: t("table.columns.bestPosition"),
+    found_url: t("table.columns.url"),
+    last_checked_at: t("table.columns.lastChecked"),
+    previous_position: t("table.columns.previous"),
+    competitor_rankings: t("table.columns.competitors"),
+    serp_results: t("table.columns.serpResults"),
+  };
 
   return (
     <div className="flex items-center justify-between gap-2">
@@ -80,92 +62,39 @@ export function DataTableToolbar<TData>({
         {searchKey && (
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={searchPlaceholder}
-              value={currentSearchValue}
-              onChange={(event) => handleSearchChange(event.target.value)}
-              onKeyDown={handleKeyDown}
-              className="h-9 w-[150px] lg:w-[250px] pl-8"
-            />
+            <Input placeholder={searchPlaceholder} value={currentSearchValue} onChange={(event) => handleSearchChange(event.target.value)} onKeyDown={handleKeyDown} className="h-9 w-[150px] lg:w-[250px] pl-8" />
           </div>
         )}
         {isFiltered && (
-          <Button
-            variant="ghost"
-            onClick={() => table.resetColumnFilters()}
-            className="h-8 px-2 lg:px-3"
-          >
-            Reset
-            <X className="ml-2 h-4 w-4" />
+          <Button variant="ghost" onClick={() => table.resetColumnFilters()} className="h-8 px-2 lg:px-3">
+            {t("reset")}<X className="ml-2 h-4 w-4" />
           </Button>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-1">
-              <SlidersHorizontal className="h-4 w-4" />
-              View
-            </Button>
+            <Button variant="outline" size="sm" className="h-9 gap-1"><SlidersHorizontal className="h-4 w-4" />{t("view")}</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[150px]">
-            <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("table.toggleColumns")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => {
-                const columnLabels: Record<string, string> = {
-                  ranking_position: "Ranking",
-                  first_position: "First Position",
-                  best_position: "Best Position",
-                  found_url: "URL",
-                  last_checked_at: "Last Checked",
-                  previous_position: "Previous",
-                  competitor_rankings: "Competitors",
-                  serp_results: "SERP Results",
-                };
-                const label = columnLabels[column.id] || column.id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                  >
-                    {label}
-                  </DropdownMenuCheckboxItem>
-                );
-              })}
+            {table.getAllColumns().filter((column) => column.getCanHide()).map((column) => {
+              const label = columnLabels[column.id] || column.id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              return <DropdownMenuCheckboxItem key={column.id} checked={column.getIsVisible()} onCheckedChange={(value) => column.toggleVisibility(!!value)}>{label}</DropdownMenuCheckboxItem>;
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
         {onToggleSerpTitles !== undefined && (
           <div className="flex items-center gap-2">
-            <Switch
-              id="serp-titles"
-              checked={showSerpTitles}
-              onCheckedChange={onToggleSerpTitles}
-            />
-            <Label htmlFor="serp-titles" className="text-sm font-medium cursor-pointer">
-              SERP Titles
-            </Label>
+            <Switch id="serp-titles" checked={showSerpTitles} onCheckedChange={onToggleSerpTitles} />
+            <Label htmlFor="serp-titles" className="text-sm font-medium cursor-pointer">{t("table.serpTitles")}</Label>
           </div>
         )}
       </div>
       {selectedCount > 0 && (
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">
-            {selectedCount} selected
-          </span>
-          {onRefreshSelected && (
-            <Button variant="outline" size="sm" onClick={onRefreshSelected}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-          )}
-          {onDeleteSelected && (
-            <Button variant="destructive" size="sm" onClick={onDeleteSelected}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
-          )}
+          <span className="text-sm text-muted-foreground">{t("table.selected", { count: selectedCount })}</span>
+          {onRefreshSelected && <Button variant="outline" size="sm" onClick={onRefreshSelected}><RefreshCw className="mr-2 h-4 w-4" />{t("refresh")}</Button>}
+          {onDeleteSelected && <Button variant="destructive" size="sm" onClick={onDeleteSelected}><Trash2 className="mr-2 h-4 w-4" />{t("delete")}</Button>}
         </div>
       )}
     </div>

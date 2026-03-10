@@ -115,7 +115,7 @@ export default function ProjectDetail() {
             <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
               <DomainWithFavicon domain={project.domain} showFullDomain />
               <span>
-                {project.classes.length} class{project.classes.length !== 1 ? "es" : ""} · {totalKeywords} keywords
+                {t("projectDetail.classCount", { count: project.classes.length })} · {t("projectDetail.keywordCount", { count: totalKeywords })}
               </span>
             </div>
           </div>

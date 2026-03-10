@@ -1,18 +1,11 @@
 import { useState, useRef } from "react";
 import { Plus, Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface AddKeywordsDialogProps {
   onAddKeywords: (keywords: string[]) => Promise<void>;
@@ -20,25 +13,19 @@ interface AddKeywordsDialogProps {
 }
 
 export function AddKeywordsDialog({ onAddKeywords, isLoading }: AddKeywordsDialogProps) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [keywordsText, setKeywordsText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const parseKeywords = (text: string): string[] => {
-    return text
-      .split(/[\n,]/)
-      .map((k) => k.trim().toLowerCase())
-      .filter((k) => k.length > 0);
-  };
-
+  const parseKeywords = (text: string): string[] => text.split(/[\n,]/).map((k) => k.trim().toLowerCase()).filter((k) => k.length > 0);
   const uniqueKeywords = [...new Set(parseKeywords(keywordsText))];
 
   const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target?.result as string;
@@ -46,107 +33,52 @@ export function AddKeywordsDialog({ onAddKeywords, isLoading }: AddKeywordsDialo
       const existingKeywords = parseKeywords(keywordsText);
       const combined = [...new Set([...existingKeywords, ...newKeywords])];
       setKeywordsText(combined.join("\n"));
-      toast({
-        title: "File imported",
-        description: `Added ${newKeywords.length} keywords from file`,
-      });
+      toast({ title: t("addKeywords.fileImported"), description: t("addKeywords.fileImportedDesc", { count: newKeywords.length }) });
     };
     reader.readAsText(file);
-
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSubmit = async () => {
     if (uniqueKeywords.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please enter at least one keyword",
-      });
+      toast({ variant: "destructive", title: t("error"), description: t("addKeywords.enterKeyword") });
       return;
     }
-
     setIsSubmitting(true);
-    try {
-      await onAddKeywords(uniqueKeywords);
-      setKeywordsText("");
-      setOpen(false);
-    } catch (error) {
-      // Error handled by parent
-    } finally {
-      setIsSubmitting(false);
-    }
+    try { await onAddKeywords(uniqueKeywords); setKeywordsText(""); setOpen(false); }
+    catch (error) { /* Error handled by parent */ }
+    finally { setIsSubmitting(false); }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Keywords
-        </Button>
+        <Button variant="outline" size="sm"><Plus className="mr-2 h-4 w-4" />{t("addKeywords.title")}</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add Keywords</DialogTitle>
-          <DialogDescription>
-            Enter keywords to track, one per line or separated by commas.
-          </DialogDescription>
+          <DialogTitle>{t("addKeywords.title")}</DialogTitle>
+          <DialogDescription>{t("addKeywords.description")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="keywords">Keywords</Label>
+              <Label htmlFor="keywords">{t("addKeywords.label")}</Label>
               <div className="flex items-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,.txt"
-                  className="hidden"
-                  onChange={handleFileImport}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import File
+                <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileImport} />
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="mr-2 h-4 w-4" />{t("addKeywords.importFile")}
                 </Button>
               </div>
             </div>
-            <Textarea
-              id="keywords"
-              placeholder="Enter keywords, one per line..."
-              value={keywordsText}
-              onChange={(e) => setKeywordsText(e.target.value)}
-              className="min-h-[200px] font-mono text-sm"
-            />
-            <p className="text-sm text-muted-foreground">
-              {uniqueKeywords.length} unique keyword{uniqueKeywords.length !== 1 ? "s" : ""}
-            </p>
+            <Textarea id="keywords" placeholder={t("addKeywords.placeholder")} value={keywordsText} onChange={(e) => setKeywordsText(e.target.value)} className="min-h-[200px] font-mono text-sm" />
+            <p className="text-sm text-muted-foreground">{t("addKeywords.uniqueCount", { count: uniqueKeywords.length })}</p>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={() => setOpen(false)}>{t("cancel")}</Button>
           <Button onClick={handleSubmit} disabled={isSubmitting || isLoading || uniqueKeywords.length === 0}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Adding...
-              </>
-            ) : (
-              <>
-                <Plus className="mr-2 h-4 w-4" />
-                Add {uniqueKeywords.length} Keyword{uniqueKeywords.length !== 1 ? "s" : ""}
-              </>
-            )}
+            {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("addKeywords.adding")}</>) : (<><Plus className="mr-2 h-4 w-4" />{t("addKeywords.add", { count: uniqueKeywords.length })}</>)}
           </Button>
         </DialogFooter>
       </DialogContent>

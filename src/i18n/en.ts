@@ -18,6 +18,10 @@ export const en: Record<string, string> = {
   "creating": "Creating...",
   "processing": "Processing...",
   "noData": "No data",
+  "saving": "Saving...",
+  "reset": "Reset",
+  "view": "View",
+  "refresh": "Refresh",
 
   // Settings
   "settings.title": "Settings",
@@ -98,6 +102,8 @@ export const en: Record<string, string> = {
   "projectDetail.classes.desc": "Click on a class to view detailed keyword rankings",
   "projectDetail.noClasses": "No classes yet",
   "projectDetail.noClasses.desc": "Add a class to start tracking keywords",
+  "projectDetail.classCount": "{count} class(es)",
+  "projectDetail.keywordCount": "{count} keywords",
 
   // Class Detail
   "classDetail.loadingClass": "Loading class...",
@@ -157,6 +163,7 @@ export const en: Record<string, string> = {
   "billing.pending": "Pending",
   "billing.failed": "Failed",
   "billing.usage": "Usage",
+  "billing.purchase": "Purchase",
   "billing.checkedKeywords": "Checked {count} keywords ({checks} {checksLabel})",
   "billing.check": "check",
   "billing.checks": "checks",
@@ -343,4 +350,174 @@ export const en: Record<string, string> = {
   "projectsTable.noProjects": "No projects found.",
   "projectsTable.deleteTitle": "Delete Projects",
   "projectsTable.deleteDesc": "Are you sure you want to delete the selected projects? This will also delete all classes, keywords, and ranking history associated with them. This action cannot be undone.",
+
+  // Ranking Stats Cards
+  "stats.totalKeywords": "Total Keywords",
+  "stats.top1_3": "Top 1-3",
+  "stats.top4_10": "Top 4-10",
+  "stats.top11_30": "Top 11-30",
+  "stats.top31_100": "Top 31-100",
+  "stats.notFound": "Not Found",
+  "stats.viewingFor": "Viewing statistics for",
+
+  // Ranking Distribution Chart
+  "chart.rankingDistribution": "Ranking Distribution",
+  "chart.keywordsByPosition": "Keywords by ranking position",
+  "chart.totalKeywords": "Total Keywords",
+  "chart.distributionHealth": "Distribution health",
+  "chart.updated": "Updated {time}",
+  "chart.updatedNever": "Updated never",
+  "chart.noRankingData": "No ranking data available",
+
+  // Domain Comparison / Top Overview
+  "domain.comparison": "Domain Comparison",
+  "domain.vsCompetitors": "Your domain vs competitors",
+  "domain.noDomainData": "No domain data available",
+  "domain.headerDomain": "Domain",
+
+  // Ranking History Chart
+  "history.title": "Ranking History",
+  "history.noHistory": "No ranking history available yet.",
+  "history.recordedOnRefresh": "Rankings will be recorded each time you refresh.",
+  "history.7days": "7 days",
+  "history.30days": "30 days",
+  "history.3months": "3 months",
+  "history.viewHistory": "View History",
+  "history.hasRankingData": "Has ranking data",
+
+  // Project Settings Dialog
+  "projectSettings.title": "Project Settings",
+  "projectSettings.description": "Update your project settings or delete the project.",
+  "projectSettings.projectName": "Project Name",
+  "projectSettings.domain": "Domain",
+  "projectSettings.domainReadonly": "Domain cannot be changed. Create a new project for a different domain.",
+  "projectSettings.deleteProject": "Delete Project",
+  "projectSettings.deleteConfirm": "Are you sure you want to delete \"{name}\"? This will permanently delete all classes and keywords associated with this project. This action cannot be undone.",
+
+  // Class Settings Dialog
+  "classSettings.title": "Class Settings",
+  "classSettings.description": "Update class configuration, search settings, or competitors.",
+  "classSettings.general": "General",
+  "classSettings.searchSettings": "Search Settings",
+  "classSettings.competitors": "Competitors",
+  "classSettings.className": "Class Name",
+  "classSettings.autoCheck": "Auto-check Schedule",
+  "classSettings.selectSchedule": "Select schedule",
+  "classSettings.noSchedule": "No automatic checks",
+  "classSettings.daily": "Daily",
+  "classSettings.weekly": "Weekly",
+  "classSettings.monthly": "Monthly",
+  "classSettings.checkTime": "Check Time",
+  "classSettings.selectTime": "Select time",
+  "classSettings.vietnamTime": "Vietnam time (Asia/Ho_Chi_Minh)",
+  "classSettings.searchParamsLocked": "Search parameters cannot be changed after creation to maintain data consistency",
+  "classSettings.country": "Country",
+  "classSettings.language": "Language",
+  "classSettings.device": "Device",
+  "classSettings.topResults": "Top Results",
+  "classSettings.selectTopResults": "Select top results",
+  "classSettings.competitorDomains": "Competitor Domains",
+  "classSettings.noCompetitors": "No competitor domains added",
+  "classSettings.competitorLimit": "Reached limit of {max} competitors.",
+  "classSettings.competitorUpgrade": "Upgrade",
+  "classSettings.deleteClass": "Delete Class",
+  "classSettings.deleteConfirm": "Are you sure you want to delete \"{name}\"? This will permanently delete all keywords associated with this class. This action cannot be undone.",
+
+  // Edit Project Dialog
+  "editProject.title": "Edit Project",
+  "editProject.description": "Update the project name.",
+  "editProject.projectName": "Project Name",
+  "editProject.placeholder": "Enter project name",
+
+  // Add Keywords Dialog
+  "addKeywords.title": "Add Keywords",
+  "addKeywords.description": "Enter keywords to track, one per line or separated by commas.",
+  "addKeywords.label": "Keywords",
+  "addKeywords.importFile": "Import File",
+  "addKeywords.placeholder": "Enter keywords, one per line...",
+  "addKeywords.uniqueCount": "{count} unique keyword(s)",
+  "addKeywords.adding": "Adding...",
+  "addKeywords.add": "Add {count} Keyword(s)",
+  "addKeywords.fileImported": "File imported",
+  "addKeywords.fileImportedDesc": "Added {count} keywords from file",
+  "addKeywords.enterKeyword": "Please enter at least one keyword",
+
+  // Check Progress Dialog
+  "checkProgress.complete": "Check Complete",
+  "checkProgress.checking": "Checking Rankings",
+  "checkProgress.class": "Class: {name}",
+  "checkProgress.progress": "Progress",
+  "checkProgress.checked": "Checked {count} keywords",
+  "checkProgress.checkingKeyword": "Checking keyword {current} of {total}...",
+  "checkProgress.found": "Found",
+  "checkProgress.notFoundLabel": "Not found",
+  "checkProgress.done": "Done",
+  "checkProgress.cancelCheck": "Cancel Check",
+
+  // Export
+  "export.title": "Export",
+  "export.csv": "Export as CSV",
+  "export.json": "Export as JSON",
+  "export.complete": "Export Complete",
+  "export.exported": "Exported {count} keywords to {format}",
+  "export.failed": "Export Failed",
+  "export.failedDesc": "Failed to export data",
+
+  // SERP Results Dialog
+  "serp.title": "SERP Results",
+  "serp.results": "{count} results",
+  "serp.tracking": "Tracking: {domain}",
+  "serp.yourSite": "Your site",
+  "serp.showTopOnly": "Show Top 10 Only",
+  "serp.showAll": "Show All {count} Results",
+
+  // Confirm Delete Dialog
+  "confirmDelete.itemsWillBeDeleted": "{count} items will be deleted.",
+  "confirmDelete.cancel": "Cancel",
+  "confirmDelete.delete": "Delete",
+  "confirmDelete.deleting": "Deleting...",
+
+  // Project Row
+  "projectRow.viewProject": "View Project",
+  "projectRow.addClass": "Add Class",
+  "projectRow.refreshAll": "Refresh All Classes",
+  "projectRow.editProject": "Edit Project",
+  "projectRow.deleteProject": "Delete Project",
+  "projectRow.deleteConfirm": "Are you sure you want to delete \"{name}\"? This will also delete all classes and keywords associated with this project. This action cannot be undone.",
+
+  // Class Row
+  "classRow.viewDetails": "View Details",
+  "classRow.refreshRankings": "Refresh Rankings",
+  "classRow.editClass": "Edit Class",
+  "classRow.deleteClass": "Delete Class",
+  "classRow.deleteConfirm": "Are you sure you want to delete \"{name}\"? This will also delete all keywords and ranking history associated with this class. This action cannot be undone.",
+
+  // Sidebar Search
+  "search.placeholder": "Search...",
+  "search.searchPlaceholder": "Search projects, classes, pages...",
+  "search.noResults": "No results found.",
+  "search.pages": "Pages",
+  "search.projects": "Projects",
+  "search.classes": "Classes",
+  "search.inProject": "in {name}",
+
+  // Data Table
+  "table.selected": "{count} selected",
+  "table.rowsPerPage": "Rows per page",
+  "table.page": "Page {current} of {total}",
+  "table.rowsSelected": "{selected} of {total} row(s) selected.",
+  "table.serpTitles": "SERP Titles",
+  "table.toggleColumns": "Toggle columns",
+  "table.columns.ranking": "Ranking",
+  "table.columns.firstPosition": "First Position",
+  "table.columns.bestPosition": "Best Position",
+  "table.columns.url": "URL",
+  "table.columns.lastChecked": "Last Checked",
+  "table.columns.previous": "Previous",
+  "table.columns.competitors": "Competitors",
+  "table.columns.serpResults": "SERP Results",
+  "table.goFirstPage": "Go to first page",
+  "table.goPrevPage": "Go to previous page",
+  "table.goNextPage": "Go to next page",
+  "table.goLastPage": "Go to last page",
 };

@@ -18,6 +18,10 @@ export const vi: Record<string, string> = {
   "creating": "Đang tạo...",
   "processing": "Đang xử lý...",
   "noData": "Không có dữ liệu",
+  "saving": "Đang lưu...",
+  "reset": "Đặt lại",
+  "view": "Xem",
+  "refresh": "Làm mới",
 
   // Settings
   "settings.title": "Cài đặt",
@@ -98,6 +102,8 @@ export const vi: Record<string, string> = {
   "projectDetail.classes.desc": "Nhấn vào lớp để xem chi tiết thứ hạng từ khóa",
   "projectDetail.noClasses": "Chưa có lớp nào",
   "projectDetail.noClasses.desc": "Thêm lớp để bắt đầu theo dõi từ khóa",
+  "projectDetail.classCount": "{count} lớp",
+  "projectDetail.keywordCount": "{count} từ khóa",
 
   // Class Detail
   "classDetail.loadingClass": "Đang tải lớp...",
@@ -157,6 +163,7 @@ export const vi: Record<string, string> = {
   "billing.pending": "Đang chờ",
   "billing.failed": "Thất bại",
   "billing.usage": "Sử dụng",
+  "billing.purchase": "Nạp tiền",
   "billing.checkedKeywords": "Đã kiểm tra {count} từ khóa ({checks} {checksLabel})",
   "billing.check": "lần",
   "billing.checks": "lần",
@@ -343,4 +350,174 @@ export const vi: Record<string, string> = {
   "projectsTable.noProjects": "Không tìm thấy dự án nào.",
   "projectsTable.deleteTitle": "Xóa dự án",
   "projectsTable.deleteDesc": "Bạn có chắc muốn xóa các dự án đã chọn? Thao tác này cũng sẽ xóa toàn bộ lớp, từ khóa và lịch sử thứ hạng liên quan. Không thể hoàn tác.",
+
+  // Ranking Stats Cards
+  "stats.totalKeywords": "Tổng từ khóa",
+  "stats.top1_3": "Top 1-3",
+  "stats.top4_10": "Top 4-10",
+  "stats.top11_30": "Top 11-30",
+  "stats.top31_100": "Top 31-100",
+  "stats.notFound": "Không tìm thấy",
+  "stats.viewingFor": "Xem thống kê cho ngày",
+
+  // Ranking Distribution Chart
+  "chart.rankingDistribution": "Phân bố thứ hạng",
+  "chart.keywordsByPosition": "Từ khóa theo vị trí thứ hạng",
+  "chart.totalKeywords": "Tổng từ khóa",
+  "chart.distributionHealth": "Sức khỏe phân bố",
+  "chart.updated": "Cập nhật {time}",
+  "chart.updatedNever": "Chưa cập nhật",
+  "chart.noRankingData": "Chưa có dữ liệu thứ hạng",
+
+  // Domain Comparison / Top Overview
+  "domain.comparison": "So sánh tên miền",
+  "domain.vsCompetitors": "Tên miền của bạn so với đối thủ",
+  "domain.noDomainData": "Chưa có dữ liệu tên miền",
+  "domain.headerDomain": "Tên miền",
+
+  // Ranking History Chart
+  "history.title": "Lịch sử thứ hạng",
+  "history.noHistory": "Chưa có lịch sử thứ hạng.",
+  "history.recordedOnRefresh": "Thứ hạng sẽ được ghi nhận mỗi khi bạn làm mới.",
+  "history.7days": "7 ngày",
+  "history.30days": "30 ngày",
+  "history.3months": "3 tháng",
+  "history.viewHistory": "Xem lịch sử",
+  "history.hasRankingData": "Có dữ liệu thứ hạng",
+
+  // Project Settings Dialog
+  "projectSettings.title": "Cài đặt dự án",
+  "projectSettings.description": "Cập nhật cài đặt dự án hoặc xóa dự án.",
+  "projectSettings.projectName": "Tên dự án",
+  "projectSettings.domain": "Tên miền",
+  "projectSettings.domainReadonly": "Không thể thay đổi tên miền. Tạo dự án mới cho tên miền khác.",
+  "projectSettings.deleteProject": "Xóa dự án",
+  "projectSettings.deleteConfirm": "Bạn có chắc muốn xóa \"{name}\"? Thao tác này sẽ xóa vĩnh viễn tất cả lớp và từ khóa liên quan đến dự án này. Không thể hoàn tác.",
+
+  // Class Settings Dialog
+  "classSettings.title": "Cài đặt lớp",
+  "classSettings.description": "Cập nhật cấu hình lớp, cài đặt tìm kiếm hoặc đối thủ.",
+  "classSettings.general": "Chung",
+  "classSettings.searchSettings": "Cài đặt tìm kiếm",
+  "classSettings.competitors": "Đối thủ",
+  "classSettings.className": "Tên lớp",
+  "classSettings.autoCheck": "Lịch kiểm tra tự động",
+  "classSettings.selectSchedule": "Chọn lịch trình",
+  "classSettings.noSchedule": "Không kiểm tra tự động",
+  "classSettings.daily": "Hàng ngày",
+  "classSettings.weekly": "Hàng tuần",
+  "classSettings.monthly": "Hàng tháng",
+  "classSettings.checkTime": "Giờ kiểm tra",
+  "classSettings.selectTime": "Chọn giờ",
+  "classSettings.vietnamTime": "Giờ Việt Nam (Asia/Ho_Chi_Minh)",
+  "classSettings.searchParamsLocked": "Không thể thay đổi tham số tìm kiếm sau khi tạo để đảm bảo tính nhất quán dữ liệu",
+  "classSettings.country": "Quốc gia",
+  "classSettings.language": "Ngôn ngữ",
+  "classSettings.device": "Thiết bị",
+  "classSettings.topResults": "Số kết quả",
+  "classSettings.selectTopResults": "Chọn số kết quả",
+  "classSettings.competitorDomains": "Tên miền đối thủ",
+  "classSettings.noCompetitors": "Chưa thêm tên miền đối thủ",
+  "classSettings.competitorLimit": "Đã đạt giới hạn {max} đối thủ.",
+  "classSettings.competitorUpgrade": "Nâng cấp",
+  "classSettings.deleteClass": "Xóa lớp",
+  "classSettings.deleteConfirm": "Bạn có chắc muốn xóa \"{name}\"? Thao tác này sẽ xóa vĩnh viễn tất cả từ khóa liên quan đến lớp này. Không thể hoàn tác.",
+
+  // Edit Project Dialog
+  "editProject.title": "Chỉnh sửa dự án",
+  "editProject.description": "Cập nhật tên dự án.",
+  "editProject.projectName": "Tên dự án",
+  "editProject.placeholder": "Nhập tên dự án",
+
+  // Add Keywords Dialog
+  "addKeywords.title": "Thêm từ khóa",
+  "addKeywords.description": "Nhập từ khóa cần theo dõi, mỗi dòng một từ hoặc phân cách bằng dấu phẩy.",
+  "addKeywords.label": "Từ khóa",
+  "addKeywords.importFile": "Nhập file",
+  "addKeywords.placeholder": "Nhập từ khóa, mỗi dòng một từ...",
+  "addKeywords.uniqueCount": "{count} từ khóa duy nhất",
+  "addKeywords.adding": "Đang thêm...",
+  "addKeywords.add": "Thêm {count} từ khóa",
+  "addKeywords.fileImported": "Đã nhập file",
+  "addKeywords.fileImportedDesc": "Đã thêm {count} từ khóa từ file",
+  "addKeywords.enterKeyword": "Vui lòng nhập ít nhất một từ khóa",
+
+  // Check Progress Dialog
+  "checkProgress.complete": "Kiểm tra hoàn tất",
+  "checkProgress.checking": "Đang kiểm tra thứ hạng",
+  "checkProgress.class": "Lớp: {name}",
+  "checkProgress.progress": "Tiến trình",
+  "checkProgress.checked": "Đã kiểm tra {count} từ khóa",
+  "checkProgress.checkingKeyword": "Đang kiểm tra từ khóa {current}/{total}...",
+  "checkProgress.found": "Tìm thấy",
+  "checkProgress.notFoundLabel": "Không tìm thấy",
+  "checkProgress.done": "Hoàn tất",
+  "checkProgress.cancelCheck": "Hủy kiểm tra",
+
+  // Export
+  "export.title": "Xuất dữ liệu",
+  "export.csv": "Xuất CSV",
+  "export.json": "Xuất JSON",
+  "export.complete": "Xuất hoàn tất",
+  "export.exported": "Đã xuất {count} từ khóa sang {format}",
+  "export.failed": "Xuất thất bại",
+  "export.failedDesc": "Không thể xuất dữ liệu",
+
+  // SERP Results Dialog
+  "serp.title": "Kết quả SERP",
+  "serp.results": "{count} kết quả",
+  "serp.tracking": "Theo dõi: {domain}",
+  "serp.yourSite": "Trang của bạn",
+  "serp.showTopOnly": "Chỉ hiện Top 10",
+  "serp.showAll": "Hiện tất cả {count} kết quả",
+
+  // Confirm Delete Dialog
+  "confirmDelete.itemsWillBeDeleted": "{count} mục sẽ bị xóa.",
+  "confirmDelete.cancel": "Hủy",
+  "confirmDelete.delete": "Xóa",
+  "confirmDelete.deleting": "Đang xóa...",
+
+  // Project Row
+  "projectRow.viewProject": "Xem dự án",
+  "projectRow.addClass": "Thêm lớp",
+  "projectRow.refreshAll": "Làm mới tất cả lớp",
+  "projectRow.editProject": "Chỉnh sửa dự án",
+  "projectRow.deleteProject": "Xóa dự án",
+  "projectRow.deleteConfirm": "Bạn có chắc muốn xóa \"{name}\"? Thao tác này cũng sẽ xóa toàn bộ lớp và từ khóa liên quan đến dự án này. Không thể hoàn tác.",
+
+  // Class Row
+  "classRow.viewDetails": "Xem chi tiết",
+  "classRow.refreshRankings": "Kiểm tra thứ hạng",
+  "classRow.editClass": "Chỉnh sửa lớp",
+  "classRow.deleteClass": "Xóa lớp",
+  "classRow.deleteConfirm": "Bạn có chắc muốn xóa \"{name}\"? Thao tác này cũng sẽ xóa toàn bộ từ khóa và lịch sử thứ hạng liên quan đến lớp này. Không thể hoàn tác.",
+
+  // Sidebar Search
+  "search.placeholder": "Tìm kiếm...",
+  "search.searchPlaceholder": "Tìm dự án, lớp, trang...",
+  "search.noResults": "Không tìm thấy kết quả.",
+  "search.pages": "Trang",
+  "search.projects": "Dự án",
+  "search.classes": "Lớp",
+  "search.inProject": "trong {name}",
+
+  // Data Table
+  "table.selected": "{count} đã chọn",
+  "table.rowsPerPage": "Số dòng mỗi trang",
+  "table.page": "Trang {current} / {total}",
+  "table.rowsSelected": "{selected} / {total} dòng đã chọn.",
+  "table.serpTitles": "Tiêu đề SERP",
+  "table.toggleColumns": "Hiện/ẩn cột",
+  "table.columns.ranking": "Thứ hạng",
+  "table.columns.firstPosition": "Vị trí đầu",
+  "table.columns.bestPosition": "Vị trí tốt nhất",
+  "table.columns.url": "URL",
+  "table.columns.lastChecked": "Lần kiểm tra cuối",
+  "table.columns.previous": "Trước đó",
+  "table.columns.competitors": "Đối thủ",
+  "table.columns.serpResults": "Kết quả SERP",
+  "table.goFirstPage": "Đến trang đầu",
+  "table.goPrevPage": "Trang trước",
+  "table.goNextPage": "Trang sau",
+  "table.goLastPage": "Đến trang cuối",
 };

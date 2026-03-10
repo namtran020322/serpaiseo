@@ -503,7 +503,7 @@ export function KeywordsTable({
   if (isClassEmpty) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-        <p className="text-muted-foreground">No keywords added yet</p>
+        <p className="text-muted-foreground">{t("keywords.noKeywords")}</p>
       </div>
     );
   }
@@ -513,7 +513,7 @@ export function KeywordsTable({
       <DataTableToolbar
         table={table}
         searchKey="keyword"
-        searchPlaceholder="Filter keywords..."
+        searchPlaceholder={t("keywords.filterPlaceholder")}
         selectedCount={selectedIds.length}
         onDeleteSelected={onDeleteKeywords ? () => handleDeleteClick(selectedIds) : undefined}
         onRefreshSelected={onRefreshKeywords ? () => onRefreshKeywords(selectedIds) : undefined}
@@ -726,7 +726,7 @@ export function KeywordsTable({
             ) : (
               <tr>
                 <td colSpan={columns.length} className="h-24 text-center p-4">
-                  {isLoading ? "Loading..." : "No keywords match your search."}
+                  {isLoading ? t("loading") : t("keywords.noMatch")}
                 </td>
               </tr>
             )}
