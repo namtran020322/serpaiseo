@@ -103,11 +103,11 @@ const App = () => (
             </Suspense>
           </BrowserRouter>
         </TooltipProvider>
+        </ErrorBoundary>
         </LanguageProvider>
       </TaskProgressProvider>
     </AuthProvider>
   </QueryClientProvider>
-  </ErrorBoundary>
 );
 
 export default App;
