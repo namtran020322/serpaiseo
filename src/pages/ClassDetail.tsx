@@ -248,7 +248,7 @@ export default function ClassDetail() {
           <ExportButton projectClass={projectClassForExport} />
           <Button variant="outline" onClick={() => setSettingsOpen(true)}>
             <Settings className="mr-2 h-4 w-4" />
-            Settings
+            {t("nav.settings")}
           </Button>
           <HistoryDatePicker
             datesWithData={datesWithData}
