@@ -33,7 +33,23 @@ export function useAddRankingJob() {
           body: { classId, keywordIds },
         });
 
-        if (error) throw error;
+        if (error) {
+          // For non-2xx responses, try to parse the response body for details
+          let errorBody: any = null;
+          try {
+            // supabase-js v2: error.context is the Response object
+            if (error.context && typeof error.context.json === 'function') {
+              errorBody = await error.context.json();
+            }
+          } catch {}
+
+          if (errorBody?.error) {
+            const enrichedError = new Error(errorBody.error);
+            (enrichedError as any).details = errorBody;
+            throw enrichedError;
+          }
+          throw error;
+        }
         if (!data?.success) throw new Error(data?.error || "Failed to add job");
 
         // Update task with real ID and total (preserves startedAt)
@@ -56,22 +72,17 @@ export function useAddRankingJob() {
       supabase.functions.invoke("process-ranking-queue").catch(console.error);
     },
     onError: (error: any) => {
+      const details = error.details || {};
+      
       // Handle 402 insufficient credits
-      if (error.message?.includes("insufficient_credits")) {
-        try {
-          const body = JSON.parse(error.message.replace(/^.*?(\{.*\}).*$/, '$1'));
-          toast.error("Insufficient credits", {
-            description: `Need ${body.credits_needed} credits but only ${body.credits_available} available. Please top up.`,
-            action: {
-              label: "Top up",
-              onClick: () => window.location.href = "/dashboard/billing",
-            },
-          });
-        } catch {
-          toast.error("Insufficient credits", {
-            description: "Please top up your credits to continue.",
-          });
-        }
+      if (error.message?.includes("insufficient_credits") || details.error === "insufficient_credits") {
+        toast.error("Insufficient credits", {
+          description: `Need ${details.credits_needed || '?'} credits but only ${details.credits_available || '?'} available. Please top up.`,
+          action: {
+            label: "Top up",
+            onClick: () => window.location.href = "/dashboard/billing",
+          },
+        });
         return;
       }
 
