@@ -23,6 +23,10 @@ import { useGeoData } from "@/hooks/useGeoData";
 import { LocationCombobox } from "@/components/LocationCombobox";
 import { useCredits } from "@/hooks/useCredits";
 import { getMaxCompetitorsByPurchased } from "@/lib/pricing";
+import { useTrial } from "@/hooks/useTrial";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
 
 interface AddClassDialogProps {
   open?: boolean;
@@ -39,8 +43,25 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
   const addRankingJob = useAddRankingJob();
   const { getLocationsByCountry } = useGeoData();
   const { totalPurchased } = useCredits();
+  const { trial } = useTrial();
+  const { user } = useAuthContext();
   
   const maxCompetitors = getMaxCompetitorsByPurchased(totalPurchased);
+
+  // Count existing classes in this project for trial enforcement
+  const { data: existingClassCount } = useQuery({
+    queryKey: ["class-count", projectId],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("project_classes")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", projectId);
+      return count || 0;
+    },
+    enabled: trial.isOnTrial,
+  });
+
+  const isAtClassLimit = trial.isOnTrial && (existingClassCount ?? 0) >= trial.maxClassesPerProject;
 
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
@@ -135,6 +156,7 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
   const canProceed = () => {
     switch (step) {
       case 1:
+        if (isAtClassLimit) return false;
         return className.trim().length > 0 && domain.trim().length > 0;
       case 2:
         return parseKeywords().length > 0;
@@ -241,6 +263,11 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
         <div className="min-h-[300px]">
           {step === 1 && (
             <div className="space-y-4">
+              {isAtClassLimit && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+                  Bạn đang dùng gói dùng thử, giới hạn {trial.maxClassesPerProject} class mỗi dự án. Vui lòng nâng cấp để tạo thêm.
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="className">Class Name</Label>
                 <Input

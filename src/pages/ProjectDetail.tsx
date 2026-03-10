@@ -3,7 +3,8 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, RefreshCw, Settings, Globe, Monitor, Smartphone, Tablet, Calendar, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useProject } from "@/hooks/useProjects";
+import { useProject, useCheckRankings } from "@/hooks/useProjects";
+import { useTaskProgress } from "@/contexts/TaskProgressContext";
 import { RankingStatsCards } from "@/components/projects/RankingStatsCards";
 import { RankingDistributionChart } from "@/components/projects/RankingDistributionChart";
 import { TopOverviewTable } from "@/components/projects/TopOverviewTable";
@@ -22,7 +23,27 @@ export default function ProjectDetail() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { data: project, isLoading, error } = useProject(projectId);
+  const checkRankings = useCheckRankings();
+  const { tasks } = useTaskProgress();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Check if any class in project has running task (anti-spam)
+  const hasRunningTask = project?.classes.some((cls) =>
+    tasks.some((t) => t.classId === cls.id && (t.status === "pending" || t.status === "processing"))
+  ) ?? false;
+
+  const handleRefreshAll = async () => {
+    if (hasRunningTask || !project?.classes.length) return;
+    setIsRefreshing(true);
+    try {
+      for (const cls of project.classes) {
+        await checkRankings.mutateAsync(cls.id);
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -101,9 +122,13 @@ export default function ProjectDetail() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh All
+          <Button
+            variant="outline"
+            onClick={handleRefreshAll}
+            disabled={isRefreshing || hasRunningTask || !project.classes.length}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing || hasRunningTask ? 'animate-spin' : ''}`} />
+            {hasRunningTask ? 'Checking...' : isRefreshing ? 'Starting...' : 'Refresh All'}
           </Button>
           <Button variant="outline" onClick={() => setSettingsOpen(true)}>
             <Settings className="mr-2 h-4 w-4" />

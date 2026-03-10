@@ -20,6 +20,7 @@ import { languages } from "@/data/languages";
 import { useGeoData } from "@/hooks/useGeoData";
 import { LocationCombobox } from "@/components/LocationCombobox";
 import { useToast } from "@/hooks/use-toast";
+import { useTrial } from "@/hooks/useTrial";
 
 interface AddProjectDialogProps {
   open: boolean;
@@ -35,6 +36,11 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
   const createClass = useCreateClass();
   const checkRankings = useCheckRankings();
   const { getLocationsByCountry } = useGeoData();
+  const { trial } = useTrial();
+
+  // Enforce trial project limit
+  const projectCount = existingProjects?.length || 0;
+  const isAtProjectLimit = trial.isOnTrial && projectCount >= trial.maxProjects;
 
   const [step, setStep] = useState<Step>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -160,6 +166,7 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
     switch (step) {
       case 1:
         if (projectType === "new") {
+          if (isAtProjectLimit) return false;
           return newProjectName.trim().length > 0 && newProjectName.length <= 50 && projectDomain.trim().length > 0 && !domainError;
         }
         return existingProjectId.length > 0;
@@ -307,8 +314,12 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
                     Existing Project
                   </Button>
                 </div>
-              </div>
-
+                </div>
+                {isAtProjectLimit && projectType === "new" && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+                    Bạn đang dùng gói dùng thử, giới hạn {trial.maxProjects} dự án. Vui lòng nâng cấp để tạo thêm.
+                  </div>
+                )}
               {projectType === "new" ? (
                 <>
                   <div className="space-y-2">

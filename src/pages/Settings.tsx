@@ -3,14 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Key, Save, Loader2, Lock } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { User, Key, Save, Loader2, Lock, Languages } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Settings() {
   const { user } = useAuthContext();
   const { toast } = useToast();
+  const { locale, setLocale, t } = useLanguage();
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || "");
   const [isLoading, setIsLoading] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -26,16 +29,9 @@ export default function Settings() {
     });
 
     if (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Unable to update information",
-      });
+      toast({ variant: "destructive", title: t("error"), description: t("settings.profileUpdateError") });
     } else {
-      toast({
-        title: "Success",
-        description: "Personal information updated",
-      });
+      toast({ title: t("success"), description: t("settings.profileUpdated") });
     }
 
     setIsLoading(false);
@@ -45,40 +41,23 @@ export default function Settings() {
     e.preventDefault();
     
     if (newPassword !== confirmPassword) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Passwords do not match",
-      });
+      toast({ variant: "destructive", title: t("error"), description: t("settings.passwordMismatch") });
       return;
     }
 
     if (newPassword.length < 6) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Password must be at least 6 characters",
-      });
+      toast({ variant: "destructive", title: t("error"), description: t("settings.passwordTooShort") });
       return;
     }
 
     setIsPasswordLoading(true);
 
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
 
     if (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
+      toast({ variant: "destructive", title: t("error"), description: error.message });
     } else {
-      toast({
-        title: "Success",
-        description: "Password updated successfully",
-      });
+      toast({ title: t("success"), description: t("settings.passwordUpdated") });
       setNewPassword("");
       setConfirmPassword("");
     }
@@ -89,70 +68,78 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage your account information and app settings
-        </p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("settings.title")}</h1>
+        <p className="text-muted-foreground mt-2">{t("settings.description")}</p>
       </div>
 
       <div className="grid gap-6">
+        {/* Language Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Languages className="h-5 w-5" />
+              <CardTitle>{t("settings.language")}</CardTitle>
+            </div>
+            <CardDescription>{t("settings.language.description")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Select value={locale} onValueChange={(v) => setLocale(v as "vi" | "en")}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vi">{t("settings.language.vietnamese")}</SelectItem>
+                <SelectItem value="en">{t("settings.language.english")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+
+        {/* Personal Info Card */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <User className="h-5 w-5" />
-              <CardTitle>Personal Information</CardTitle>
+              <CardTitle>{t("settings.personalInfo")}</CardTitle>
             </div>
-            <CardDescription>
-              Update your account information
-            </CardDescription>
+            <CardDescription>{t("settings.personalInfo.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={user?.email || ""}
-                  disabled
-                  className="bg-muted"
-                />
+                <Label htmlFor="email">{t("settings.email")}</Label>
+                <Input id="email" type="email" value={user?.email || ""} disabled className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="fullName">{t("settings.fullName")}</Label>
                 <Input
                   id="fullName"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Enter your full name"
+                  placeholder={t("settings.fullName.placeholder")}
                 />
               </div>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Save Changes
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {t("save")}
               </Button>
             </form>
           </CardContent>
         </Card>
 
+        {/* Change Password Card */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Lock className="h-5 w-5" />
-              <CardTitle>Change Password</CardTitle>
+              <CardTitle>{t("settings.changePassword")}</CardTitle>
             </div>
-            <CardDescription>
-              Update your password
-            </CardDescription>
+            <CardDescription>{t("settings.changePassword.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
+                <Label htmlFor="newPassword">{t("settings.newPassword")}</Label>
                 <Input
                   id="newPassword"
                   type="password"
@@ -163,7 +150,7 @@ export default function Settings() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="confirmPassword">{t("settings.confirmPassword")}</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -174,34 +161,26 @@ export default function Settings() {
                 />
               </div>
               <Button type="submit" disabled={isPasswordLoading || !newPassword}>
-                {isPasswordLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Lock className="mr-2 h-4 w-4" />
-                )}
-                Update Password
+                {isPasswordLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
+                {t("settings.updatePassword")}
               </Button>
             </form>
           </CardContent>
         </Card>
 
+        {/* API Config Card */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Key className="h-5 w-5" />
-              <CardTitle>API Configuration</CardTitle>
+              <CardTitle>{t("settings.apiConfig")}</CardTitle>
             </div>
-            <CardDescription>
-              Configure API for real ranking check features
-            </CardDescription>
+            <CardDescription>{t("settings.apiConfig.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  To use real-time ranking data from Google, API configuration is required.
-                  Contact admin for setup.
-                </p>
+                <p className="text-sm text-muted-foreground">{t("settings.apiConfig.info")}</p>
               </div>
             </div>
           </CardContent>

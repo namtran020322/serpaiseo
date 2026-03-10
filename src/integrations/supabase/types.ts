@@ -481,6 +481,42 @@ export type Database = {
           },
         ]
       }
+      trial_credits: {
+        Row: {
+          created_at: string
+          credits_granted: number
+          expires_at: string
+          granted_by: string
+          id: string
+          is_active: boolean
+          max_classes_per_project: number
+          max_projects: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_granted?: number
+          expires_at: string
+          granted_by: string
+          id?: string
+          is_active?: boolean
+          max_classes_per_project?: number
+          max_projects?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_granted?: number
+          expires_at?: string
+          granted_by?: string
+          id?: string
+          is_active?: boolean
+          max_classes_per_project?: number
+          max_projects?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_credits: {
         Row: {
           balance: number
