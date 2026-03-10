@@ -258,7 +258,7 @@ export default function ClassDetail() {
           />
           <Button onClick={handleRefresh} disabled={addRankingJob.isPending || isViewingHistory || isClassRunning}>
             <RefreshCw className={`mr-2 h-4 w-4 ${addRankingJob.isPending || isClassRunning ? "animate-spin" : ""}`} />
-            {isClassRunning ? "Checking..." : addRankingJob.isPending ? "Starting..." : "Refresh Rankings"}
+            {isClassRunning ? t("projects.checking") : addRankingJob.isPending ? t("projects.starting") : t("classDetail.refreshRankings")}
           </Button>
         </div>
       </div>
