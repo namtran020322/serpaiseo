@@ -314,8 +314,12 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
                     Existing Project
                   </Button>
                 </div>
-              </div>
-
+                </div>
+                {isAtProjectLimit && projectType === "new" && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+                    Bạn đang dùng gói dùng thử, giới hạn {trial.maxProjects} dự án. Vui lòng nâng cấp để tạo thêm.
+                  </div>
+                )}
               {projectType === "new" ? (
                 <>
                   <div className="space-y-2">
