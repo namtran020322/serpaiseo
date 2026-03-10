@@ -43,8 +43,25 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
   const addRankingJob = useAddRankingJob();
   const { getLocationsByCountry } = useGeoData();
   const { totalPurchased } = useCredits();
+  const { trial } = useTrial();
+  const { user } = useAuthContext();
   
   const maxCompetitors = getMaxCompetitorsByPurchased(totalPurchased);
+
+  // Count existing classes in this project for trial enforcement
+  const { data: existingClassCount } = useQuery({
+    queryKey: ["class-count", projectId],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("project_classes")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", projectId);
+      return count || 0;
+    },
+    enabled: trial.isOnTrial,
+  });
+
+  const isAtClassLimit = trial.isOnTrial && (existingClassCount ?? 0) >= trial.maxClassesPerProject;
 
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
