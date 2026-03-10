@@ -31,10 +31,6 @@ export default function AdminUsers() {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session) throw new Error("Not authenticated");
 
-      const response = await supabase.functions.invoke("admin-user-management", {
-        body: {},
-        headers: { Authorization: `Bearer ${session.session.access_token}` },
-      });
 
       // Build URL manually for GET request
       const url = new URL(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-user-management`);
