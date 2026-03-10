@@ -263,6 +263,11 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
         <div className="min-h-[300px]">
           {step === 1 && (
             <div className="space-y-4">
+              {isAtClassLimit && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+                  Bạn đang dùng gói dùng thử, giới hạn {trial.maxClassesPerProject} class mỗi dự án. Vui lòng nâng cấp để tạo thêm.
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="className">Class Name</Label>
                 <Input
