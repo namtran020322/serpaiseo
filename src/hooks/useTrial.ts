@@ -11,33 +11,42 @@ export interface TrialInfo {
   creditsGranted: number;
 }
 
+const DEFAULT_TRIAL: TrialInfo = {
+  isOnTrial: false,
+  isExpired: false,
+  maxProjects: Infinity,
+  maxClassesPerProject: Infinity,
+  expiresAt: null,
+  creditsGranted: 0,
+};
+
 export function useTrial() {
   const { user } = useAuthContext();
 
   const { data: trial, isLoading } = useQuery({
     queryKey: ["trial-credits", user?.id],
     queryFn: async (): Promise<TrialInfo> => {
-      if (!user) return { isOnTrial: false, isExpired: false, maxProjects: Infinity, maxClassesPerProject: Infinity, expiresAt: null, creditsGranted: 0 };
+      if (!user) return DEFAULT_TRIAL;
 
+      // Use rpc or raw fetch since trial_credits is not in generated types yet
       const { data, error } = await supabase
         .from("trial_credits" as any)
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (error || !data) {
-        return { isOnTrial: false, isExpired: false, maxProjects: Infinity, maxClassesPerProject: Infinity, expiresAt: null, creditsGranted: 0 };
-      }
+      if (error || !data) return DEFAULT_TRIAL;
 
-      const isExpired = !data.is_active || new Date(data.expires_at) <= new Date();
+      const row = data as any;
+      const isExpired = !row.is_active || new Date(row.expires_at) <= new Date();
 
       return {
-        isOnTrial: data.is_active && !isExpired,
+        isOnTrial: row.is_active && !isExpired,
         isExpired,
-        maxProjects: data.max_projects,
-        maxClassesPerProject: data.max_classes_per_project,
-        expiresAt: data.expires_at,
-        creditsGranted: data.credits_granted,
+        maxProjects: row.max_projects,
+        maxClassesPerProject: row.max_classes_per_project,
+        expiresAt: row.expires_at,
+        creditsGranted: row.credits_granted,
       };
     },
     enabled: !!user,
@@ -45,7 +54,7 @@ export function useTrial() {
   });
 
   return {
-    trial: trial || { isOnTrial: false, isExpired: false, maxProjects: Infinity, maxClassesPerProject: Infinity, expiresAt: null, creditsGranted: 0 },
+    trial: trial || DEFAULT_TRIAL,
     isLoading,
   };
 }
