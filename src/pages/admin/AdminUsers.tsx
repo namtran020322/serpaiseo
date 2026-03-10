@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MoreHorizontal, Search, History, Coins } from "lucide-react";
+import { MoreHorizontal, Search, History, Coins, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreditAdjustDialog } from "@/components/admin/CreditAdjustDialog";
+import { TrialGrantDialog } from "@/components/admin/TrialGrantDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 interface User {
@@ -17,6 +19,7 @@ interface User {
   total_used: number;
   total_purchased: number;
   created_at: string;
+  trial_status: { is_active: boolean; expires_at: string; credits_granted: number } | null;
 }
 
 export default function AdminUsers() {
@@ -24,6 +27,7 @@ export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [adjustDialogOpen, setAdjustDialogOpen] = useState(false);
+  const [trialDialogOpen, setTrialDialogOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-users", page, search],
@@ -31,8 +35,6 @@ export default function AdminUsers() {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session) throw new Error("Not authenticated");
 
-
-      // Build URL manually for GET request
       const url = new URL(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-user-management`);
       url.searchParams.set("action", "list-users");
       url.searchParams.set("page", page.toString());
@@ -51,6 +53,11 @@ export default function AdminUsers() {
   const handleAdjustCredits = (user: User) => {
     setSelectedUser(user);
     setAdjustDialogOpen(true);
+  };
+
+  const handleGrantTrial = (user: User) => {
+    setSelectedUser(user);
+    setTrialDialogOpen(true);
   };
 
   return (
@@ -80,6 +87,7 @@ export default function AdminUsers() {
               <TableHead className="text-right">Số dư</TableHead>
               <TableHead className="text-right">Đã dùng</TableHead>
               <TableHead className="text-right">Đã mua</TableHead>
+              <TableHead>Trial</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -92,12 +100,13 @@ export default function AdminUsers() {
                   <TableCell><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell></TableCell>
                 </TableRow>
               ))
             ) : data?.users?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Không tìm thấy user nào
                 </TableCell>
               </TableRow>
@@ -110,6 +119,15 @@ export default function AdminUsers() {
                   <TableCell className="text-right font-mono">{user.total_used.toLocaleString()}</TableCell>
                   <TableCell className="text-right font-mono">{user.total_purchased.toLocaleString()}</TableCell>
                   <TableCell>
+                    {user.trial_status?.is_active ? (
+                      <Badge variant="default" className="bg-emerald-600">Trial</Badge>
+                    ) : user.trial_status ? (
+                      <Badge variant="secondary">Hết hạn</Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
@@ -121,6 +139,11 @@ export default function AdminUsers() {
                           <Coins className="h-4 w-4 mr-2" />
                           Điều chỉnh Credits
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleGrantTrial(user)}>
+                          <Gift className="h-4 w-4 mr-2" />
+                          Cấp Trial
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem>
                           <History className="h-4 w-4 mr-2" />
                           Xem lịch sử
@@ -152,6 +175,12 @@ export default function AdminUsers() {
       <CreditAdjustDialog
         open={adjustDialogOpen}
         onOpenChange={setAdjustDialogOpen}
+        user={selectedUser}
+      />
+
+      <TrialGrantDialog
+        open={trialDialogOpen}
+        onOpenChange={setTrialDialogOpen}
         user={selectedUser}
       />
     </div>

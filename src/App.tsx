@@ -101,6 +101,7 @@ const App = () => (
             </Suspense>
           </BrowserRouter>
         </TooltipProvider>
+        </LanguageProvider>
       </TaskProgressProvider>
     </AuthProvider>
   </QueryClientProvider>
