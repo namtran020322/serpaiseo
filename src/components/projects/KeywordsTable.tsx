@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   useReactTable,
   getCoreRowModel,
@@ -179,6 +180,7 @@ export function KeywordsTable({
   onSearchChange,
   isLoading = false,
 }: KeywordsTableProps) {
+  const { t } = useLanguage();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
