@@ -20,6 +20,9 @@ export function AddKeywordsDialog({ onAddKeywords, isLoading }: AddKeywordsDialo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  const MAX_KEYWORDS = 500;
+  const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+
   const parseKeywords = (text: string): string[] => text.split(/[\n,]/).map((k) => k.trim().toLowerCase()).filter((k) => k.length > 0);
   const uniqueKeywords = [...new Set(parseKeywords(keywordsText))];
 
