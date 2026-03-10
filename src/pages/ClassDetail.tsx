@@ -32,6 +32,7 @@ const deviceIcons = {
 export default function ClassDetail() {
   const { projectId, classId } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   
   // Pagination and filter state
   const [page, setPage] = useState(0);
