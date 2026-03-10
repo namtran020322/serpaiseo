@@ -300,7 +300,7 @@ export default function ClassDetail() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">
-              Keywords
+              {t("classDetail.keywords")}
               {isViewingHistory && selectedHistoryDate && (
                 <Badge variant="secondary" className="ml-2">
                   {format(selectedHistoryDate, "dd/MM/yyyy")}
@@ -308,7 +308,7 @@ export default function ClassDetail() {
               )}
             </h2>
             <p className="text-sm text-muted-foreground">
-              {displayTotalCount} keywords {isViewingHistory ? "recorded" : "tracked"}
+              {isViewingHistory ? t("classDetail.keywordsRecorded", { count: String(displayTotalCount) }) : t("classDetail.keywordsTracked", { count: String(displayTotalCount) })}
             </p>
           </div>
           {!isViewingHistory && (
