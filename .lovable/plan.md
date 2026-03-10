@@ -1,259 +1,58 @@
 
 
-## Kế hoạch Thêm Cơ chế Chống Spam Refresh và Xác nhận Hành động Quan trọng
+## Plan: Complete i18n — Translate ALL Remaining Hardcoded Strings
 
-### Phân tích Hiện trạng
+### Problem
+Many components still have hardcoded English strings that don't change when user switches to Vietnamese. Affected components include: Billing page, ProjectRow, ClassRow, ProjectSettingsDialog, ClassSettingsDialog, EditProjectDialog, AddKeywordsDialog, CheckProgressDialog, ExportButton, RankingDistributionChart, RankingStatsCards, TopOverviewTable, RankingHistoryChart, HistoryDatePicker, SerpResultsDialog, SidebarSearch, ConfirmDeleteDialog, DataTablePagination, DataTableToolbar.
 
-**1. Nút Refresh Rankings:**
-- **ClassDetail.tsx (dòng 250):** Nút "Refresh Rankings" chỉ disable khi `addRankingJob.isPending` (chỉ trong thời gian ngắn khi gọi API)
-- **ClassRow.tsx (dòng 117):** Tương tự, chỉ disable khi `isChecking`
-- **ProjectRow.tsx (dòng 143):** Tương tự pattern
+### Changes
 
-**Vấn đề:** User có thể spam click liên tục vì nút chỉ bị disable trong ~1-2 giây. Nếu class đang có job running, user vẫn có thể tạo thêm job mới.
+#### A. Expand translation dictionaries (`src/i18n/en.ts` + `src/i18n/vi.ts`)
 
-**2. Xác nhận Xóa:**
-- **ClassRow.tsx (dòng 138-157):** Đã có AlertDialog xác nhận xóa Class
-- **ProjectRow.tsx (dòng 169-188):** Đã có AlertDialog xác nhận xóa Project
-- **KeywordsTable.tsx:** Xóa keyword KHÔNG có dialog xác nhận - xóa trực tiếp!
-- **ProjectsTable.tsx (dòng 246-251):** Xóa project (multi-select) KHÔNG có xác nhận!
+Add ~120 new keys covering:
 
----
+| Section | Example keys |
+|---------|-------------|
+| **Ranking stats** | `stats.totalKeywords`, `stats.top1_3`, `stats.top4_10`, `stats.top11_30`, `stats.top31_100`, `stats.notFound` |
+| **Ranking distribution** | `chart.rankingDistribution`, `chart.keywordsByPosition`, `chart.totalKeywords`, `chart.distributionHealth`, `chart.updated`, `chart.noRankingData` |
+| **Domain comparison** | `domain.comparison`, `domain.vsCompetitors`, `domain.noDomainData`, `domain.header` |
+| **Ranking history** | `history.title`, `history.noHistory`, `history.recordedOnRefresh`, `history.7days`, `history.30days`, `history.3months`, `history.viewHistory`, `history.hasRankingData` |
+| **Project settings** | `projectSettings.title`, `projectSettings.description`, `projectSettings.projectName`, `projectSettings.domain`, `projectSettings.domainReadonly`, `projectSettings.deleteProject`, `projectSettings.deleteConfirm` |
+| **Class settings** | `classSettings.title`, `classSettings.description`, `classSettings.general`, `classSettings.searchSettings`, `classSettings.competitors`, `classSettings.className`, `classSettings.autoCheck`, `classSettings.noSchedule`, `classSettings.daily/weekly/monthly`, `classSettings.checkTime`, `classSettings.searchParamsLocked`, `classSettings.country/language/device`, `classSettings.topResults`, `classSettings.competitorDomains`, `classSettings.noCompetitors`, `classSettings.competitorLimit`, `classSettings.deleteClass`, `classSettings.deleteConfirm` |
+| **Edit project** | `editProject.title`, `editProject.description`, `editProject.projectName`, `editProject.placeholder` |
+| **Add keywords** | `addKeywords.title`, `addKeywords.description`, `addKeywords.label`, `addKeywords.importFile`, `addKeywords.placeholder`, `addKeywords.uniqueCount`, `addKeywords.adding`, `addKeywords.add`, `addKeywords.fileImported`, `addKeywords.enterKeyword` |
+| **Check progress** | `checkProgress.complete`, `checkProgress.checking`, `checkProgress.class`, `checkProgress.progress`, `checkProgress.checked`, `checkProgress.checkingKeyword`, `checkProgress.found`, `checkProgress.notFoundLabel`, `checkProgress.done`, `checkProgress.cancelCheck` |
+| **Export** | `export.title`, `export.csv`, `export.json`, `export.complete`, `export.exported`, `export.failed`, `export.failedDesc` |
+| **SERP** | `serp.title`, `serp.results`, `serp.tracking`, `serp.showMore`, `serp.showLess`, `serp.position` |
+| **Confirm delete** | `confirmDelete.itemsWillBeDeleted`, `confirmDelete.cancel`, `confirmDelete.delete`, `confirmDelete.deleting` |
+| **Project/Class row** | `projectRow.viewProject`, `projectRow.addClass`, `projectRow.refreshAll`, `projectRow.editProject`, `projectRow.deleteProject`, `projectRow.deleteConfirm`, `classRow.viewDetails`, `classRow.refreshRankings`, `classRow.editClass`, `classRow.deleteClass`, `classRow.deleteConfirm` |
+| **Sidebar search** | `search.placeholder`, `search.noResults`, `search.pages`, `search.projects`, `search.classes`, `search.inProject` |
+| **Data table** | `table.selected`, `table.rowsPerPage`, `table.page`, `table.showSerpTitles`, `table.columns`, `table.deleteSelected`, `table.refreshSelected` |
+| **Billing page** | Update to use `t()` for all remaining hardcoded strings (status badges, features, transaction table headers) |
 
-### Giải pháp Đề xuất
+#### B. Update ~18 components to use `t()`
 
-#### 1. Chống Spam Refresh: Kiểm tra Task đang chạy
+Each component: import `useLanguage`, destructure `{ t }`, replace hardcoded strings.
 
-Sử dụng `TaskProgressContext` để kiểm tra class có đang trong hàng đợi không trước khi cho phép refresh.
+1. **`src/pages/Billing.tsx`** — All hardcoded strings (titles, badges, table headers, features list, toast messages)
+2. **`src/components/projects/RankingStatsCards.tsx`** — Card labels ("Total Keywords", "Top 1-3", etc.)
+3. **`src/components/projects/RankingDistributionChart.tsx`** — Title, subtitle, legend labels, center text
+4. **`src/components/projects/TopOverviewTable.tsx`** — Title, subtitle, column headers
+5. **`src/components/projects/RankingHistoryChart.tsx`** — Title, time range labels, empty state
+6. **`src/components/projects/ProjectSettingsDialog.tsx`** — All labels and buttons
+7. **`src/components/projects/ClassSettingsDialog.tsx`** — All tab labels, form labels, buttons, mixed VN/EN text
+8. **`src/components/projects/EditProjectDialog.tsx`** — Title, labels, buttons
+9. **`src/components/projects/AddKeywordsDialog.tsx`** — All text
+10. **`src/components/projects/CheckProgressDialog.tsx`** — All text
+11. **`src/components/projects/ExportButton.tsx`** — Button text, toast messages
+12. **`src/components/projects/SerpResultsDialog.tsx`** — Title, meta labels
+13. **`src/components/projects/HistoryDatePicker.tsx`** — Button text, legend
+14. **`src/components/projects/ConfirmDeleteDialog.tsx`** — Button labels, "items will be deleted"
+15. **`src/components/projects/ProjectRow.tsx`** — Dropdown menu items, delete dialog
+16. **`src/components/projects/ClassRow.tsx`** — Dropdown menu items, delete dialog
+17. **`src/components/SidebarSearch.tsx`** — Placeholder, headings, "in" prefix
+18. **`src/components/ui/data-table-pagination.tsx`** — "Rows per page", "Page X of Y", "selected"
+19. **`src/components/projects/ProjectDetail.tsx`** — "classes"/"keywords" count text (line 118)
 
-**Logic:**
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  User click "Refresh Rankings"                               │
-│       ↓                                                      │
-│  Check: tasks.find(t => t.classId === classId &&            │
-│         (t.status === 'pending' || t.status === 'processing'))│
-│       ↓                                                      │
-│  ├── Có task đang chạy → Disable button + Toast "Already     │
-│  │                       running"                            │
-│  │                                                           │
-│  └── Không có task → Cho phép refresh bình thường           │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Files cần sửa:**
-| File | Thay đổi |
-|------|----------|
-| `src/pages/ClassDetail.tsx` | Thêm logic kiểm tra task đang chạy cho nút Refresh |
-| `src/components/projects/ClassRow.tsx` | Thêm logic tương tự cho menu Refresh |
-| `src/components/projects/ProjectRow.tsx` | Thêm logic cho nút "Refresh All Classes" |
-
-**Chi tiết ClassDetail.tsx:**
-```typescript
-// Import thêm
-import { useTaskProgress } from "@/contexts/TaskProgressContext";
-
-// Trong component
-const { tasks } = useTaskProgress();
-
-// Check if class has running task
-const isClassRunning = tasks.some(
-  (t) => t.classId === classId && 
-         (t.status === "pending" || t.status === "processing")
-);
-
-// Disable button khi đang running
-<Button 
-  onClick={handleRefresh} 
-  disabled={addRankingJob.isPending || isViewingHistory || isClassRunning}
->
-  <RefreshCw className={`mr-2 h-4 w-4 ${isClassRunning ? "animate-spin" : ""}`} />
-  {isClassRunning ? "Checking..." : "Refresh Rankings"}
-</Button>
-```
-
----
-
-#### 2. Dialog Xác nhận cho Xóa Keyword
-
-Tạo component `ConfirmDeleteDialog` có thể tái sử dụng, hiển thị số lượng items sẽ bị xóa.
-
-**Component mới: `src/components/projects/ConfirmDeleteDialog.tsx`**
-
-```typescript
-interface ConfirmDeleteDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  itemCount?: number;
-  itemType?: string; // "keyword", "project", "class"
-  onConfirm: () => void;
-  isLoading?: boolean;
-}
-```
-
-**Files cần sửa:**
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/projects/ConfirmDeleteDialog.tsx` | Tạo mới component |
-| `src/components/projects/KeywordsTable.tsx` | Thêm dialog xác nhận trước khi xóa keywords |
-| `src/components/projects/ProjectsTable.tsx` | Thêm dialog xác nhận trước khi xóa projects (multi-select) |
-| `src/components/ui/data-table-toolbar.tsx` | Truyền callback để hiển thị dialog thay vì xóa trực tiếp |
-
----
-
-### Chi tiết Implementation
-
-#### A. Component ConfirmDeleteDialog
-
-```typescript
-// src/components/projects/ConfirmDeleteDialog.tsx
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-
-interface ConfirmDeleteDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  itemCount?: number;
-  onConfirm: () => void;
-  isLoading?: boolean;
-}
-
-export function ConfirmDeleteDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  itemCount,
-  onConfirm,
-  isLoading,
-}: ConfirmDeleteDialogProps) {
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {description}
-            {itemCount && itemCount > 1 && (
-              <span className="block mt-2 font-medium text-foreground">
-                {itemCount} items will be deleted.
-              </span>
-            )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            disabled={isLoading}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            {isLoading ? "Deleting..." : "Delete"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-```
-
----
-
-#### B. Sửa KeywordsTable.tsx
-
-```typescript
-// Thêm state cho dialog
-const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
-const [isDeleting, setIsDeleting] = useState(false);
-
-// Handler mới - mở dialog thay vì xóa trực tiếp
-const handleDeleteClick = (ids: string[]) => {
-  setPendingDeleteIds(ids);
-  setDeleteDialogOpen(true);
-};
-
-// Confirm handler
-const handleConfirmDelete = async () => {
-  if (!onDeleteKeywords) return;
-  setIsDeleting(true);
-  try {
-    await onDeleteKeywords(pendingDeleteIds);
-    setRowSelection({});
-  } finally {
-    setIsDeleting(false);
-    setDeleteDialogOpen(false);
-    setPendingDeleteIds([]);
-  }
-};
-
-// Trong toolbar - thay đổi callback
-<DataTableToolbar
-  ...
-  onDeleteSelected={onDeleteKeywords ? () => handleDeleteClick(selectedIds) : undefined}
-/>
-
-// Thêm dialog
-<ConfirmDeleteDialog
-  open={deleteDialogOpen}
-  onOpenChange={setDeleteDialogOpen}
-  title="Delete Keywords"
-  description="Are you sure you want to delete the selected keywords? This will also delete all ranking history associated with them. This action cannot be undone."
-  itemCount={pendingDeleteIds.length}
-  onConfirm={handleConfirmDelete}
-  isLoading={isDeleting}
-/>
-```
-
----
-
-#### C. Sửa ProjectsTable.tsx
-
-Tương tự pattern như KeywordsTable.
-
----
-
-#### D. Sửa ClassDetail.tsx, ClassRow.tsx, ProjectRow.tsx
-
-Thêm logic kiểm tra task đang chạy từ `TaskProgressContext`.
-
----
-
-### Tổng kết Files cần thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/projects/ConfirmDeleteDialog.tsx` | **Tạo mới** - Reusable confirm dialog |
-| `src/pages/ClassDetail.tsx` | Thêm kiểm tra `isClassRunning` để disable nút Refresh |
-| `src/components/projects/ClassRow.tsx` | Thêm kiểm tra task running + import TaskProgressContext |
-| `src/components/projects/ProjectRow.tsx` | Thêm kiểm tra any class running + import TaskProgressContext |
-| `src/components/projects/KeywordsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa keywords |
-| `src/components/projects/ProjectsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa projects |
-
----
-
-### Kết quả mong đợi
-
-**Chống Spam Refresh:**
-- Nút "Refresh Rankings" bị disable và hiển thị "Checking..." khi class đã có task trong queue
-- Icon RefreshCw quay liên tục để báo hiệu đang xử lý
-- User không thể tạo thêm job mới cho cùng một class
-
-**Xác nhận Xóa:**
-- Xóa keyword(s): Hiện dialog "Delete X keywords? This action cannot be undone."
-- Xóa project(s) từ multi-select: Hiện dialog tương tự
-- Dialog hiển thị số lượng items sẽ bị xóa
-- Button "Delete" chuyển thành "Deleting..." khi đang xử lý
+This is a large but mechanical change. Every visible string across the app will be translatable.
 
