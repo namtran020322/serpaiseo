@@ -46,11 +46,11 @@ function PageLoader() {
 }
 
 const App = () => (
-  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TaskProgressProvider>
         <LanguageProvider>
+        <ErrorBoundary>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -103,11 +103,11 @@ const App = () => (
             </Suspense>
           </BrowserRouter>
         </TooltipProvider>
+        </ErrorBoundary>
         </LanguageProvider>
       </TaskProgressProvider>
     </AuthProvider>
   </QueryClientProvider>
-  </ErrorBoundary>
 );
 
 export default App;
