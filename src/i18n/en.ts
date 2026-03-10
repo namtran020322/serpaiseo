@@ -520,4 +520,8 @@ export const en: Record<string, string> = {
   "table.goPrevPage": "Go to previous page",
   "table.goNextPage": "Go to next page",
   "table.goLastPage": "Go to last page",
+
+  // Bulk import validation
+  "addKeywords.fileTooLarge": "File is too large. Maximum size is 1MB.",
+  "addKeywords.tooManyKeywords": "Too many keywords. Maximum is {max} per batch.",
 };

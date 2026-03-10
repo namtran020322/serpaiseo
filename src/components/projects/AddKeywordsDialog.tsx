@@ -20,19 +20,32 @@ export function AddKeywordsDialog({ onAddKeywords, isLoading }: AddKeywordsDialo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  const MAX_KEYWORDS = 500;
+  const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+
   const parseKeywords = (text: string): string[] => text.split(/[\n,]/).map((k) => k.trim().toLowerCase()).filter((k) => k.length > 0);
   const uniqueKeywords = [...new Set(parseKeywords(keywordsText))];
 
   const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      toast({ variant: "destructive", title: t("error"), description: t("addKeywords.fileTooLarge") });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target?.result as string;
       const newKeywords = parseKeywords(content);
       const existingKeywords = parseKeywords(keywordsText);
       const combined = [...new Set([...existingKeywords, ...newKeywords])];
-      setKeywordsText(combined.join("\n"));
+      if (combined.length > MAX_KEYWORDS) {
+        toast({ variant: "destructive", title: t("error"), description: t("addKeywords.tooManyKeywords", { max: MAX_KEYWORDS }) });
+        setKeywordsText(combined.slice(0, MAX_KEYWORDS).join("\n"));
+      } else {
+        setKeywordsText(combined.join("\n"));
+      }
       toast({ title: t("addKeywords.fileImported"), description: t("addKeywords.fileImportedDesc", { count: newKeywords.length }) });
     };
     reader.readAsText(file);
@@ -42,6 +55,10 @@ export function AddKeywordsDialog({ onAddKeywords, isLoading }: AddKeywordsDialo
   const handleSubmit = async () => {
     if (uniqueKeywords.length === 0) {
       toast({ variant: "destructive", title: t("error"), description: t("addKeywords.enterKeyword") });
+      return;
+    }
+    if (uniqueKeywords.length > MAX_KEYWORDS) {
+      toast({ variant: "destructive", title: t("error"), description: t("addKeywords.tooManyKeywords", { max: MAX_KEYWORDS }) });
       return;
     }
     setIsSubmitting(true);

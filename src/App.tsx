@@ -9,6 +9,7 @@ import { TaskProgressProvider } from "@/contexts/TaskProgressContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
 
 // Import layouts directly (not lazy) to prevent sidebar reload on navigation
@@ -45,6 +46,7 @@ function PageLoader() {
 }
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TaskProgressProvider>
@@ -105,6 +107,7 @@ const App = () => (
       </TaskProgressProvider>
     </AuthProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

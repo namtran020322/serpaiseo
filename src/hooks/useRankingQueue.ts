@@ -56,6 +56,25 @@ export function useAddRankingJob() {
       supabase.functions.invoke("process-ranking-queue").catch(console.error);
     },
     onError: (error: any) => {
+      // Handle 402 insufficient credits
+      if (error.message?.includes("insufficient_credits")) {
+        try {
+          const body = JSON.parse(error.message.replace(/^.*?(\{.*\}).*$/, '$1'));
+          toast.error("Insufficient credits", {
+            description: `Need ${body.credits_needed} credits but only ${body.credits_available} available. Please top up.`,
+            action: {
+              label: "Top up",
+              onClick: () => window.location.href = "/dashboard/billing",
+            },
+          });
+        } catch {
+          toast.error("Insufficient credits", {
+            description: "Please top up your credits to continue.",
+          });
+        }
+        return;
+      }
+
       // Handle 409 conflict (job already exists)
       if (error.message?.includes("already in progress")) {
         toast.info("Check already in progress", {

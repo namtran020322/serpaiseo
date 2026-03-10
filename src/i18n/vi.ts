@@ -520,4 +520,8 @@ export const vi: Record<string, string> = {
   "table.goPrevPage": "Trang trước",
   "table.goNextPage": "Trang sau",
   "table.goLastPage": "Đến trang cuối",
+
+  // Bulk import validation
+  "addKeywords.fileTooLarge": "File quá lớn. Kích thước tối đa là 1MB.",
+  "addKeywords.tooManyKeywords": "Quá nhiều từ khóa. Tối đa {max} từ khóa mỗi lần.",
 };
