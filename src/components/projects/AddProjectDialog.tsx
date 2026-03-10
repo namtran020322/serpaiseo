@@ -36,6 +36,11 @@ export function AddProjectDialog({ open, onOpenChange }: AddProjectDialogProps) 
   const createClass = useCreateClass();
   const checkRankings = useCheckRankings();
   const { getLocationsByCountry } = useGeoData();
+  const { trial } = useTrial();
+
+  // Enforce trial project limit
+  const projectCount = existingProjects?.length || 0;
+  const isAtProjectLimit = trial.isOnTrial && projectCount >= trial.maxProjects;
 
   const [step, setStep] = useState<Step>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
