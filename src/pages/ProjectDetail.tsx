@@ -23,7 +23,27 @@ export default function ProjectDetail() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { data: project, isLoading, error } = useProject(projectId);
+  const checkRankings = useCheckRankings();
+  const { tasks } = useTaskProgress();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Check if any class in project has running task (anti-spam)
+  const hasRunningTask = project?.classes.some((cls) =>
+    tasks.some((t) => t.classId === cls.id && (t.status === "pending" || t.status === "processing"))
+  ) ?? false;
+
+  const handleRefreshAll = async () => {
+    if (hasRunningTask || !project?.classes.length) return;
+    setIsRefreshing(true);
+    try {
+      for (const cls of project.classes) {
+        await checkRankings.mutateAsync(cls.id);
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   if (isLoading) {
     return (
