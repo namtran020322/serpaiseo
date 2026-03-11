@@ -10,6 +10,7 @@ import logo from "@/assets/logo.webp";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { TurnstileCaptcha } from "@/components/TurnstileCaptcha";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -19,10 +20,13 @@ export default function ForgotPassword() {
   const { toast } = useToast();
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const { user, loading } = useAuthContext();
 
-  // Import auth context just for redirect check
-  const { user, loading } = (await import("@/contexts/AuthContext")).useAuthContext ? 
-    { user: null, loading: false } : { user: null, loading: false };
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   const handleTurnstileVerify = useCallback((token: string) => setTurnstileToken(token), []);
   const handleTurnstileExpire = useCallback(() => setTurnstileToken(null), []);
