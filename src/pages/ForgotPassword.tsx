@@ -18,6 +18,11 @@ export default function ForgotPassword() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const { toast } = useToast();
   const { t } = useLanguage();
+  const navigate = useNavigate();
+
+  // Import auth context just for redirect check
+  const { user, loading } = (await import("@/contexts/AuthContext")).useAuthContext ? 
+    { user: null, loading: false } : { user: null, loading: false };
 
   const handleTurnstileVerify = useCallback((token: string) => setTurnstileToken(token), []);
   const handleTurnstileExpire = useCallback(() => setTurnstileToken(null), []);

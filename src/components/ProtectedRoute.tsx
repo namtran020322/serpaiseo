@@ -12,6 +12,7 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading, signOut } = useAuthContext();
   const location = useLocation();
+  const { t } = useLanguage();
 
   if (loading) {
     return (
