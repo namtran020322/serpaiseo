@@ -24,7 +24,11 @@ export function ExportButton({ projectClass }: ExportButtonProps) {
       const rows = projectClass.keywords.map((kw) => {
         const change = kw.previous_position && kw.ranking_position ? kw.previous_position - kw.ranking_position : "";
         const row = [`"${kw.keyword.replace(/"/g, '""')}"`, kw.ranking_position ?? "", kw.first_position ?? "", kw.best_position ?? "", change, kw.found_url ? `"${kw.found_url.replace(/"/g, '""')}"` : ""];
-        competitors.forEach((domain) => { const pos = kw.competitor_rankings?.[domain]; row.push(pos ?? ""); });
+        competitors.forEach((domain) => {
+          const raw = kw.competitor_rankings?.[domain];
+          const pos = typeof raw === 'object' && raw !== null ? (raw as any).position ?? "" : raw ?? "";
+          row.push(pos);
+        });
         return row.join(",");
       });
       const csvContent = [headers.join(","), ...rows].join("\n");
