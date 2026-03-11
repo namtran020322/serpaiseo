@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { FolderOpen, Search, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { RankingDistributionChart } from "@/components/projects/RankingDistributionChart";
@@ -16,8 +15,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <AnnouncementBanner />
-
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{t("dashboard.hello", { name: userName })}</h1>
         <p className="text-muted-foreground mt-1">{t("dashboard.welcome")}</p>
