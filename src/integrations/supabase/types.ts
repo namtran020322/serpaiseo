@@ -603,6 +603,18 @@ export type Database = {
       }
       cleanup_old_usage_transactions: { Args: never; Returns: number }
       cleanup_pending_orders: { Args: never; Returns: number }
+      delete_email_message: { Args: { msg_id: number }; Returns: boolean }
+      dequeue_email: {
+        Args: { batch_size?: number }
+        Returns: unknown[]
+        SetofOptions: {
+          from: "*"
+          to: "message_record"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      enqueue_email: { Args: { payload: Json }; Returns: number }
       get_class_ranking_stats: { Args: { p_class_id: string }; Returns: Json }
       get_projects_paginated: {
         Args: {
