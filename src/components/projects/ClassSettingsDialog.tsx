@@ -18,6 +18,7 @@ import { languages } from "@/data/languages";
 import { useCredits } from "@/hooks/useCredits";
 import { getMaxCompetitorsByPurchased } from "@/lib/pricing";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 const formSchema = z.object({
   name: z.string().min(1, "Class name is required"),
