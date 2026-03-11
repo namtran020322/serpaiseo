@@ -1,259 +1,77 @@
 
 
-## Kế hoạch Thêm Cơ chế Chống Spam Refresh và Xác nhận Hành động Quan trọng
+## Analysis
 
-### Phân tích Hiện trạng
+6 items to address. Here's what I found:
 
-**1. Nút Refresh Rankings:**
-- **ClassDetail.tsx (dòng 250):** Nút "Refresh Rankings" chỉ disable khi `addRankingJob.isPending` (chỉ trong thời gian ngắn khi gọi API)
-- **ClassRow.tsx (dòng 117):** Tương tự, chỉ disable khi `isChecking`
-- **ProjectRow.tsx (dòng 143):** Tương tự pattern
+### 1. Email templates in Vietnamese → Switch to English
+All 6 templates (`signup`, `recovery`, `magic-link`, `invite`, `email-change`, `reauthentication`) use `lang="vi"` and Vietnamese text. Need to rewrite all copy in English.
 
-**Vấn đề:** User có thể spam click liên tục vì nút chỉ bị disable trong ~1-2 giây. Nếu class đang có job running, user vẫn có thể tạo thêm job mới.
+### 2. Logo too small in emails
+Currently `height="40"`. Increase to `height="56"` across all 6 templates.
 
-**2. Xác nhận Xóa:**
-- **ClassRow.tsx (dòng 138-157):** Đã có AlertDialog xác nhận xóa Class
-- **ProjectRow.tsx (dòng 169-188):** Đã có AlertDialog xác nhận xóa Project
-- **KeywordsTable.tsx:** Xóa keyword KHÔNG có dialog xác nhận - xóa trực tiếp!
-- **ProjectsTable.tsx (dòng 246-251):** Xóa project (multi-select) KHÔNG có xác nhận!
+### 3. URLs in emails point to lovable
+In `auth-email-hook/index.ts`:
+- `SAMPLE_PROJECT_URL = "https://serpaiseo.lovable.app"` → change to `"https://serp.aiseocore.com"`
+- `ROOT_DOMAIN = "serp.aiseocore.com"` is already correct, so `siteUrl` in actual sends is fine
+- But the `siteUrl` in templates links (signup, invite) uses `siteUrl` prop which comes from `https://${ROOT_DOMAIN}` — this is correct
+- The `confirmationUrl` comes from the auth system payload (`payload.data.url`) — this URL is controlled by the auth system redirect config, not the template. Need to verify the redirect URL config.
 
----
+**Issue**: The `redirectTo` in `ForgotPassword.tsx` uses `window.location.origin` which would be `serpaiseo.lovable.app` if accessed from there. Same for `Register.tsx` signup `emailRedirectTo`. These should use `https://serp.aiseocore.com` as the base.
 
-### Giải pháp Đề xuất
+### 4. Login page: redirect if already authenticated
+Currently `/login` route has no auth check. Need to add: if user is already logged in, redirect to `/dashboard`.
 
-#### 1. Chống Spam Refresh: Kiểm tra Task đang chạy
+### 5. Google OAuth users shouldn't need email verification
+Google already verifies email. The `ProtectedRoute` checks `email_confirmed_at` — Google OAuth users should already have this set by the auth system. Need to verify this is actually the case. If it is, no code change needed. Google OAuth sets `email_confirmed_at` automatically.
 
-Sử dụng `TaskProgressContext` để kiểm tra class có đang trong hàng đợi không trước khi cho phép refresh.
+### 6. Test Forgot Password flow
+The `ResetPassword.tsx` checks for `access_token` and `type=recovery` in the URL hash. The `redirectTo` is set to `${window.location.origin}/reset-password`. This should work, but the recovery email's confirmation URL must redirect to the correct domain. Since the auth hook sends the `confirmationUrl` from `payload.data.url`, the auth system generates this URL based on the site URL config.
 
-**Logic:**
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  User click "Refresh Rankings"                               │
-│       ↓                                                      │
-│  Check: tasks.find(t => t.classId === classId &&            │
-│         (t.status === 'pending' || t.status === 'processing'))│
-│       ↓                                                      │
-│  ├── Có task đang chạy → Disable button + Toast "Already     │
-│  │                       running"                            │
-│  │                                                           │
-│  └── Không có task → Cho phép refresh bình thường           │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Files cần sửa:**
-| File | Thay đổi |
-|------|----------|
-| `src/pages/ClassDetail.tsx` | Thêm logic kiểm tra task đang chạy cho nút Refresh |
-| `src/components/projects/ClassRow.tsx` | Thêm logic tương tự cho menu Refresh |
-| `src/components/projects/ProjectRow.tsx` | Thêm logic cho nút "Refresh All Classes" |
-
-**Chi tiết ClassDetail.tsx:**
-```typescript
-// Import thêm
-import { useTaskProgress } from "@/contexts/TaskProgressContext";
-
-// Trong component
-const { tasks } = useTaskProgress();
-
-// Check if class has running task
-const isClassRunning = tasks.some(
-  (t) => t.classId === classId && 
-         (t.status === "pending" || t.status === "processing")
-);
-
-// Disable button khi đang running
-<Button 
-  onClick={handleRefresh} 
-  disabled={addRankingJob.isPending || isViewingHistory || isClassRunning}
->
-  <RefreshCw className={`mr-2 h-4 w-4 ${isClassRunning ? "animate-spin" : ""}`} />
-  {isClassRunning ? "Checking..." : "Refresh Rankings"}
-</Button>
-```
+**Potential issue**: The reset password flow relies on `supabase.auth.resetPasswordForEmail` which uses `window.location.origin` as the redirect. If the user is on the lovable preview domain, the reset link would point there instead of `serp.aiseocore.com`.
 
 ---
 
-#### 2. Dialog Xác nhận cho Xóa Keyword
+## Implementation Plan
 
-Tạo component `ConfirmDeleteDialog` có thể tái sử dụng, hiển thị số lượng items sẽ bị xóa.
+### Step 1: Update all 6 email templates to English + bigger logo
+- Change `lang="vi"` → `lang="en"` on all templates
+- Translate all Vietnamese text to English
+- Change logo `height="40"` → `height="56"`
 
-**Component mới: `src/components/projects/ConfirmDeleteDialog.tsx`**
+**Files**: All 6 files in `supabase/functions/_shared/email-templates/`
 
-```typescript
-interface ConfirmDeleteDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  itemCount?: number;
-  itemType?: string; // "keyword", "project", "class"
-  onConfirm: () => void;
-  isLoading?: boolean;
-}
-```
+### Step 2: Fix URLs in auth-email-hook
+- Update `SAMPLE_PROJECT_URL` to `https://serp.aiseocore.com`
 
-**Files cần sửa:**
+**File**: `supabase/functions/auth-email-hook/index.ts` (line 49)
 
-| File | Thay đổi |
-|------|----------|
-| `src/components/projects/ConfirmDeleteDialog.tsx` | Tạo mới component |
-| `src/components/projects/KeywordsTable.tsx` | Thêm dialog xác nhận trước khi xóa keywords |
-| `src/components/projects/ProjectsTable.tsx` | Thêm dialog xác nhận trước khi xóa projects (multi-select) |
-| `src/components/ui/data-table-toolbar.tsx` | Truyền callback để hiển thị dialog thay vì xóa trực tiếp |
+### Step 3: Fix redirect URLs in auth pages to use custom domain
+- In `ForgotPassword.tsx` line 51: change `window.location.origin` → `https://serp.aiseocore.com`
+- In `Register.tsx` (useAuth hook): the `emailRedirectTo` in signUp uses `window.location.origin` — change to `https://serp.aiseocore.com`
+- In `Login.tsx` and `Register.tsx`: Google OAuth `redirectTo` should use `https://serp.aiseocore.com/dashboard`
 
----
+**Files**: `src/hooks/useAuth.ts` (line 37), `src/pages/ForgotPassword.tsx` (line 51), `src/pages/Login.tsx` (line 103), `src/pages/Register.tsx` (line 150)
 
-### Chi tiết Implementation
+### Step 4: Login page auto-redirect for authenticated users
+- In `Login.tsx`, import `useAuthContext` (already imported), check `user` and `loading` state
+- If `user` exists and not loading, redirect to `/dashboard` via `useEffect`
 
-#### A. Component ConfirmDeleteDialog
+**File**: `src/pages/Login.tsx`
 
-```typescript
-// src/components/projects/ConfirmDeleteDialog.tsx
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+### Step 5: Google OAuth — no changes needed
+Google OAuth users automatically have `email_confirmed_at` set by the auth system. The `ProtectedRoute` check will pass. No code changes required.
 
-interface ConfirmDeleteDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  itemCount?: number;
-  onConfirm: () => void;
-  isLoading?: boolean;
-}
+### Step 6: Deploy auth-email-hook
+- Call `deploy_edge_functions` for `auth-email-hook` after template changes
 
-export function ConfirmDeleteDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  itemCount,
-  onConfirm,
-  isLoading,
-}: ConfirmDeleteDialogProps) {
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {description}
-            {itemCount && itemCount > 1 && (
-              <span className="block mt-2 font-medium text-foreground">
-                {itemCount} items will be deleted.
-              </span>
-            )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            disabled={isLoading}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            {isLoading ? "Deleting..." : "Delete"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-```
-
----
-
-#### B. Sửa KeywordsTable.tsx
-
-```typescript
-// Thêm state cho dialog
-const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
-const [isDeleting, setIsDeleting] = useState(false);
-
-// Handler mới - mở dialog thay vì xóa trực tiếp
-const handleDeleteClick = (ids: string[]) => {
-  setPendingDeleteIds(ids);
-  setDeleteDialogOpen(true);
-};
-
-// Confirm handler
-const handleConfirmDelete = async () => {
-  if (!onDeleteKeywords) return;
-  setIsDeleting(true);
-  try {
-    await onDeleteKeywords(pendingDeleteIds);
-    setRowSelection({});
-  } finally {
-    setIsDeleting(false);
-    setDeleteDialogOpen(false);
-    setPendingDeleteIds([]);
-  }
-};
-
-// Trong toolbar - thay đổi callback
-<DataTableToolbar
-  ...
-  onDeleteSelected={onDeleteKeywords ? () => handleDeleteClick(selectedIds) : undefined}
-/>
-
-// Thêm dialog
-<ConfirmDeleteDialog
-  open={deleteDialogOpen}
-  onOpenChange={setDeleteDialogOpen}
-  title="Delete Keywords"
-  description="Are you sure you want to delete the selected keywords? This will also delete all ranking history associated with them. This action cannot be undone."
-  itemCount={pendingDeleteIds.length}
-  onConfirm={handleConfirmDelete}
-  isLoading={isDeleting}
-/>
-```
-
----
-
-#### C. Sửa ProjectsTable.tsx
-
-Tương tự pattern như KeywordsTable.
-
----
-
-#### D. Sửa ClassDetail.tsx, ClassRow.tsx, ProjectRow.tsx
-
-Thêm logic kiểm tra task đang chạy từ `TaskProgressContext`.
-
----
-
-### Tổng kết Files cần thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/projects/ConfirmDeleteDialog.tsx` | **Tạo mới** - Reusable confirm dialog |
-| `src/pages/ClassDetail.tsx` | Thêm kiểm tra `isClassRunning` để disable nút Refresh |
-| `src/components/projects/ClassRow.tsx` | Thêm kiểm tra task running + import TaskProgressContext |
-| `src/components/projects/ProjectRow.tsx` | Thêm kiểm tra any class running + import TaskProgressContext |
-| `src/components/projects/KeywordsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa keywords |
-| `src/components/projects/ProjectsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa projects |
-
----
-
-### Kết quả mong đợi
-
-**Chống Spam Refresh:**
-- Nút "Refresh Rankings" bị disable và hiển thị "Checking..." khi class đã có task trong queue
-- Icon RefreshCw quay liên tục để báo hiệu đang xử lý
-- User không thể tạo thêm job mới cho cùng một class
-
-**Xác nhận Xóa:**
-- Xóa keyword(s): Hiện dialog "Delete X keywords? This action cannot be undone."
-- Xóa project(s) từ multi-select: Hiện dialog tương tự
-- Dialog hiển thị số lượng items sẽ bị xóa
-- Button "Delete" chuyển thành "Deleting..." khi đang xử lý
+### Files Summary
+| File | Changes |
+|------|---------|
+| 6 email templates | English text, logo height 56 |
+| `auth-email-hook/index.ts` | Fix SAMPLE_PROJECT_URL |
+| `src/pages/Login.tsx` | Add auto-redirect if authenticated |
+| `src/pages/ForgotPassword.tsx` | Fix redirectTo URL |
+| `src/pages/Register.tsx` | Fix Google OAuth redirectTo |
+| `src/hooks/useAuth.ts` | Fix emailRedirectTo |
 
