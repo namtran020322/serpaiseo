@@ -70,7 +70,7 @@ export function RankingHistoryChart({ classId, userDomain, competitorDomains }: 
   if (!historyData || historyData.data.length === 0) {
     return (
       <div className="bg-muted/50 rounded-2xl p-6">
-        <h3 className="text-lg font-semibold mb-4">{t("history.title")}</h3>
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-1.5">{t("history.title")} <InfoTooltip text={t("tooltip.rankingHistory")} /></h3>
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="text-muted-foreground">{t("history.noHistory")}</p>
           <p className="text-sm text-muted-foreground mt-1">{t("history.recordedOnRefresh")}</p>
