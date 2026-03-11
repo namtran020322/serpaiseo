@@ -3,6 +3,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { Loader2, Mail } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading, signOut } = useAuthContext();
   const location = useLocation();
+  const { t } = useLanguage();
 
   if (loading) {
     return (
@@ -33,15 +35,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
             <div className="mx-auto w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
               <Mail className="h-8 w-8 text-amber-600 dark:text-amber-400" />
             </div>
-            <CardTitle className="text-2xl font-bold">Email Not Verified</CardTitle>
+            <CardTitle className="text-2xl font-bold">{t("emailVerification.title")}</CardTitle>
             <CardDescription className="text-base">
-              Please verify your email address to access the dashboard.
+              {t("emailVerification.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="p-4 bg-muted rounded-lg text-sm text-muted-foreground">
-              <p>Check your inbox for a verification email from us. Click the link in the email to confirm your account.</p>
-              <p className="mt-2">Don't see it? Check your spam folder.</p>
+              <p>{t("emailVerification.checkInbox")}</p>
+              <p className="mt-2">{t("emailVerification.checkSpam")}</p>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-3">
@@ -50,10 +52,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
               className="w-full"
               onClick={() => signOut()}
             >
-              Sign Out & Try Again
+              {t("emailVerification.signOutAndRetry")}
             </Button>
             <Link to="/login" className="text-sm text-muted-foreground hover:text-primary">
-              Back to Sign In
+              {t("emailVerification.backToSignIn")}
             </Link>
           </CardFooter>
         </Card>

@@ -555,4 +555,21 @@ export const vi: Record<string, string> = {
   // Captcha
   "captcha.required": "Vui lòng hoàn tất xác minh captcha",
   "captcha.failed": "Xác minh captcha thất bại. Vui lòng thử lại.",
+
+  // Email Verification
+  "emailVerification.title": "Email chưa xác thực",
+  "emailVerification.description": "Vui lòng xác thực địa chỉ email để truy cập bảng điều khiển.",
+  "emailVerification.checkInbox": "Kiểm tra hộp thư đến để tìm email xác thực. Nhấp vào liên kết trong email để xác nhận tài khoản.",
+  "emailVerification.checkSpam": "Không thấy? Hãy kiểm tra thư mục spam.",
+  "emailVerification.signOutAndRetry": "Đăng xuất & Thử lại",
+  "emailVerification.backToSignIn": "Quay lại đăng nhập",
+
+  // Not Found
+  "notFound.description": "Rất tiếc! Trang bạn đang tìm kiếm không tồn tại.",
+  "notFound.returnHome": "Quay về trang chủ",
+
+  // Error Boundary
+  "errorBoundary.title": "Đã xảy ra lỗi",
+  "errorBoundary.description": "Đã xảy ra lỗi không mong muốn. Vui lòng tải lại trang để tiếp tục.",
+  "errorBoundary.reload": "Tải lại trang",
 };

@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { useState, useCallback, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import logo from "@/assets/logo.webp";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { TurnstileCaptcha } from "@/components/TurnstileCaptcha";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -18,6 +19,14 @@ export default function ForgotPassword() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const { toast } = useToast();
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const { user, loading } = useAuthContext();
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   const handleTurnstileVerify = useCallback((token: string) => setTurnstileToken(token), []);
   const handleTurnstileExpire = useCallback(() => setTurnstileToken(null), []);

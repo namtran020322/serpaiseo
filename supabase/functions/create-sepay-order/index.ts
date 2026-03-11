@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
 
     // Get base origin for callback URLs
     const referer = req.headers.get('referer') || req.headers.get('origin')
-    let baseOrigin = 'https://serpaiseo.lovable.app'
+    let baseOrigin = 'https://serp.aiseocore.com'
     if (referer) {
       try {
         const url = new URL(referer)

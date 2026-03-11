@@ -11,11 +11,19 @@ export function useAuth() {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // Only verify server-side on meaningful events, skip TOKEN_REFRESHED to reduce API calls
+        if (event === 'TOKEN_REFRESHED') {
+          if (session) {
+            setSession(session);
+            setUser(session.user);
+          }
+          return;
+        }
+
         if (session) {
           // Verify user still exists on server (handles deleted users)
           const { data: { user: serverUser }, error } = await supabase.auth.getUser();
           if (error || !serverUser) {
-            // User was deleted or session is invalid — force sign out
             await supabase.auth.signOut();
             setSession(null);
             setUser(null);
