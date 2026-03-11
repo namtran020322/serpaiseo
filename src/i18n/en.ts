@@ -555,4 +555,21 @@ export const en: Record<string, string> = {
   // Captcha
   "captcha.required": "Please complete the captcha verification",
   "captcha.failed": "Captcha verification failed. Please try again.",
+
+  // Email Verification
+  "emailVerification.title": "Email Not Verified",
+  "emailVerification.description": "Please verify your email address to access the dashboard.",
+  "emailVerification.checkInbox": "Check your inbox for a verification email from us. Click the link in the email to confirm your account.",
+  "emailVerification.checkSpam": "Don't see it? Check your spam folder.",
+  "emailVerification.signOutAndRetry": "Sign Out & Try Again",
+  "emailVerification.backToSignIn": "Back to Sign In",
+
+  // Not Found
+  "notFound.description": "Oops! The page you're looking for doesn't exist.",
+  "notFound.returnHome": "Return to Home",
+
+  // Error Boundary
+  "errorBoundary.title": "Something went wrong",
+  "errorBoundary.description": "An unexpected error occurred. Please reload the page to continue.",
+  "errorBoundary.reload": "Reload Page",
 };
