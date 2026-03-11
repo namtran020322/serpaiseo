@@ -114,7 +114,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
                 )} />
                 <FormField control={form.control} name="schedule" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("classSettings.autoCheck")}</FormLabel>
+                    <FormLabel className="flex items-center gap-1.5">{t("classSettings.autoCheck")} <InfoTooltip text={t("tooltip.schedule")} /></FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl><SelectTrigger><SelectValue placeholder={t("classSettings.selectSchedule")} /></SelectTrigger></FormControl>
                       <SelectContent>
