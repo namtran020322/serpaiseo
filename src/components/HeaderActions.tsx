@@ -91,6 +91,16 @@ export function HeaderActions() {
         </PopoverContent>
       </Popover>
       
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-9 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+        onClick={() => {
+          const { locale, setLocale } = require("@/contexts/LanguageContext");
+        }}
+      >
+      </Button>
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
