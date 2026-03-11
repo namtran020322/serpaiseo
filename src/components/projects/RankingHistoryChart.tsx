@@ -8,6 +8,7 @@ import { useRankingHistory, TimeRange, DomainConfig } from "@/hooks/useRankingHi
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { format, parseISO } from "date-fns";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 interface RankingHistoryChartProps {
   classId: string;
