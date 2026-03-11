@@ -10,17 +10,45 @@ export function useAuth() {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      async (event, session) => {
+        if (session) {
+          // Verify user still exists on server (handles deleted users)
+          const { data: { user: serverUser }, error } = await supabase.auth.getUser();
+          if (error || !serverUser) {
+            // User was deleted or session is invalid — force sign out
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+          setSession(session);
+          setUser(serverUser);
+        } else {
+          setSession(null);
+          setUser(null);
+        }
         setLoading(false);
       }
     );
 
     // Then check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        const { data: { user: serverUser }, error } = await supabase.auth.getUser();
+        if (error || !serverUser) {
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+        setSession(session);
+        setUser(serverUser);
+      } else {
+        setSession(null);
+        setUser(null);
+      }
       setLoading(false);
     });
 
