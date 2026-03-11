@@ -143,7 +143,7 @@ export default function Billing() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("billing.totalUsed")}</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">{t("billing.totalUsed")} <InfoTooltip text={t("tooltip.totalUsed")} /></CardTitle>
             <TrendingDown className="h-5 w-5 text-orange-500" />
           </CardHeader>
           <CardContent>
