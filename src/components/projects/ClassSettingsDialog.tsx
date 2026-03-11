@@ -155,7 +155,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
                 </div>
                 <FormField control={form.control} name="topResults" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("classSettings.topResults")}</FormLabel>
+                    <FormLabel className="flex items-center gap-1.5">{t("classSettings.topResults")} <InfoTooltip text={t("tooltip.topResults")} /></FormLabel>
                     <Select onValueChange={(v) => field.onChange(parseInt(v))} value={field.value.toString()}>
                       <FormControl><SelectTrigger><SelectValue placeholder={t("classSettings.selectTopResults")} /></SelectTrigger></FormControl>
                       <SelectContent>
