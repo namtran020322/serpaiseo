@@ -25,7 +25,7 @@ export function HeaderActions() {
   const { user, signOut } = useAuthContext();
   const { balance } = useCredits();
   const { data: announcements } = useHeaderAnnouncements();
-  const { t } = useLanguage();
+  const { t, locale, setLocale } = useLanguage();
   
   const unreadCount = announcements?.length || 0;
   
@@ -90,17 +90,16 @@ export function HeaderActions() {
           </div>
         </PopoverContent>
       </Popover>
-      
+
       <Button
         variant="ghost"
         size="sm"
-        className="h-9 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
-        onClick={() => {
-          const { locale, setLocale } = require("@/contexts/LanguageContext");
-        }}
+        className="h-9 px-2.5 text-xs font-semibold"
+        onClick={() => setLocale(locale === "en" ? "vi" : "en")}
       >
+        {locale === "en" ? "VI" : "EN"}
       </Button>
-
+      
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
