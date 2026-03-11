@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import logo from "@/assets/logo.webp";
 import { supabase } from "@/integrations/supabase/client";
 import { Separator } from "@/components/ui/separator";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -66,9 +67,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 px-4">
       <Card className="w-full max-w-md shadow-xl border-primary/20">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-            <Search className="h-6 w-6 text-primary-foreground" />
-          </div>
+          <img src={logo} alt="SerpAISEO" className="mx-auto h-12 w-auto" />
           <CardTitle className="text-2xl font-bold">{t("login.title")}</CardTitle>
           <CardDescription>{t("login.subtitle")}</CardDescription>
         </CardHeader>

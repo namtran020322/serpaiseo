@@ -1,40 +1,259 @@
 
 
-## Issues Found
+## Kế hoạch Thêm Cơ chế Chống Spam Refresh và Xác nhận Hành động Quan trọng
 
-### Issue 1: Email auto-confirm is enabled -- users can login without verifying email
-Database query confirms: user `namtran.35241020660@st.ueh.edu.vn` was created at `10:12:32.142` and `email_confirmed_at` was set at `10:12:32.188` -- same second. This means **auto-confirm is ON** in the auth settings. The `ProtectedRoute` check for `email_confirmed_at` is correct code, but it's bypassed because the system auto-confirms immediately.
+### Phân tích Hiện trạng
 
-**Fix**: Use `configure_auth` tool to disable auto-confirm for email signups. Then delete or reset the test user so they must re-verify.
+**1. Nút Refresh Rankings:**
+- **ClassDetail.tsx (dòng 250):** Nút "Refresh Rankings" chỉ disable khi `addRankingJob.isPending` (chỉ trong thời gian ngắn khi gọi API)
+- **ClassRow.tsx (dòng 117):** Tương tự, chỉ disable khi `isChecking`
+- **ProjectRow.tsx (dòng 143):** Tương tự pattern
 
-### Issue 2: Verification emails not being sent
-Because auto-confirm is ON, no verification email is ever sent. Once auto-confirm is disabled, the default Lovable Cloud email system will automatically send verification emails.
+**Vấn đề:** User có thể spam click liên tục vì nút chỉ bị disable trong ~1-2 giây. Nếu class đang có job running, user vẫn có thể tạo thêm job mới.
 
-### Issue 3: Forgot Password flow
-Code looks correct -- uses `resetPasswordForEmail` with proper `redirectTo` and the `ResetPassword` page checks for `type=recovery` token. This should work once auth emails are actually being delivered (related to the auto-confirm/email delivery setup). Will need to test after fixing Issue 1.
-
-### Issue 4: Replace Search icon with logo on Login, Register, ForgotPassword, ResetPassword pages
-Currently all 4 pages use `<Search className="h-6 w-6" />` inside a blue rounded square. User wants to replace this with the project logo (`src/assets/logo.webp`).
+**2. Xác nhận Xóa:**
+- **ClassRow.tsx (dòng 138-157):** Đã có AlertDialog xác nhận xóa Class
+- **ProjectRow.tsx (dòng 169-188):** Đã có AlertDialog xác nhận xóa Project
+- **KeywordsTable.tsx:** Xóa keyword KHÔNG có dialog xác nhận - xóa trực tiếp!
+- **ProjectsTable.tsx (dòng 246-251):** Xóa project (multi-select) KHÔNG có xác nhận!
 
 ---
 
-## Plan
+### Giải pháp Đề xuất
 
-### Step 1: Disable auto-confirm email signups
-- Call `configure_auth` to set `enable_signup = true` and `double_confirm_changes = true` with auto-confirm **disabled**
-- This ensures new users must click the verification link before they can log in
+#### 1. Chống Spam Refresh: Kiểm tra Task đang chạy
 
-### Step 2: Replace Search icon with logo on all auth pages
-- Import `logo` from `@/assets/logo.webp` in Login, Register, ForgotPassword, and ResetPassword
-- Replace the `<div className="mx-auto w-12 h-12 bg-primary rounded-xl ..."><Search .../></div>` block with `<img src={logo} alt="SerpAISEO" className="mx-auto h-12 w-auto" />`
+Sử dụng `TaskProgressContext` để kiểm tra class có đang trong hàng đợi không trước khi cho phép refresh.
 
-### Step 3: Test Forgot Password flow
-- Verify the reset password email is sent correctly after auto-confirm is disabled
-- The code is already correct; no changes needed
+**Logic:**
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  User click "Refresh Rankings"                               │
+│       ↓                                                      │
+│  Check: tasks.find(t => t.classId === classId &&            │
+│         (t.status === 'pending' || t.status === 'processing'))│
+│       ↓                                                      │
+│  ├── Có task đang chạy → Disable button + Toast "Already     │
+│  │                       running"                            │
+│  │                                                           │
+│  └── Không có task → Cho phép refresh bình thường           │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### Files to modify
-- `src/pages/Login.tsx` (lines 69-71: replace icon with logo)
-- `src/pages/Register.tsx` (lines 111-113: replace icon with logo)
-- `src/pages/ForgotPassword.tsx` (lines 94-96: replace icon with logo)
-- `src/pages/ResetPassword.tsx` (lines 112-114: replace icon with logo)
+**Files cần sửa:**
+| File | Thay đổi |
+|------|----------|
+| `src/pages/ClassDetail.tsx` | Thêm logic kiểm tra task đang chạy cho nút Refresh |
+| `src/components/projects/ClassRow.tsx` | Thêm logic tương tự cho menu Refresh |
+| `src/components/projects/ProjectRow.tsx` | Thêm logic cho nút "Refresh All Classes" |
+
+**Chi tiết ClassDetail.tsx:**
+```typescript
+// Import thêm
+import { useTaskProgress } from "@/contexts/TaskProgressContext";
+
+// Trong component
+const { tasks } = useTaskProgress();
+
+// Check if class has running task
+const isClassRunning = tasks.some(
+  (t) => t.classId === classId && 
+         (t.status === "pending" || t.status === "processing")
+);
+
+// Disable button khi đang running
+<Button 
+  onClick={handleRefresh} 
+  disabled={addRankingJob.isPending || isViewingHistory || isClassRunning}
+>
+  <RefreshCw className={`mr-2 h-4 w-4 ${isClassRunning ? "animate-spin" : ""}`} />
+  {isClassRunning ? "Checking..." : "Refresh Rankings"}
+</Button>
+```
+
+---
+
+#### 2. Dialog Xác nhận cho Xóa Keyword
+
+Tạo component `ConfirmDeleteDialog` có thể tái sử dụng, hiển thị số lượng items sẽ bị xóa.
+
+**Component mới: `src/components/projects/ConfirmDeleteDialog.tsx`**
+
+```typescript
+interface ConfirmDeleteDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  itemCount?: number;
+  itemType?: string; // "keyword", "project", "class"
+  onConfirm: () => void;
+  isLoading?: boolean;
+}
+```
+
+**Files cần sửa:**
+
+| File | Thay đổi |
+|------|----------|
+| `src/components/projects/ConfirmDeleteDialog.tsx` | Tạo mới component |
+| `src/components/projects/KeywordsTable.tsx` | Thêm dialog xác nhận trước khi xóa keywords |
+| `src/components/projects/ProjectsTable.tsx` | Thêm dialog xác nhận trước khi xóa projects (multi-select) |
+| `src/components/ui/data-table-toolbar.tsx` | Truyền callback để hiển thị dialog thay vì xóa trực tiếp |
+
+---
+
+### Chi tiết Implementation
+
+#### A. Component ConfirmDeleteDialog
+
+```typescript
+// src/components/projects/ConfirmDeleteDialog.tsx
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface ConfirmDeleteDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  itemCount?: number;
+  onConfirm: () => void;
+  isLoading?: boolean;
+}
+
+export function ConfirmDeleteDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  itemCount,
+  onConfirm,
+  isLoading,
+}: ConfirmDeleteDialogProps) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {description}
+            {itemCount && itemCount > 1 && (
+              <span className="block mt-2 font-medium text-foreground">
+                {itemCount} items will be deleted.
+              </span>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isLoading ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+```
+
+---
+
+#### B. Sửa KeywordsTable.tsx
+
+```typescript
+// Thêm state cho dialog
+const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+const [isDeleting, setIsDeleting] = useState(false);
+
+// Handler mới - mở dialog thay vì xóa trực tiếp
+const handleDeleteClick = (ids: string[]) => {
+  setPendingDeleteIds(ids);
+  setDeleteDialogOpen(true);
+};
+
+// Confirm handler
+const handleConfirmDelete = async () => {
+  if (!onDeleteKeywords) return;
+  setIsDeleting(true);
+  try {
+    await onDeleteKeywords(pendingDeleteIds);
+    setRowSelection({});
+  } finally {
+    setIsDeleting(false);
+    setDeleteDialogOpen(false);
+    setPendingDeleteIds([]);
+  }
+};
+
+// Trong toolbar - thay đổi callback
+<DataTableToolbar
+  ...
+  onDeleteSelected={onDeleteKeywords ? () => handleDeleteClick(selectedIds) : undefined}
+/>
+
+// Thêm dialog
+<ConfirmDeleteDialog
+  open={deleteDialogOpen}
+  onOpenChange={setDeleteDialogOpen}
+  title="Delete Keywords"
+  description="Are you sure you want to delete the selected keywords? This will also delete all ranking history associated with them. This action cannot be undone."
+  itemCount={pendingDeleteIds.length}
+  onConfirm={handleConfirmDelete}
+  isLoading={isDeleting}
+/>
+```
+
+---
+
+#### C. Sửa ProjectsTable.tsx
+
+Tương tự pattern như KeywordsTable.
+
+---
+
+#### D. Sửa ClassDetail.tsx, ClassRow.tsx, ProjectRow.tsx
+
+Thêm logic kiểm tra task đang chạy từ `TaskProgressContext`.
+
+---
+
+### Tổng kết Files cần thay đổi
+
+| File | Thay đổi |
+|------|----------|
+| `src/components/projects/ConfirmDeleteDialog.tsx` | **Tạo mới** - Reusable confirm dialog |
+| `src/pages/ClassDetail.tsx` | Thêm kiểm tra `isClassRunning` để disable nút Refresh |
+| `src/components/projects/ClassRow.tsx` | Thêm kiểm tra task running + import TaskProgressContext |
+| `src/components/projects/ProjectRow.tsx` | Thêm kiểm tra any class running + import TaskProgressContext |
+| `src/components/projects/KeywordsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa keywords |
+| `src/components/projects/ProjectsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa projects |
+
+---
+
+### Kết quả mong đợi
+
+**Chống Spam Refresh:**
+- Nút "Refresh Rankings" bị disable và hiển thị "Checking..." khi class đã có task trong queue
+- Icon RefreshCw quay liên tục để báo hiệu đang xử lý
+- User không thể tạo thêm job mới cho cùng một class
+
+**Xác nhận Xóa:**
+- Xóa keyword(s): Hiện dialog "Delete X keywords? This action cannot be undone."
+- Xóa project(s) từ multi-select: Hiện dialog tương tự
+- Dialog hiển thị số lượng items sẽ bị xóa
+- Button "Delete" chuyển thành "Deleting..." khi đang xử lý
 
