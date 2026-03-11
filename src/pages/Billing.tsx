@@ -123,7 +123,7 @@ export default function Billing() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("billing.currentBalance")}</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">{t("billing.currentBalance")} <InfoTooltip text={t("tooltip.currentBalance")} /></CardTitle>
             <Coins className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
