@@ -551,4 +551,8 @@ export const vi: Record<string, string> = {
   "dashboard.improved": "tăng",
   "dashboard.declined": "giảm",
   "dashboard.positions": "vị trí",
+
+  // Captcha
+  "captcha.required": "Vui lòng hoàn tất xác minh captcha",
+  "captcha.failed": "Xác minh captcha thất bại. Vui lòng thử lại.",
 };

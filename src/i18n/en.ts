@@ -551,4 +551,8 @@ export const en: Record<string, string> = {
   "dashboard.improved": "improved",
   "dashboard.declined": "declined",
   "dashboard.positions": "positions",
+
+  // Captcha
+  "captcha.required": "Please complete the captcha verification",
+  "captcha.failed": "Captcha verification failed. Please try again.",
 };
