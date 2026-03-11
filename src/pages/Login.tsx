@@ -106,7 +106,7 @@ export default function Login() {
             </div>
             
             <Button type="button" variant="outline" className="w-full" onClick={async () => {
-              const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/dashboard` } });
+              const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'https://serp.aiseocore.com/dashboard' } });
               if (error) { toast({ variant: "destructive", title: t("error"), description: error.message }); }
             }}>
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">

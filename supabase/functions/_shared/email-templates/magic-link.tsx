@@ -23,26 +23,26 @@ export const MagicLinkEmail = ({
   siteName,
   confirmationUrl,
 }: MagicLinkEmailProps) => (
-  <Html lang="vi" dir="ltr">
+  <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Link đăng nhập cho {siteName}</Preview>
+    <Preview>Your login link for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Img
           src="https://hzcrlucfyxqxsadbvazi.supabase.co/storage/v1/object/public/email-assets/logo.webp"
           alt="SerpAISEO"
-          height="40"
+          height="56"
           style={{ marginBottom: '24px' }}
         />
-        <Heading style={h1}>Link đăng nhập</Heading>
+        <Heading style={h1}>Your login link</Heading>
         <Text style={text}>
-          Nhấn nút bên dưới để đăng nhập vào {siteName}. Link này sẽ hết hạn trong thời gian ngắn.
+          Click the button below to sign in to {siteName}. This link will expire shortly.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Đăng nhập
+          Sign In
         </Button>
         <Text style={footer}>
-          Nếu bạn không yêu cầu link này, bạn có thể bỏ qua email này.
+          If you didn't request this link, you can safely ignore this email.
         </Text>
       </Container>
     </Body>
