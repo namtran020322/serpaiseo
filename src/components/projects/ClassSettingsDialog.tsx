@@ -150,7 +150,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div><p className="text-xs text-muted-foreground mb-1">{t("classSettings.country")}</p><p className="font-medium">{projectClass.country_name}</p></div>
                     <div><p className="text-xs text-muted-foreground mb-1">{t("classSettings.language")}</p><p className="font-medium">{projectClass.language_name}</p></div>
-                    <div><p className="text-xs text-muted-foreground mb-1">{t("classSettings.device")}</p><p className="font-medium capitalize">{projectClass.device}</p></div>
+                    <div><p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">{t("classSettings.device")} <InfoTooltip text={t("tooltip.device")} /></p><p className="font-medium capitalize">{projectClass.device}</p></div>
                   </div>
                 </div>
                 <FormField control={form.control} name="topResults" render={({ field }) => (
