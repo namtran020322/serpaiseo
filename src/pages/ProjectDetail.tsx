@@ -13,6 +13,7 @@ import { AddClassDialog } from "@/components/projects/AddClassDialog";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { formatDistanceToNow } from "date-fns";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 const deviceIcons = {
   desktop: Monitor,
