@@ -4,6 +4,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { RankingStats } from "@/hooks/useProjects";
 import { formatDistanceToNow } from "date-fns";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 interface RankingDistributionChartProps {
   stats: RankingStats;
@@ -50,7 +51,7 @@ export function RankingDistributionChart({ stats, lastUpdatedAt }: RankingDistri
   return (
     <div className="rounded-2xl bg-slate-50 dark:bg-slate-900">
       <CardHeader>
-        <CardTitle>{t("chart.rankingDistribution")}</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">{t("chart.rankingDistribution")} <InfoTooltip text={t("tooltip.rankingDistribution")} /></CardTitle>
         <CardDescription>{t("chart.keywordsByPosition")}</CardDescription>
       </CardHeader>
       <CardContent>

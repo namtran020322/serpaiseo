@@ -18,6 +18,7 @@ import { languages } from "@/data/languages";
 import { useCredits } from "@/hooks/useCredits";
 import { getMaxCompetitorsByPurchased } from "@/lib/pricing";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 const formSchema = z.object({
   name: z.string().min(1, "Class name is required"),
@@ -113,7 +114,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
                 )} />
                 <FormField control={form.control} name="schedule" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("classSettings.autoCheck")}</FormLabel>
+                    <FormLabel className="flex items-center gap-1.5">{t("classSettings.autoCheck")} <InfoTooltip text={t("tooltip.schedule")} /></FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl><SelectTrigger><SelectValue placeholder={t("classSettings.selectSchedule")} /></SelectTrigger></FormControl>
                       <SelectContent>
@@ -149,12 +150,12 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div><p className="text-xs text-muted-foreground mb-1">{t("classSettings.country")}</p><p className="font-medium">{projectClass.country_name}</p></div>
                     <div><p className="text-xs text-muted-foreground mb-1">{t("classSettings.language")}</p><p className="font-medium">{projectClass.language_name}</p></div>
-                    <div><p className="text-xs text-muted-foreground mb-1">{t("classSettings.device")}</p><p className="font-medium capitalize">{projectClass.device}</p></div>
+                    <div><p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">{t("classSettings.device")} <InfoTooltip text={t("tooltip.device")} /></p><p className="font-medium capitalize">{projectClass.device}</p></div>
                   </div>
                 </div>
                 <FormField control={form.control} name="topResults" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("classSettings.topResults")}</FormLabel>
+                    <FormLabel className="flex items-center gap-1.5">{t("classSettings.topResults")} <InfoTooltip text={t("tooltip.topResults")} /></FormLabel>
                     <Select onValueChange={(v) => field.onChange(parseInt(v))} value={field.value.toString()}>
                       <FormControl><SelectTrigger><SelectValue placeholder={t("classSettings.selectTopResults")} /></SelectTrigger></FormControl>
                       <SelectContent>
@@ -170,7 +171,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
               <TabsContent value="competitors" className="space-y-4 pt-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <FormLabel>{t("classSettings.competitorDomains")}</FormLabel>
+                    <FormLabel className="flex items-center gap-1.5">{t("classSettings.competitorDomains")} <InfoTooltip text={t("tooltip.competitors")} /></FormLabel>
                     <span className={`text-xs ${isAtCompetitorLimit ? 'text-destructive' : 'text-muted-foreground'}`}>{competitorDomains.length}/{maxCompetitors}</span>
                   </div>
                   <div className="flex gap-2">

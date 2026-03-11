@@ -1,77 +1,259 @@
 
 
-# Kế hoạch triển khai (đã điều chỉnh)
+## Kế hoạch Thêm Cơ chế Chống Spam Refresh và Xác nhận Hành động Quan trọng
 
-## 1. Export thêm URL đối thủ trong CSV
+### Phân tích Hiện trạng
 
-**File**: `src/components/projects/ExportButton.tsx`
-- Thêm cột `{domain} URL` sau mỗi cột `{domain}` trong header CSV
-- Trích xuất `.url` từ `competitor_rankings[domain]` object
+**1. Nút Refresh Rankings:**
+- **ClassDetail.tsx (dòng 250):** Nút "Refresh Rankings" chỉ disable khi `addRankingJob.isPending` (chỉ trong thời gian ngắn khi gọi API)
+- **ClassRow.tsx (dòng 117):** Tương tự, chỉ disable khi `isChecking`
+- **ProjectRow.tsx (dòng 143):** Tương tự pattern
 
----
+**Vấn đề:** User có thể spam click liên tục vì nút chỉ bị disable trong ~1-2 giây. Nếu class đang có job running, user vẫn có thể tạo thêm job mới.
 
-## 2. Tooltip giải thích (i) icon
-
-**Loại bỏ**: ~~Ranking Stats Cards~~ (theo yêu cầu)
-
-**Tạo component**: `src/components/InfoTooltip.tsx`
-- Icon chữ (i) nhỏ, khi hover hiện tooltip giải thích
-- Follow phong cách UI ProjectDetail: dùng `bg-muted/50 rounded-2xl`, text `text-sm text-muted-foreground`
-
-**Các vị trí thêm tooltip**:
-
-| Vị trí | File | Label gốc | Tooltip content |
-|--------|------|-----------|-----------------|
-| Billing - Current Balance | `Billing.tsx` | Current Balance | Số credits còn lại trong tài khoản |
-| Billing - Total Purchased | `Billing.tsx` | Total Purchased | Tổng credits đã mua từ trước đến nay |
-| Billing - Total Used | `Billing.tsx` | Total Used | Tổng credits đã sử dụng |
-| Billing - Credit Usage (50/100) | `Billing.tsx` | Credit Usage section | Giải thích cách tính credits |
-| Ranking Distribution | `RankingDistributionChart.tsx` | Ranking Distribution | Biểu đồ phân bố vị trí keywords trên Google |
-| Domain Comparison | `TopOverviewTable.tsx` | Domain Comparison | So sánh thứ hạng domain của bạn với đối thủ |
-| Classes section | `ProjectDetail.tsx` | Classes desc | Classes giúp nhóm keywords theo tiêu chí riêng |
-| Competitor Domains | `ClassDetail.tsx` | Competitor Domains | Các domain đối thủ được theo dõi cùng keywords |
-| Ranking History | `RankingHistoryChart.tsx` | Ranking History | Biểu đồ xu hướng thứ hạng keywords theo thời gian |
-| Class Settings - Top Results | `ClassSettingsDialog.tsx` | Top Results | Số kết quả SERP cần quét |
-| Class Settings - Schedule | `ClassSettingsDialog.tsx` | Schedule | Lịch tự động kiểm tra thứ hạng |
-| Class Settings - Device | `ClassSettingsDialog.tsx` | Device | Thiết bị mô phỏng khi kiểm tra |
-| Class Settings - Competitors | `ClassSettingsDialog.tsx` | Competitors | Domain đối thủ để so sánh |
-
-**i18n**: Thêm tất cả tooltip keys vào `en.ts` và `vi.ts`
+**2. Xác nhận Xóa:**
+- **ClassRow.tsx (dòng 138-157):** Đã có AlertDialog xác nhận xóa Class
+- **ProjectRow.tsx (dòng 169-188):** Đã có AlertDialog xác nhận xóa Project
+- **KeywordsTable.tsx:** Xóa keyword KHÔNG có dialog xác nhận - xóa trực tiếp!
+- **ProjectsTable.tsx (dòng 246-251):** Xóa project (multi-select) KHÔNG có xác nhận!
 
 ---
 
-## 3. Cloudflare Turnstile CAPTCHA
+### Giải pháp Đề xuất
 
-**Files thay đổi**:
-- `index.html`: Thêm Turnstile script tag
-- Tạo `src/components/TurnstileCaptcha.tsx`: Wrapper component, render widget, trả token qua callback
-- `Register.tsx`, `Login.tsx`, `ForgotPassword.tsx`: Thêm captcha widget trước nút submit, block submit nếu chưa verify
-- Tạo Edge Function `verify-turnstile/index.ts`: Verify token server-side với Cloudflare API
-- Cần Site Key (public) và Secret Key (secret, lưu qua add_secret tool)
+#### 1. Chống Spam Refresh: Kiểm tra Task đang chạy
+
+Sử dụng `TaskProgressContext` để kiểm tra class có đang trong hàng đợi không trước khi cho phép refresh.
+
+**Logic:**
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  User click "Refresh Rankings"                               │
+│       ↓                                                      │
+│  Check: tasks.find(t => t.classId === classId &&            │
+│         (t.status === 'pending' || t.status === 'processing'))│
+│       ↓                                                      │
+│  ├── Có task đang chạy → Disable button + Toast "Already     │
+│  │                       running"                            │
+│  │                                                           │
+│  └── Không có task → Cho phép refresh bình thường           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Files cần sửa:**
+| File | Thay đổi |
+|------|----------|
+| `src/pages/ClassDetail.tsx` | Thêm logic kiểm tra task đang chạy cho nút Refresh |
+| `src/components/projects/ClassRow.tsx` | Thêm logic tương tự cho menu Refresh |
+| `src/components/projects/ProjectRow.tsx` | Thêm logic cho nút "Refresh All Classes" |
+
+**Chi tiết ClassDetail.tsx:**
+```typescript
+// Import thêm
+import { useTaskProgress } from "@/contexts/TaskProgressContext";
+
+// Trong component
+const { tasks } = useTaskProgress();
+
+// Check if class has running task
+const isClassRunning = tasks.some(
+  (t) => t.classId === classId && 
+         (t.status === "pending" || t.status === "processing")
+);
+
+// Disable button khi đang running
+<Button 
+  onClick={handleRefresh} 
+  disabled={addRankingJob.isPending || isViewingHistory || isClassRunning}
+>
+  <RefreshCw className={`mr-2 h-4 w-4 ${isClassRunning ? "animate-spin" : ""}`} />
+  {isClassRunning ? "Checking..." : "Refresh Rankings"}
+</Button>
+```
 
 ---
 
-## 4. Dashboard Command Center
+#### 2. Dialog Xác nhận cho Xóa Keyword
 
-**File**: `Dashboard.tsx` - thiết kế lại hoàn toàn
+Tạo component `ConfirmDeleteDialog` có thể tái sử dụng, hiển thị số lượng items sẽ bị xóa.
 
-**Layout** (follow phong cách ProjectDetail: `bg-muted/50 rounded-2xl` containers, `bg-background rounded-xl` items):
+**Component mới: `src/components/projects/ConfirmDeleteDialog.tsx`**
 
-- **Row 1 - Summary Cards** (3 cột): Tổng Projects, Tổng Keywords, Keywords checked hôm nay
-- **Row 2 - Two columns**:
-  - Left: Ranking Distribution Chart tổng hợp (reuse `RankingDistributionChart` component với data aggregate)
-  - Right: Top Movers - keywords tăng/giảm nhiều nhất (so sánh `ranking_position` vs `previous_position`)
-- Bỏ phần "How to use", giữ `AnnouncementBanner`
+```typescript
+interface ConfirmDeleteDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  itemCount?: number;
+  itemType?: string; // "keyword", "project", "class"
+  onConfirm: () => void;
+  isLoading?: boolean;
+}
+```
 
-**Hook mới**: `src/hooks/useDashboardStats.ts`
-- Query đếm projects, keywords, daily checks từ các bảng hiện có
-- Query top movers: keywords có `|ranking_position - previous_position|` lớn nhất
+**Files cần sửa:**
+
+| File | Thay đổi |
+|------|----------|
+| `src/components/projects/ConfirmDeleteDialog.tsx` | Tạo mới component |
+| `src/components/projects/KeywordsTable.tsx` | Thêm dialog xác nhận trước khi xóa keywords |
+| `src/components/projects/ProjectsTable.tsx` | Thêm dialog xác nhận trước khi xóa projects (multi-select) |
+| `src/components/ui/data-table-toolbar.tsx` | Truyền callback để hiển thị dialog thay vì xóa trực tiếp |
 
 ---
 
-## Thứ tự triển khai
-1. Export URL đối thủ
-2. InfoTooltip + i18n
-3. Dashboard Command Center
-4. Cloudflare Turnstile (cần Site Key + Secret Key từ bạn)
+### Chi tiết Implementation
+
+#### A. Component ConfirmDeleteDialog
+
+```typescript
+// src/components/projects/ConfirmDeleteDialog.tsx
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface ConfirmDeleteDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  itemCount?: number;
+  onConfirm: () => void;
+  isLoading?: boolean;
+}
+
+export function ConfirmDeleteDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  itemCount,
+  onConfirm,
+  isLoading,
+}: ConfirmDeleteDialogProps) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {description}
+            {itemCount && itemCount > 1 && (
+              <span className="block mt-2 font-medium text-foreground">
+                {itemCount} items will be deleted.
+              </span>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isLoading ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+```
+
+---
+
+#### B. Sửa KeywordsTable.tsx
+
+```typescript
+// Thêm state cho dialog
+const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+const [isDeleting, setIsDeleting] = useState(false);
+
+// Handler mới - mở dialog thay vì xóa trực tiếp
+const handleDeleteClick = (ids: string[]) => {
+  setPendingDeleteIds(ids);
+  setDeleteDialogOpen(true);
+};
+
+// Confirm handler
+const handleConfirmDelete = async () => {
+  if (!onDeleteKeywords) return;
+  setIsDeleting(true);
+  try {
+    await onDeleteKeywords(pendingDeleteIds);
+    setRowSelection({});
+  } finally {
+    setIsDeleting(false);
+    setDeleteDialogOpen(false);
+    setPendingDeleteIds([]);
+  }
+};
+
+// Trong toolbar - thay đổi callback
+<DataTableToolbar
+  ...
+  onDeleteSelected={onDeleteKeywords ? () => handleDeleteClick(selectedIds) : undefined}
+/>
+
+// Thêm dialog
+<ConfirmDeleteDialog
+  open={deleteDialogOpen}
+  onOpenChange={setDeleteDialogOpen}
+  title="Delete Keywords"
+  description="Are you sure you want to delete the selected keywords? This will also delete all ranking history associated with them. This action cannot be undone."
+  itemCount={pendingDeleteIds.length}
+  onConfirm={handleConfirmDelete}
+  isLoading={isDeleting}
+/>
+```
+
+---
+
+#### C. Sửa ProjectsTable.tsx
+
+Tương tự pattern như KeywordsTable.
+
+---
+
+#### D. Sửa ClassDetail.tsx, ClassRow.tsx, ProjectRow.tsx
+
+Thêm logic kiểm tra task đang chạy từ `TaskProgressContext`.
+
+---
+
+### Tổng kết Files cần thay đổi
+
+| File | Thay đổi |
+|------|----------|
+| `src/components/projects/ConfirmDeleteDialog.tsx` | **Tạo mới** - Reusable confirm dialog |
+| `src/pages/ClassDetail.tsx` | Thêm kiểm tra `isClassRunning` để disable nút Refresh |
+| `src/components/projects/ClassRow.tsx` | Thêm kiểm tra task running + import TaskProgressContext |
+| `src/components/projects/ProjectRow.tsx` | Thêm kiểm tra any class running + import TaskProgressContext |
+| `src/components/projects/KeywordsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa keywords |
+| `src/components/projects/ProjectsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa projects |
+
+---
+
+### Kết quả mong đợi
+
+**Chống Spam Refresh:**
+- Nút "Refresh Rankings" bị disable và hiển thị "Checking..." khi class đã có task trong queue
+- Icon RefreshCw quay liên tục để báo hiệu đang xử lý
+- User không thể tạo thêm job mới cho cùng một class
+
+**Xác nhận Xóa:**
+- Xóa keyword(s): Hiện dialog "Delete X keywords? This action cannot be undone."
+- Xóa project(s) từ multi-select: Hiện dialog tương tự
+- Dialog hiển thị số lượng items sẽ bị xóa
+- Button "Delete" chuyển thành "Deleting..." khi đang xử lý
 

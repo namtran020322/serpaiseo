@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, Coins, TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Loader2, Zap, Star, Check, Users, Shield, BarChart3, RefreshCw, History, Receipt } from "lucide-react";
+import { InfoTooltip } from "@/components/InfoTooltip";
 import { useCredits } from "@/hooks/useCredits";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -122,7 +123,7 @@ export default function Billing() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("billing.currentBalance")}</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">{t("billing.currentBalance")} <InfoTooltip text={t("tooltip.currentBalance")} /></CardTitle>
             <Coins className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
@@ -132,7 +133,7 @@ export default function Billing() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("billing.totalPurchased")}</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">{t("billing.totalPurchased")} <InfoTooltip text={t("tooltip.totalPurchased")} /></CardTitle>
             <TrendingUp className="h-5 w-5 text-green-500" />
           </CardHeader>
           <CardContent>
@@ -142,7 +143,7 @@ export default function Billing() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("billing.totalUsed")}</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">{t("billing.totalUsed")} <InfoTooltip text={t("tooltip.totalUsed")} /></CardTitle>
             <TrendingDown className="h-5 w-5 text-orange-500" />
           </CardHeader>
           <CardContent>
@@ -209,7 +210,7 @@ export default function Billing() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2"><Coins className="h-5 w-5" />{t("billing.creditUsage")}</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2"><Coins className="h-5 w-5" />{t("billing.creditUsage")} <InfoTooltip text={t("tooltip.creditUsage")} /></CardTitle>
           <CardDescription>{t("billing.creditUsageDesc")}</CardDescription>
         </CardHeader>
         <CardContent>

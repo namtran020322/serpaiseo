@@ -20,14 +20,19 @@ export function ExportButton({ projectClass }: ExportButtonProps) {
     try {
       const headers = ["Keyword", "Last Position", "First Position", "Best Position", "Change", "URL"];
       const competitors = projectClass.competitor_domains || [];
-      competitors.forEach((domain) => headers.push(`${domain} Position`));
+      competitors.forEach((domain) => {
+        headers.push(`${domain} Position`);
+        headers.push(`${domain} URL`);
+      });
       const rows = projectClass.keywords.map((kw) => {
         const change = kw.previous_position && kw.ranking_position ? kw.previous_position - kw.ranking_position : "";
         const row = [`"${kw.keyword.replace(/"/g, '""')}"`, kw.ranking_position ?? "", kw.first_position ?? "", kw.best_position ?? "", change, kw.found_url ? `"${kw.found_url.replace(/"/g, '""')}"` : ""];
         competitors.forEach((domain) => {
           const raw = kw.competitor_rankings?.[domain];
           const pos = typeof raw === 'object' && raw !== null ? (raw as any).position ?? "" : raw ?? "";
+          const url = typeof raw === 'object' && raw !== null ? (raw as any).url ?? "" : "";
           row.push(pos);
+          row.push(url ? `"${String(url).replace(/"/g, '""')}"` : "");
         });
         return row.join(",");
       });

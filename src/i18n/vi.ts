@@ -524,4 +524,31 @@ export const vi: Record<string, string> = {
   // Bulk import validation
   "addKeywords.fileTooLarge": "File quá lớn. Kích thước tối đa là 1MB.",
   "addKeywords.tooManyKeywords": "Quá nhiều từ khóa. Tối đa {max} từ khóa mỗi lần.",
+
+  // Tooltips
+  "tooltip.currentBalance": "Số credits còn lại trong tài khoản, dùng để kiểm tra thứ hạng.",
+  "tooltip.totalPurchased": "Tổng credits đã mua kể từ khi tạo tài khoản.",
+  "tooltip.totalUsed": "Tổng credits đã sử dụng cho các lần kiểm tra thứ hạng.",
+  "tooltip.creditUsage": "Mỗi lần kiểm tra tốn credits tùy theo số kết quả SERP quét. Top 50 = 5 credits/từ khóa, Top 100 = 10 credits/từ khóa.",
+  "tooltip.rankingDistribution": "Biểu đồ tròn hiển thị phân bố từ khóa theo vị trí thứ hạng trên Google.",
+  "tooltip.domainComparison": "So sánh thứ hạng tên miền của bạn với các đối thủ trên tất cả các lớp.",
+  "tooltip.classesSection": "Lớp nhóm các từ khóa theo cài đặt tìm kiếm (quốc gia, ngôn ngữ, thiết bị). Mỗi lớp theo dõi thứ hạng độc lập.",
+  "tooltip.competitorDomains": "Các tên miền đối thủ được theo dõi cùng từ khóa của bạn để so sánh vị trí thứ hạng.",
+  "tooltip.rankingHistory": "Biểu đồ đường thể hiện xu hướng thay đổi thứ hạng trung bình theo thời gian cho tên miền của bạn và đối thủ.",
+  "tooltip.topResults": "Số kết quả Google SERP cần quét cho mỗi từ khóa (VD: Top 50 hoặc Top 100). Càng cao = càng tốn credits.",
+  "tooltip.schedule": "Đặt lịch kiểm tra thứ hạng tự động hàng ngày, hàng tuần hoặc hàng tháng.",
+  "tooltip.device": "Loại thiết bị được mô phỏng khi kiểm tra thứ hạng Google (máy tính, di động hoặc máy tính bảng).",
+  "tooltip.competitors": "Thêm tên miền đối thủ để theo dõi thứ hạng của họ cho cùng bộ từ khóa.",
+
+  // Dashboard Command Center
+  "dashboard.totalProjects": "Tổng dự án",
+  "dashboard.totalKeywords": "Tổng từ khóa",
+  "dashboard.checksToday": "Kiểm tra hôm nay",
+  "dashboard.topMovers": "Biến động lớn",
+  "dashboard.topMovers.desc": "Từ khóa có thay đổi thứ hạng lớn nhất",
+  "dashboard.noMovers": "Chưa phát hiện thay đổi thứ hạng",
+  "dashboard.noMovers.desc": "Biến động thứ hạng sẽ xuất hiện sau lần kiểm tra đầu tiên",
+  "dashboard.improved": "tăng",
+  "dashboard.declined": "giảm",
+  "dashboard.positions": "vị trí",
 };

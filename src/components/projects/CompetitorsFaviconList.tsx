@@ -3,6 +3,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/InfoTooltip";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface CompetitorsFaviconListProps {
   domains: string[];
@@ -15,6 +17,7 @@ const getFaviconUrl = (domain: string) => {
 };
 
 export function CompetitorsFaviconList({ domains, maxVisible = 3 }: CompetitorsFaviconListProps) {
+  const { t } = useLanguage();
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
   if (domains.length === 0) return null;
@@ -25,7 +28,7 @@ export function CompetitorsFaviconList({ domains, maxVisible = 3 }: CompetitorsF
 
   return (
     <div className="flex items-center gap-1">
-      <span className="text-sm text-muted-foreground mr-1">Competitors:</span>
+      <span className="text-sm text-muted-foreground mr-1 flex items-center gap-1">Competitors: <InfoTooltip text={t("tooltip.competitorDomains")} /></span>
 
       <TooltipProvider delayDuration={100}>
         {visibleDomains.map((domain) => (

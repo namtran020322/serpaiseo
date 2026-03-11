@@ -21,6 +21,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { formatDistanceToNow, format } from "date-fns";
 import { useTaskProgress } from "@/contexts/TaskProgressContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 const deviceIcons = {
   desktop: Monitor,

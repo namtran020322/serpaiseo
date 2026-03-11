@@ -8,6 +8,7 @@ import { useRankingHistory, TimeRange, DomainConfig } from "@/hooks/useRankingHi
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { format, parseISO } from "date-fns";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 interface RankingHistoryChartProps {
   classId: string;
@@ -69,7 +70,7 @@ export function RankingHistoryChart({ classId, userDomain, competitorDomains }: 
   if (!historyData || historyData.data.length === 0) {
     return (
       <div className="bg-muted/50 rounded-2xl p-6">
-        <h3 className="text-lg font-semibold mb-4">{t("history.title")}</h3>
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-1.5">{t("history.title")} <InfoTooltip text={t("tooltip.rankingHistory")} /></h3>
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="text-muted-foreground">{t("history.noHistory")}</p>
           <p className="text-sm text-muted-foreground mt-1">{t("history.recordedOnRefresh")}</p>
@@ -81,7 +82,7 @@ export function RankingHistoryChart({ classId, userDomain, competitorDomains }: 
   return (
     <div className="bg-muted/50 rounded-2xl p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <h3 className="text-lg font-semibold">{t("history.title")}</h3>
+        <h3 className="text-lg font-semibold flex items-center gap-1.5">{t("history.title")} <InfoTooltip text={t("tooltip.rankingHistory")} /></h3>
         <ToggleGroup type="single" value={timeRange} onValueChange={(value) => value && setTimeRange(value as TimeRange)} className="justify-start">
           <ToggleGroupItem value="7d" aria-label={t("history.7days")} size="sm">{t("history.7days")}</ToggleGroupItem>
           <ToggleGroupItem value="30d" aria-label={t("history.30days")} size="sm">{t("history.30days")}</ToggleGroupItem>
