@@ -28,7 +28,7 @@ export function CompetitorsFaviconList({ domains, maxVisible = 3 }: CompetitorsF
 
   return (
     <div className="flex items-center gap-1">
-      <span className="text-sm text-muted-foreground mr-1">Competitors:</span>
+      <span className="text-sm text-muted-foreground mr-1 flex items-center gap-1">Competitors: <InfoTooltip text={t("tooltip.competitorDomains")} /></span>
 
       <TooltipProvider delayDuration={100}>
         {visibleDomains.map((domain) => (
