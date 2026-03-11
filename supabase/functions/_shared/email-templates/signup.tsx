@@ -28,37 +28,37 @@ export const SignupEmail = ({
   recipient,
   confirmationUrl,
 }: SignupEmailProps) => (
-  <Html lang="vi" dir="ltr">
+  <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Xác nhận email của bạn cho {siteName}</Preview>
+    <Preview>Confirm your email for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Img
           src="https://hzcrlucfyxqxsadbvazi.supabase.co/storage/v1/object/public/email-assets/logo.webp"
           alt="SerpAISEO"
-          height="40"
+          height="56"
           style={{ marginBottom: '24px' }}
         />
-        <Heading style={h1}>Xác nhận email của bạn</Heading>
+        <Heading style={h1}>Confirm your email</Heading>
         <Text style={text}>
-          Cảm ơn bạn đã đăng ký{' '}
+          Thanks for signing up for{' '}
           <Link href={siteUrl} style={link}>
             <strong>{siteName}</strong>
           </Link>
           !
         </Text>
         <Text style={text}>
-          Vui lòng xác nhận địa chỉ email (
+          Please confirm your email address (
           <Link href={`mailto:${recipient}`} style={link}>
             {recipient}
           </Link>
-          ) bằng cách nhấn nút bên dưới:
+          ) by clicking the button below:
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Xác nhận Email
+          Confirm Email
         </Button>
         <Text style={footer}>
-          Nếu bạn không tạo tài khoản, bạn có thể bỏ qua email này.
+          If you didn't create an account, you can safely ignore this email.
         </Text>
       </Container>
     </Body>

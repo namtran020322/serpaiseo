@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,10 +18,16 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const { signIn } = useAuthContext();
+  const { signIn, user, loading } = useAuthContext();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { t } = useLanguage();
+
+  useEffect(() => {
+    if (user && !loading) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   const handleTurnstileVerify = useCallback((token: string) => setTurnstileToken(token), []);
   const handleTurnstileExpire = useCallback(() => setTurnstileToken(null), []);
@@ -100,7 +106,7 @@ export default function Login() {
             </div>
             
             <Button type="button" variant="outline" className="w-full" onClick={async () => {
-              const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/dashboard` } });
+              const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'https://serp.aiseocore.com/dashboard' } });
               if (error) { toast({ variant: "destructive", title: t("error"), description: error.message }); }
             }}>
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">

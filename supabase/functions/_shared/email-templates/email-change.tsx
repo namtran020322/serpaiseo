@@ -28,37 +28,37 @@ export const EmailChangeEmail = ({
   newEmail,
   confirmationUrl,
 }: EmailChangeEmailProps) => (
-  <Html lang="vi" dir="ltr">
+  <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Xác nhận thay đổi email cho {siteName}</Preview>
+    <Preview>Confirm email change for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Img
           src="https://hzcrlucfyxqxsadbvazi.supabase.co/storage/v1/object/public/email-assets/logo.webp"
           alt="SerpAISEO"
-          height="40"
+          height="56"
           style={{ marginBottom: '24px' }}
         />
-        <Heading style={h1}>Xác nhận thay đổi email</Heading>
+        <Heading style={h1}>Confirm email change</Heading>
         <Text style={text}>
-          Bạn đã yêu cầu thay đổi email cho {siteName} từ{' '}
+          You requested to change your email for {siteName} from{' '}
           <Link href={`mailto:${email}`} style={link}>
             {email}
           </Link>{' '}
-          sang{' '}
+          to{' '}
           <Link href={`mailto:${newEmail}`} style={link}>
             {newEmail}
           </Link>
           .
         </Text>
         <Text style={text}>
-          Nhấn nút bên dưới để xác nhận thay đổi:
+          Click the button below to confirm the change:
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Xác nhận thay đổi Email
+          Confirm Email Change
         </Button>
         <Text style={footer}>
-          Nếu bạn không yêu cầu thay đổi này, vui lòng bảo mật tài khoản ngay lập tức.
+          If you didn't request this change, please secure your account immediately.
         </Text>
       </Container>
     </Body>

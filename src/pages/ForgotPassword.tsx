@@ -48,7 +48,7 @@ export default function ForgotPassword() {
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: 'https://serp.aiseocore.com/reset-password',
     });
 
     if (error) {

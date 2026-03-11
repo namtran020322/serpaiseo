@@ -18,22 +18,22 @@ interface ReauthenticationEmailProps {
 }
 
 export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => (
-  <Html lang="vi" dir="ltr">
+  <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Mã xác thực của bạn</Preview>
+    <Preview>Your verification code</Preview>
     <Body style={main}>
       <Container style={container}>
         <Img
           src="https://hzcrlucfyxqxsadbvazi.supabase.co/storage/v1/object/public/email-assets/logo.webp"
           alt="SerpAISEO"
-          height="40"
+          height="56"
           style={{ marginBottom: '24px' }}
         />
-        <Heading style={h1}>Xác thực lại tài khoản</Heading>
-        <Text style={text}>Sử dụng mã bên dưới để xác nhận danh tính của bạn:</Text>
+        <Heading style={h1}>Re-authenticate your account</Heading>
+        <Text style={text}>Use the code below to verify your identity:</Text>
         <Text style={codeStyle}>{token}</Text>
         <Text style={footer}>
-          Mã này sẽ hết hạn trong thời gian ngắn. Nếu bạn không yêu cầu, bạn có thể bỏ qua email này.
+          This code will expire shortly. If you didn't request it, you can safely ignore this email.
         </Text>
       </Container>
     </Body>

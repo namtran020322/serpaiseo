@@ -23,26 +23,26 @@ export const RecoveryEmail = ({
   siteName,
   confirmationUrl,
 }: RecoveryEmailProps) => (
-  <Html lang="vi" dir="ltr">
+  <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Đặt lại mật khẩu cho {siteName}</Preview>
+    <Preview>Reset your password for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Img
           src="https://hzcrlucfyxqxsadbvazi.supabase.co/storage/v1/object/public/email-assets/logo.webp"
           alt="SerpAISEO"
-          height="40"
+          height="56"
           style={{ marginBottom: '24px' }}
         />
-        <Heading style={h1}>Đặt lại mật khẩu</Heading>
+        <Heading style={h1}>Reset your password</Heading>
         <Text style={text}>
-          Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản {siteName} của bạn. Nhấn nút bên dưới để chọn mật khẩu mới.
+          We received a request to reset the password for your {siteName} account. Click the button below to choose a new password.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Đặt lại mật khẩu
+          Reset Password
         </Button>
         <Text style={footer}>
-          Nếu bạn không yêu cầu đặt lại mật khẩu, bạn có thể bỏ qua email này. Mật khẩu của bạn sẽ không thay đổi.
+          If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.
         </Text>
       </Container>
     </Body>

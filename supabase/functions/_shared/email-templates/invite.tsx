@@ -26,30 +26,30 @@ export const InviteEmail = ({
   siteUrl,
   confirmationUrl,
 }: InviteEmailProps) => (
-  <Html lang="vi" dir="ltr">
+  <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Bạn được mời tham gia {siteName}</Preview>
+    <Preview>You've been invited to join {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Img
           src="https://hzcrlucfyxqxsadbvazi.supabase.co/storage/v1/object/public/email-assets/logo.webp"
           alt="SerpAISEO"
-          height="40"
+          height="56"
           style={{ marginBottom: '24px' }}
         />
-        <Heading style={h1}>Bạn được mời tham gia</Heading>
+        <Heading style={h1}>You've been invited</Heading>
         <Text style={text}>
-          Bạn được mời tham gia{' '}
+          You've been invited to join{' '}
           <Link href={siteUrl} style={link}>
             <strong>{siteName}</strong>
           </Link>
-          . Nhấn nút bên dưới để chấp nhận lời mời và tạo tài khoản.
+          . Click the button below to accept the invitation and create your account.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Chấp nhận lời mời
+          Accept Invitation
         </Button>
         <Text style={footer}>
-          Nếu bạn không mong đợi lời mời này, bạn có thể bỏ qua email này.
+          If you weren't expecting this invitation, you can safely ignore this email.
         </Text>
       </Container>
     </Body>
