@@ -1,37 +1,29 @@
 project_id = "hzcrlucfyxqxsadbvazi"
 
-[functions.check-project-keywords]
-verify_jwt = false
-
-[functions.create-sepay-order]
-verify_jwt = false
-
-[functions.sepay-webhook]
-verify_jwt = false
-
-[functions.scheduled-ranking-check]
-verify_jwt = false
-
-[functions.admin-user-management]
-verify_jwt = false
-
-[functions.admin-xmlriver-stats]
-verify_jwt = false
-
-[functions.admin-finance-stats]
-verify_jwt = false
-
-[functions.admin-announcements]
-verify_jwt = false
-
-[functions.add-ranking-job]
-verify_jwt = false
-
-[functions.process-ranking-queue]
-verify_jwt = false
-
-[functions.verify-turnstile]
-verify_jwt = false
-
-[functions.process-email-queue]
-verify_jwt = false
+[functions]
+  [functions.add-ranking-job]
+    verify_jwt = false
+  [functions.admin-announcements]
+    verify_jwt = false
+  [functions.admin-finance-stats]
+    verify_jwt = false
+  [functions.admin-user-management]
+    verify_jwt = false
+  [functions.admin-xmlriver-stats]
+    verify_jwt = false
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.check-project-keywords]
+    verify_jwt = false
+  [functions.create-sepay-order]
+    verify_jwt = false
+  [functions.process-email-queue]
+    verify_jwt = false
+  [functions.process-ranking-queue]
+    verify_jwt = false
+  [functions.scheduled-ranking-check]
+    verify_jwt = false
+  [functions.sepay-webhook]
+    verify_jwt = false
+  [functions.verify-turnstile]
+    verify_jwt = false
