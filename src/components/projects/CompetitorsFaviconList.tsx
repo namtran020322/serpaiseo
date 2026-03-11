@@ -17,6 +17,7 @@ const getFaviconUrl = (domain: string) => {
 };
 
 export function CompetitorsFaviconList({ domains, maxVisible = 3 }: CompetitorsFaviconListProps) {
+  const { t } = useLanguage();
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
   if (domains.length === 0) return null;
