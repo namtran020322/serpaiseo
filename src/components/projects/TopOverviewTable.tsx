@@ -1,6 +1,7 @@
 import { ProjectClassWithKeywords } from "@/hooks/useProjects";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 interface TopOverviewTableProps {
   classes: ProjectClassWithKeywords[];
