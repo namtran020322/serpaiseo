@@ -3,6 +3,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { DomainWithFavicon } from "@/components/DomainWithFavicon";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/InfoTooltip";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface CompetitorsFaviconListProps {
   domains: string[];
