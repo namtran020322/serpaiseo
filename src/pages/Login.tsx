@@ -18,10 +18,16 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const { signIn } = useAuthContext();
+  const { signIn, user, loading } = useAuthContext();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { t } = useLanguage();
+
+  useEffect(() => {
+    if (user && !loading) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   const handleTurnstileVerify = useCallback((token: string) => setTurnstileToken(token), []);
   const handleTurnstileExpire = useCallback(() => setTurnstileToken(null), []);
