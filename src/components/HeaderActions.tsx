@@ -116,9 +116,6 @@ export function HeaderActions() {
           <DropdownMenuItem onClick={() => navigate("/dashboard/billing")}>
             <CreditCard className="mr-2 h-4 w-4" /> {t("nav.billing")}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>
-            <Settings className="mr-2 h-4 w-4" /> {t("nav.settings")}
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
             <LogOut className="mr-2 h-4 w-4" /> {t("nav.logout")}

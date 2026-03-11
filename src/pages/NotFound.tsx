@@ -3,9 +3,11 @@ import { useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Home } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const NotFound = () => {
   const location = useLocation();
+  const { t } = useLanguage();
 
   useEffect(() => {
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);
@@ -20,14 +22,14 @@ const NotFound = () => {
           </div>
           <CardTitle className="text-4xl font-bold">404</CardTitle>
           <CardDescription className="text-lg">
-            Oops! The page you're looking for doesn't exist.
+            {t("notFound.description")}
           </CardDescription>
         </CardHeader>
         <CardFooter className="flex justify-center pt-2">
           <Button asChild>
             <Link to="/dashboard">
               <Home className="mr-2 h-4 w-4" />
-              Return to Home
+              {t("notFound.returnHome")}
             </Link>
           </Button>
         </CardFooter>

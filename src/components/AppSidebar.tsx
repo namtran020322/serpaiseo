@@ -118,10 +118,6 @@ export function AppSidebar() {
                 <Bell className="mr-2 h-4 w-4" />
                 {t("nav.notifications")}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>
-                <Settings className="mr-2 h-4 w-4" />
-                {t("nav.settings")}
-              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />

@@ -3,6 +3,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { Loader2, Mail } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
