@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { FolderOpen, Search, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { AnnouncementBanner } from "@/components/AnnouncementBanner";
+
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { RankingDistributionChart } from "@/components/projects/RankingDistributionChart";
