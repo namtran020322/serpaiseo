@@ -155,7 +155,7 @@ export default function ProjectDetail() {
       <div className="bg-muted/50 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-semibold">{t("projectDetail.classes")}</h2>
+            <h2 className="text-lg font-semibold flex items-center gap-1.5">{t("projectDetail.classes")} <InfoTooltip text={t("tooltip.classesSection")} /></h2>
             <p className="text-sm text-muted-foreground">{t("projectDetail.classes.desc")}</p>
           </div>
           <AddClassDialog projectId={projectId!} projectDomain={project.domain} />

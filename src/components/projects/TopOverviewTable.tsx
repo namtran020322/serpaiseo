@@ -54,7 +54,7 @@ export function TopOverviewTable({ classes }: TopOverviewTableProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-2xl bg-slate-50 dark:bg-slate-900 p-8">
-        <h2 className="text-2xl font-bold tracking-tight">{t("domain.comparison")}</h2>
+        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">{t("domain.comparison")} <InfoTooltip text={t("tooltip.domainComparison")} /></h2>
         <p className="text-sm text-muted-foreground mt-1">{t("domain.vsCompetitors")}</p>
       </div>
       <div className="rounded-2xl bg-slate-50 dark:bg-slate-900 p-6">

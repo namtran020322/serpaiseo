@@ -171,7 +171,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
               <TabsContent value="competitors" className="space-y-4 pt-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <FormLabel>{t("classSettings.competitorDomains")}</FormLabel>
+                    <FormLabel className="flex items-center gap-1.5">{t("classSettings.competitorDomains")} <InfoTooltip text={t("tooltip.competitors")} /></FormLabel>
                     <span className={`text-xs ${isAtCompetitorLimit ? 'text-destructive' : 'text-muted-foreground'}`}>{competitorDomains.length}/{maxCompetitors}</span>
                   </div>
                   <div className="flex gap-2">

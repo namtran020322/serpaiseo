@@ -524,4 +524,31 @@ export const en: Record<string, string> = {
   // Bulk import validation
   "addKeywords.fileTooLarge": "File is too large. Maximum size is 1MB.",
   "addKeywords.tooManyKeywords": "Too many keywords. Maximum is {max} per batch.",
+
+  // Tooltips
+  "tooltip.currentBalance": "The number of credits remaining in your account, available for ranking checks.",
+  "tooltip.totalPurchased": "Total credits purchased since you created your account.",
+  "tooltip.totalUsed": "Total credits consumed by ranking checks.",
+  "tooltip.creditUsage": "Each ranking check costs credits based on the number of SERP results scanned. Top 50 = 5 credits/keyword, Top 100 = 10 credits/keyword.",
+  "tooltip.rankingDistribution": "Donut chart showing how your keywords are distributed across Google ranking positions.",
+  "tooltip.domainComparison": "Side-by-side comparison of your domain's rankings versus competitor domains across all classes.",
+  "tooltip.classesSection": "Classes group keywords by search settings (country, language, device). Each class tracks rankings independently.",
+  "tooltip.competitorDomains": "Competitor domains are tracked alongside your keywords to compare ranking positions.",
+  "tooltip.rankingHistory": "Line chart showing how average ranking positions change over time for your domain and competitors.",
+  "tooltip.topResults": "Number of Google SERP results to scan per keyword (e.g. Top 50 or Top 100). Higher = more credits.",
+  "tooltip.schedule": "Set automatic ranking checks on a daily, weekly, or monthly schedule.",
+  "tooltip.device": "The device type simulated when checking Google rankings (desktop, mobile, or tablet).",
+  "tooltip.competitors": "Add competitor domains to track their rankings for the same keywords.",
+
+  // Dashboard Command Center
+  "dashboard.totalProjects": "Total Projects",
+  "dashboard.totalKeywords": "Total Keywords",
+  "dashboard.checksToday": "Checks Today",
+  "dashboard.topMovers": "Top Movers",
+  "dashboard.topMovers.desc": "Keywords with the biggest ranking changes",
+  "dashboard.noMovers": "No ranking changes detected yet",
+  "dashboard.noMovers.desc": "Ranking changes will appear here after your first check",
+  "dashboard.improved": "improved",
+  "dashboard.declined": "declined",
+  "dashboard.positions": "positions",
 };

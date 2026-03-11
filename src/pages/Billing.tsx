@@ -210,7 +210,7 @@ export default function Billing() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2"><Coins className="h-5 w-5" />{t("billing.creditUsage")}</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2"><Coins className="h-5 w-5" />{t("billing.creditUsage")} <InfoTooltip text={t("tooltip.creditUsage")} /></CardTitle>
           <CardDescription>{t("billing.creditUsageDesc")}</CardDescription>
         </CardHeader>
         <CardContent>

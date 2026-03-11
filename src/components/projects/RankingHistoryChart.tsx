@@ -82,7 +82,7 @@ export function RankingHistoryChart({ classId, userDomain, competitorDomains }: 
   return (
     <div className="bg-muted/50 rounded-2xl p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <h3 className="text-lg font-semibold">{t("history.title")}</h3>
+        <h3 className="text-lg font-semibold flex items-center gap-1.5">{t("history.title")} <InfoTooltip text={t("tooltip.rankingHistory")} /></h3>
         <ToggleGroup type="single" value={timeRange} onValueChange={(value) => value && setTimeRange(value as TimeRange)} className="justify-start">
           <ToggleGroupItem value="7d" aria-label={t("history.7days")} size="sm">{t("history.7days")}</ToggleGroupItem>
           <ToggleGroupItem value="30d" aria-label={t("history.30days")} size="sm">{t("history.30days")}</ToggleGroupItem>
