@@ -1,0 +1,1 @@
+UPDATE ranking_check_queue SET status = 'pending', processed_keywords = 0, updated_at = now() WHERE status = 'processing'
