@@ -34,6 +34,13 @@ export default function Login() {
 
   const isPreview = window.location.hostname.includes('lovableproject.com') || window.location.hostname.includes('lovable.app');
 
+  // Auto-set dummy token in preview so captcha doesn't block login
+  useEffect(() => {
+    if (isPreview && !turnstileToken) {
+      setTurnstileToken('preview-bypass');
+    }
+  }, [isPreview, turnstileToken]);
+
   const verifyTurnstile = async (token: string): Promise<boolean> => {
     if (isPreview) return true; // Skip captcha verification in preview/staging
     try {
