@@ -85,7 +85,7 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
   const [location, setLocation] = useState("");
   const [language, setLanguage] = useState("");
   const [device, setDevice] = useState("desktop");
-  const [topResults, setTopResults] = useState("100");
+  // topResults removed - always Top 100
 
   // Step 4: Schedule
   const [schedule, setSchedule] = useState<string | null>(null);
@@ -109,7 +109,7 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
     setLocation("");
     setLanguage("");
     setDevice("desktop");
-    setTopResults("100");
+    // topResults removed
     setSchedule(null);
     setScheduleTime("08:00");
   };
@@ -191,7 +191,7 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
         languageCode: language,
         languageName: selectedLanguage?.name || "",
         device,
-        topResults: parseInt(topResults),
+        topResults: 100,
         schedule,
         scheduleTime,
         keywords: parseKeywords(),
@@ -439,21 +439,9 @@ export function AddClassDialog({ open: controlledOpen, onOpenChange: controlledO
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Number of results to check</Label>
-                <Select value={topResults} onValueChange={setTopResults}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">Top 10</SelectItem>
-                    <SelectItem value="20">Top 20</SelectItem>
-                    <SelectItem value="30">Top 30</SelectItem>
-                    <SelectItem value="50">Top 50</SelectItem>
-                    <SelectItem value="100">Top 100</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Rankings are checked in Top 100 by default.
+              </p>
             </div>
           )}
 

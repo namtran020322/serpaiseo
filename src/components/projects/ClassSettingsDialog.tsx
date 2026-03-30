@@ -25,7 +25,7 @@ const formSchema = z.object({
   countryId: z.string().min(1),
   languageCode: z.string().min(1),
   device: z.string().min(1),
-  topResults: z.number().min(10).max(100),
+  // topResults removed - always 100
   schedule: z.string().nullable(),
   scheduleTime: z.string().default("08:00"),
 });
@@ -53,13 +53,13 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: projectClass.name, countryId: projectClass.country_id, languageCode: projectClass.language_code,
-      device: projectClass.device, topResults: projectClass.top_results, schedule: projectClass.schedule,
+      device: projectClass.device, schedule: projectClass.schedule,
       scheduleTime: (projectClass as any).schedule_time || "08:00",
     },
   });
 
   useEffect(() => {
-    form.reset({ name: projectClass.name, countryId: projectClass.country_id, languageCode: projectClass.language_code, device: projectClass.device, topResults: projectClass.top_results, schedule: projectClass.schedule, scheduleTime: (projectClass as any).schedule_time || "08:00" });
+    form.reset({ name: projectClass.name, countryId: projectClass.country_id, languageCode: projectClass.language_code, device: projectClass.device, schedule: projectClass.schedule, scheduleTime: (projectClass as any).schedule_time || "08:00" });
     setCompetitorDomains(projectClass.competitor_domains || []);
   }, [projectClass, form]);
 
@@ -69,7 +69,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
     const country = countries.find((c) => c.id === data.countryId);
     const language = languages.find((l) => l.lang === data.languageCode);
     try {
-      await updateClass.mutateAsync({ id: projectClass.id, name: data.name, competitorDomains, countryId: data.countryId, countryName: country?.name || projectClass.country_name, languageCode: data.languageCode, languageName: language?.name || projectClass.language_name, device: data.device, topResults: data.topResults, schedule: data.schedule, scheduleTime: data.scheduleTime });
+      await updateClass.mutateAsync({ id: projectClass.id, name: data.name, competitorDomains, countryId: data.countryId, countryName: country?.name || projectClass.country_name, languageCode: data.languageCode, languageName: language?.name || projectClass.language_name, device: data.device, topResults: 100, schedule: data.schedule, scheduleTime: data.scheduleTime });
       onOpenChange(false);
     } catch (error) { console.error("Failed to update class:", error); }
   };
@@ -153,19 +153,7 @@ export function ClassSettingsDialog({ projectClass, open, onOpenChange }: ClassS
                     <div><p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">{t("classSettings.device")} <InfoTooltip text={t("tooltip.device")} /></p><p className="font-medium capitalize">{projectClass.device}</p></div>
                   </div>
                 </div>
-                <FormField control={form.control} name="topResults" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-1.5">{t("classSettings.topResults")} <InfoTooltip text={t("tooltip.topResults")} /></FormLabel>
-                    <Select onValueChange={(v) => field.onChange(parseInt(v))} value={field.value.toString()}>
-                      <FormControl><SelectTrigger><SelectValue placeholder={t("classSettings.selectTopResults")} /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="10">Top 10</SelectItem><SelectItem value="30">Top 30</SelectItem>
-                        <SelectItem value="50">Top 50</SelectItem><SelectItem value="100">Top 100</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                <p className="text-xs text-muted-foreground mt-2">Rankings are checked in Top 100 by default.</p>
               </TabsContent>
 
               <TabsContent value="competitors" className="space-y-4 pt-4">

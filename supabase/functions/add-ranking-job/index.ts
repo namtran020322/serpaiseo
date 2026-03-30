@@ -118,16 +118,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get class top_results to calculate credits needed
-    const { data: classSettings } = await supabase
-      .from('project_classes')
-      .select('top_results')
-      .eq('id', classId)
-      .single()
-
-    const topResults = classSettings?.top_results || 100
-    const creditsPerKeyword = topResults <= 50 ? 5 : 10
-    const creditsNeeded = totalKeywords * creditsPerKeyword
+    // 1 credit per keyword
+    const creditsNeeded = totalKeywords
 
     // Check user credit balance
     const { data: userCredits } = await supabase

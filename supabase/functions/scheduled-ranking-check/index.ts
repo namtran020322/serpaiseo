@@ -5,10 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Calculate credits needed for a check
-function calculateCreditsNeeded(topResults: number, keywordCount: number): number {
-  const creditsPerKeyword = Math.ceil(topResults / 10)
-  return creditsPerKeyword * keywordCount
+// 1 credit per keyword
+function calculateCreditsNeeded(keywordCount: number): number {
+  return keywordCount
 }
 
 Deno.serve(async (req) => {
@@ -113,7 +112,7 @@ Deno.serve(async (req) => {
           continue
         }
 
-        const creditsNeeded = calculateCreditsNeeded(cls.top_results || 100, keywordCount)
+        const creditsNeeded = calculateCreditsNeeded(keywordCount)
         const currentBalance = userCredits?.balance || 0
 
         if (currentBalance < creditsNeeded) {
