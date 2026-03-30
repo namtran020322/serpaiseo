@@ -11,10 +11,9 @@ const BATCH_SIZE = 10
 // Safety limit to prevent infinite self-invoke loops
 const MAX_CONTINUATIONS = 100
 
-// Calculate credits needed for a check
-function calculateCreditsNeeded(topResults: number, keywordCount: number): number {
-  const creditsPerKeyword = Math.ceil(topResults / 10)
-  return creditsPerKeyword * keywordCount
+// 1 credit per keyword
+function calculateCreditsNeeded(keywordCount: number): number {
+  return keywordCount
 }
 
 Deno.serve(async (req) => {
@@ -173,7 +172,7 @@ Deno.serve(async (req) => {
     }
 
     // Check user credits
-    const creditsNeeded = calculateCreditsNeeded(classData.top_results || 100, remainingKeywords.length)
+    const creditsNeeded = calculateCreditsNeeded(remainingKeywords.length)
     const { data: userCredits } = await supabase
       .from('user_credits')
       .select('balance')

@@ -62,11 +62,9 @@ export function formatCredits(credits: number): string {
   return new Intl.NumberFormat('vi-VN').format(credits);
 }
 
-// Calculate credits needed for a check
-// Top 50 = 5 credits, Top 100 = 10 credits
-export function calculateCreditsNeeded(topResults: number, keywordCount: number): number {
-  const creditsPerKeyword = Math.ceil(topResults / 10);
-  return creditsPerKeyword * keywordCount;
+// Calculate credits needed for a check: 1 credit per keyword
+export function calculateCreditsNeeded(keywordCount: number): number {
+  return keywordCount;
 }
 
 export function getPackageById(id: string): PricingPackage | undefined {

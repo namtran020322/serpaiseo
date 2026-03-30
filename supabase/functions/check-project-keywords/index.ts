@@ -11,15 +11,12 @@ const ALLOWED_ORIGINS = [
 ]
 
 function getCorsHeaders(origin: string | null): Record<string, string> {
-  // Accept any lovable.app, lovableproject.com subdomain, or custom domain
   const isAllowed = origin && (
     ALLOWED_ORIGINS.includes(origin) ||
     origin.endsWith('.lovable.app') ||
     origin.endsWith('.lovableproject.com')
   )
-
   const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0]
-
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -32,158 +29,277 @@ interface SerpResult {
   title: string
   url: string
   description: string
-  breadcrumbs: string
 }
 
 interface RequestBody {
   classId?: string
   projectId?: string
   keywordIds?: string[]
-  userId?: string // For internal calls from process-ranking-queue
+  userId?: string
 }
 
-// UUID validation regex
+// UUID validation
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-// Validate UUID format
 function isValidUUID(str: unknown): str is string {
   return typeof str === 'string' && UUID_REGEX.test(str)
 }
-
-// Validate array of UUIDs
 function isValidUUIDArray(arr: unknown): arr is string[] {
   if (!Array.isArray(arr)) return false
-  if (arr.length > 1000) return false // Max 1000 keywords per request
+  if (arr.length > 1000) return false
   return arr.every(item => isValidUUID(item))
 }
 
-// Validate top_results is within reasonable range
-function isValidTopResults(value: number): boolean {
-  return value >= 10 && value <= 100
+// Country ID → ISO code mapping
+const COUNTRY_ID_TO_CODE: Record<string, string> = {
+  '2704': 'VN', '2840': 'US', '2826': 'GB', '2036': 'AU', '2124': 'CA',
+  '2276': 'DE', '2250': 'FR', '2392': 'JP', '2410': 'KR', '2158': 'TW',
+  '2344': 'HK', '2156': 'CN', '2356': 'IN', '2702': 'SG', '2458': 'MY',
+  '2764': 'TH', '2360': 'ID', '2608': 'PH', '2076': 'BR', '2484': 'MX',
+  '2724': 'ES', '2380': 'IT', '2528': 'NL', '2752': 'SE', '2578': 'NO',
+  '2208': 'DK', '2246': 'FI', '2616': 'PL', '2643': 'RU', '2804': 'UA',
+  '2040': 'AT', '2756': 'CH', '2056': 'BE', '2620': 'PT', '2300': 'GR',
+  '2203': 'CZ', '2348': 'HU', '2642': 'RO', '2100': 'BG', '2191': 'HR',
+  '2703': 'SK', '2705': 'SI', '2440': 'LT', '2428': 'LV', '2233': 'EE',
+  '2196': 'CY', '2470': 'MT', '2442': 'LU', '2372': 'IE', '2554': 'NZ',
+  '2032': 'AR', '2152': 'CL', '2170': 'CO', '2604': 'PE', '2862': 'VE',
+  '2218': 'EC', '2858': 'UY', '2600': 'PY', '2068': 'BO', '2188': 'CR',
+  '2591': 'PA', '2214': 'DO', '2320': 'GT', '2340': 'HN', '2222': 'SV',
+  '2558': 'NI', '2192': 'CU', '2630': 'PR', '2388': 'JM', '2780': 'TT',
+  '2818': 'EG', '2566': 'NG', '2710': 'ZA', '2404': 'KE', '2288': 'GH',
+  '2834': 'TZ', '2800': 'UG', '2504': 'MA', '2012': 'DZ', '2788': 'TN',
+  '2682': 'SA', '2784': 'AE', '2634': 'QA', '2414': 'KW', '2512': 'OM',
+  '2048': 'BH', '2376': 'IL', '2792': 'TR', '2586': 'PK', '2050': 'BD',
+  '2144': 'LK', '2104': 'MM', '2116': 'KH', '2418': 'LA', '2496': 'MN',
 }
 
-// SERP API error messages mapping with retry info
-const SERP_API_ERRORS: Record<string, { message: string; retryable: boolean }> = {
-  '2': { message: 'Empty keyword provided', retryable: false },
-  '15': { message: 'No search results for this keyword', retryable: false },
-  '20': { message: 'Internal error - please contact support', retryable: false },
-  '21': { message: 'Internal error - please contact support', retryable: false },
-  '22': { message: 'Internal error - please contact support', retryable: false },
-  '23': { message: 'Internal error - please contact support', retryable: false },
-  '24': { message: 'Internal error - please contact support', retryable: false },
-  '31': { message: 'API user not registered', retryable: false },
-  '42': { message: 'Invalid API key - please check configuration', retryable: false },
-  '45': { message: 'IP address is blocked - check access settings', retryable: false },
-  '101': { message: 'Service under maintenance - please try again later', retryable: true },
-  '102': { message: 'Invalid groupby parameter', retryable: false },
-  '103': { message: 'Invalid language parameter (lr)', retryable: false },
-  '104': { message: 'Invalid location parameter (loc)', retryable: false },
-  '105': { message: 'Invalid country parameter', retryable: false },
-  '106': { message: 'Invalid domain parameter', retryable: false },
-  '107': { message: 'Invalid top results value for Yandex (only 10 allowed)', retryable: false },
-  '108': { message: 'Missing zoom or coords for Google Maps search', retryable: false },
-  '110': { message: 'All available channels are busy - please try again later', retryable: true },
-  '111': { message: 'No free data collection channels - please try again later', retryable: true },
-  '115': { message: 'Too many parallel requests - temporarily blocked', retryable: true },
-  '120': { message: 'Invalid characters or operators in search query', retryable: false },
-  '121': { message: 'Invalid request ID', retryable: false },
-  '200': { message: 'Account balance is empty - please top up', retryable: false },
-  '201': { message: 'Responses not being collected - collection paused for 20 minutes', retryable: true },
-  '202': { message: 'Request not yet processed - retrying', retryable: true },
-  '203': { message: 'Please retry after delay', retryable: true },
-  '204': { message: 'Invalid task ID or task failed', retryable: true },
-  '500': { message: 'Network error - please retry', retryable: true },
+// Language code mapping (lang param like "vi" → hl param)
+// The RapidAPI uses hl parameter directly with ISO 639-1 codes
+function getLanguageHl(languageCode: string): string {
+  // languageCode from our DB is already ISO 639-1 (e.g., "vi", "en", "ja")
+  return languageCode
 }
 
-// Concurrent processing limit (XMLRiver allows 10 threads for standard accounts)
-const CONCURRENT_LIMIT = 10
+// Delay helper
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
-// Check for API errors in response and return error info if found
-function checkApiError(xmlText: string): { code: string; message: string; retryable: boolean } | null {
-  const errorMatch = xmlText.match(/<error\s+code="(\d+)"[^>]*>([\s\S]*?)<\/error>/i)
-  if (errorMatch) {
-    const errorCode = errorMatch[1]
-    const errorInfo = SERP_API_ERRORS[errorCode]
-    return {
-      code: errorCode,
-      message: errorInfo?.message || `API error ${errorCode}`,
-      retryable: errorInfo?.retryable ?? false
+// Fetch a single SERP page with retry logic
+async function fetchSerpPage(
+  keyword: string,
+  countryCode: string,
+  languageCode: string,
+  page: number,
+  rapidApiKey: string
+): Promise<{ results: SerpResult[]; hasNextPage: boolean }> {
+  const MAX_RETRIES = 3
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const url = new URL('https://google-search116.p.rapidapi.com/')
+      url.searchParams.set('query', keyword)
+      url.searchParams.set('country', countryCode)
+      url.searchParams.set('page', page.toString())
+      url.searchParams.set('gl', countryCode)
+      url.searchParams.set('hl', getLanguageHl(languageCode))
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-host': 'google-search116.p.rapidapi.com',
+          'x-rapidapi-key': rapidApiKey,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      let json: any
+      try {
+        json = await response.json()
+      } catch {
+        throw new Error('Invalid JSON response')
+      }
+
+      // Check for API error field (invalid country/language)
+      if (json.error) {
+        // These are non-retryable API errors
+        throw new ApiError(json.error)
+      }
+
+      // Valid response must have results array
+      if (!Array.isArray(json.results)) {
+        throw new Error('Invalid response format - missing results')
+      }
+
+      // Parse results
+      const results: SerpResult[] = json.results.map((item: any, idx: number) => ({
+        position: 0, // Will be assigned later with global position
+        title: item.title || '',
+        url: item.url || '',
+        description: item.description || '',
+      }))
+
+      const hasNextPage = !!json.next_page
+
+      return { results, hasNextPage }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        // Non-retryable API errors
+        throw err
+      }
+
+      if (attempt === MAX_RETRIES) {
+        throw err
+      }
+
+      // Exponential backoff: 1s, 2s, 4s
+      const backoffMs = Math.pow(2, attempt - 1) * 1000
+      console.log(`[WARN] Page ${page} attempt ${attempt} failed, retrying in ${backoffMs}ms...`)
+      await delay(backoffMs)
     }
   }
 
-  const simpleErrorMatch = xmlText.match(/<error>([\s\S]*?)<\/error>/i)
-  if (simpleErrorMatch) {
-    return {
-      code: 'unknown',
-      message: 'API error occurred',
-      retryable: false
-    }
-  }
-
-  return null
+  throw new Error('Request failed after retries')
 }
 
-// Clean text by stripping CDATA wrapper and HTML tags
-function cleanText(text: string): string {
-  return text
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-    .replace(/<\/?hlword>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim()
+// Custom error class for non-retryable API errors
+class ApiError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ApiError'
+  }
 }
 
-// Parse XML results from SERP API
-function parseXmlResults(xmlText: string, startPosition: number): SerpResult[] {
-  const results: SerpResult[] = []
+// Fetch all SERP results for a keyword (up to 10 pages = ~100 results)
+async function fetchAllSerpResults(
+  keyword: string,
+  countryCode: string,
+  languageCode: string,
+  device: string,
+  rapidApiKey: string
+): Promise<SerpResult[]> {
+  const MAX_PAGES = 10
+  const allResults: SerpResult[] = []
 
-  const errorInfo = checkApiError(xmlText)
-  if (errorInfo) {
-    throw new Error(errorInfo.message)
-  }
-
-  const docRegex = /<doc>([\s\S]*?)<\/doc>/gi
-  let docMatch
-  let position = startPosition
-
-  while ((docMatch = docRegex.exec(xmlText)) !== null) {
-    const docContent = docMatch[1]
-
-    const contenttypeMatch = docContent.match(/<contenttype>\s*([\s\S]*?)\s*<\/contenttype>/i)
-    const contenttype = contenttypeMatch ? contenttypeMatch[1].trim().toLowerCase() : ''
-
-    if (contenttype !== 'organic') {
-      continue
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    // Rate limit: 1 request per second (skip delay for first page)
+    if (page > 1) {
+      await delay(1000)
     }
 
-    const urlMatch = docContent.match(/<url>\s*([\s\S]*?)\s*<\/url>/i)
-    if (!urlMatch) continue
-    const url = urlMatch[1].trim()
+    const { results, hasNextPage } = await fetchSerpPage(
+      keyword, countryCode, languageCode, page, rapidApiKey
+    )
 
-    const titleMatch = docContent.match(/<title>\s*([\s\S]*?)\s*<\/title>/i)
-    const title = cleanText(titleMatch ? titleMatch[1] : '')
+    // Stop if no results on this page
+    if (results.length === 0) {
+      break
+    }
 
-    const passageMatch = docContent.match(/<passage>\s*([\s\S]*?)\s*<\/passage>/i)
-    const description = cleanText(passageMatch ? passageMatch[1] : '')
+    // Assign global positions
+    for (const result of results) {
+      result.position = allResults.length + 1
+      allResults.push(result)
+    }
 
-    const breadcrumbMatch = docContent.match(/<breadcrumbs>\s*([\s\S]*?)\s*<\/breadcrumbs>/i)
-    const breadcrumbs = breadcrumbMatch ? breadcrumbMatch[1].trim() : ''
+    // Stop conditions
+    if (!hasNextPage) break
+    if (allResults.length >= 100) break
+  }
 
-    results.push({
-      position: position,
-      title,
-      url,
-      description,
-      breadcrumbs
+  // For mobile device: check canonical URLs (smart check)
+  if (device === 'mobile' && allResults.length > 0) {
+    await applyMobileCanonical(allResults)
+  }
+
+  return allResults.slice(0, 100)
+}
+
+// Fetch canonical URL from a page
+async function fetchCanonicalUrl(pageUrl: string): Promise<string | null> {
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+    const response = await fetch(pageUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+      },
+      redirect: 'follow',
     })
 
-    position++
+    clearTimeout(timeoutId)
+
+    if (!response.ok) return null
+
+    const html = await response.text()
+    // Only read first 50KB to find canonical
+    const head = html.substring(0, 50000)
+    const canonicalMatch = head.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)
+    if (canonicalMatch) {
+      return canonicalMatch[1]
+    }
+
+    // Also check alternate pattern
+    const altMatch = head.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i)
+    if (altMatch) {
+      return altMatch[1]
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
+// Smart mobile canonical check
+async function applyMobileCanonical(results: SerpResult[]): Promise<void> {
+  // Check page 1 results (first 10) for canonical differences
+  const page1Results = results.slice(0, Math.min(10, results.length))
+  const CONCURRENT_CANONICAL = 5
+
+  let hasCanonicalDiff = false
+  const canonicalMap = new Map<number, string>()
+
+  // Batch fetch canonicals for page 1
+  for (let i = 0; i < page1Results.length; i += CONCURRENT_CANONICAL) {
+    const batch = page1Results.slice(i, i + CONCURRENT_CANONICAL)
+    const promises = batch.map(async (result) => {
+      const canonical = await fetchCanonicalUrl(result.url)
+      if (canonical && canonical !== result.url) {
+        canonicalMap.set(result.position, canonical)
+        hasCanonicalDiff = true
+      }
+    })
+    await Promise.allSettled(promises)
   }
 
-  return results
+  // Apply page 1 canonicals
+  for (const [position, canonical] of canonicalMap) {
+    const result = results.find(r => r.position === position)
+    if (result) {
+      result.url = canonical
+    }
+  }
+
+  // If page 1 had differences, check remaining pages too
+  if (hasCanonicalDiff && results.length > 10) {
+    const remainingResults = results.slice(10)
+    for (let i = 0; i < remainingResults.length; i += CONCURRENT_CANONICAL) {
+      const batch = remainingResults.slice(i, i + CONCURRENT_CANONICAL)
+      const promises = batch.map(async (result) => {
+        const canonical = await fetchCanonicalUrl(result.url)
+        if (canonical && canonical !== result.url) {
+          result.url = canonical
+        }
+      })
+      await Promise.allSettled(promises)
+    }
+  }
 }
 
 // Normalize URL/domain for comparison
@@ -222,158 +338,21 @@ function findTargetRanking(results: SerpResult[], targetUrl: string): { position
   return { position: null, foundUrl: null }
 }
 
-// Fetch with timeout
-async function fetchWithTimeout(url: string, timeoutMs: number = 90000): Promise<Response> {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    const response = await fetch(url, { signal: controller.signal })
-    clearTimeout(timeoutId)
-    return response
-  } catch (err) {
-    clearTimeout(timeoutId)
-    const error = err as Error
-    if (error.name === 'AbortError') {
-      throw new Error('API timeout - please try again later')
-    }
-    throw error
-  }
-}
-
-// Fetch with retry for retryable errors
-async function fetchWithRetry(
-  url: string,
-  maxRetries: number = 3,
-  baseDelay: number = 1000
-): Promise<{ response: Response; text: string }> {
-  let lastError: Error | null = null
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      const response = await fetchWithTimeout(url, 90000)
-
-      if (!response.ok) {
-        throw new Error(`API error: HTTP ${response.status}`)
-      }
-
-      const text = await response.text()
-
-      // Check for API error in response
-      const errorInfo = checkApiError(text)
-      if (errorInfo) {
-        if (errorInfo.retryable && attempt < maxRetries - 1) {
-          const delay = baseDelay * Math.pow(2, attempt)
-          console.log(`[WARN] Retryable error, retrying in ${delay}ms...`)
-          await new Promise(resolve => setTimeout(resolve, delay))
-          continue
-        }
-        throw new Error(errorInfo.message)
-      }
-
-      return { response, text }
-    } catch (err) {
-      lastError = err as Error
-
-      // Network errors are retryable
-      if (attempt < maxRetries - 1 && !lastError.message.includes('API')) {
-        const delay = baseDelay * Math.pow(2, attempt)
-        console.log(`[WARN] Network error, retrying in ${delay}ms...`)
-        await new Promise(resolve => setTimeout(resolve, delay))
-        continue
-      }
-    }
-  }
-
-  throw lastError || new Error('Request failed after retries')
-}
-
-// Fetch SERP results for a keyword
-async function fetchSerpResults(
-  keyword: string,
-  countryId: string,
-  languageCode: string,
-  device: string,
-  topResults: number,
-  locationId: string | null,
-  serpApiUserId: string,
-  serpApiKey: string
-): Promise<SerpResult[]> {
-  // Enforce reasonable bounds
-  const validTopResults = Math.max(10, Math.min(100, topResults))
-  const resultsPerPage = 10
-  const totalPages = Math.ceil(validTopResults / resultsPerPage)
-  let allResults: SerpResult[] = []
-
-  for (let page = 1; page <= totalPages; page++) {
-    const apiUrl = new URL('https://xmlriver.com/search/xml')
-    apiUrl.searchParams.set('user', serpApiUserId)
-    apiUrl.searchParams.set('key', serpApiKey)
-    apiUrl.searchParams.set('query', keyword)
-    apiUrl.searchParams.set('country', countryId)
-    apiUrl.searchParams.set('lr', languageCode)
-    apiUrl.searchParams.set('device', device)
-    apiUrl.searchParams.set('groupby', '10')
-    apiUrl.searchParams.set('page', page.toString())
-    apiUrl.searchParams.set('domain', '37')
-
-    if (locationId) {
-      apiUrl.searchParams.set('loc', locationId)
-    }
-
-    try {
-      const { text: xmlText } = await fetchWithRetry(apiUrl.toString(), 3, 1000)
-      const startPosition = (page - 1) * resultsPerPage + 1
-      const pageResults = parseXmlResults(xmlText, startPosition)
-      allResults = allResults.concat(pageResults)
-
-      if (allResults.length >= validTopResults) {
-        break
-      }
-
-      if (page < totalPages) {
-        await new Promise(resolve => setTimeout(resolve, 300))
-      }
-    } catch (err) {
-      if (page === 1) {
-        throw err
-      }
-      break
-    }
-  }
-
-  return allResults.slice(0, validTopResults)
-}
-
-// Process a batch of items with concurrency limit
-async function processBatch<T, R>(
+// Process keywords sequentially (1 req/s rate limit means no parallel processing)
+async function processKeywordsSequentially<T>(
   items: T[],
-  processor: (item: T) => Promise<R>,
-  concurrency: number
-): Promise<(R | null)[]> {
-  const results: (R | null)[] = []
-
-  for (let i = 0; i < items.length; i += concurrency) {
-    const batch = items.slice(i, i + concurrency)
-    const batchResults = await Promise.allSettled(
-      batch.map(item => processor(item))
-    )
-
-    for (const result of batchResults) {
-      if (result.status === 'fulfilled') {
-        results.push(result.value)
-      } else {
-        results.push(null)
-        console.error(`[ERROR] Batch item failed`)
-      }
-    }
-
-    // Delay between batches to avoid rate limiting
-    if (i + concurrency < items.length) {
-      await new Promise(resolve => setTimeout(resolve, 500))
+  processor: (item: T) => Promise<any>
+): Promise<any[]> {
+  const results: any[] = []
+  for (const item of items) {
+    try {
+      const result = await processor(item)
+      results.push(result)
+    } catch (err) {
+      console.error(`[ERROR] Keyword processing failed`)
+      results.push(null)
     }
   }
-
   return results
 }
 
@@ -399,15 +378,12 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
     const token = authHeader.replace('Bearer ', '')
-
-    // Service client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     let userId: string
 
-    // Check if this is a service role call (internal from process-ranking-queue)
+    // Check if internal call (service role) or user JWT
     if (token === supabaseServiceKey) {
-      // Internal call - userId must be provided in body
       const body = await req.json() as RequestBody
       if (!body.userId || !isValidUUID(body.userId)) {
         return new Response(
@@ -416,14 +392,11 @@ Deno.serve(async (req) => {
         )
       }
       userId = body.userId
-        // Restore request body for later parsing
-        ; (req as any)._parsedBody = body
+      ;(req as any)._parsedBody = body
     } else {
-      // User JWT call - validate token
       const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } }
       })
-
       const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getUser(token)
       if (claimsError || !claimsData?.user) {
         return new Response(
@@ -434,7 +407,7 @@ Deno.serve(async (req) => {
       userId = claimsData.user.id
     }
 
-    // Parse and validate request body (may already be parsed for internal calls)
+    // Parse request body
     let body: RequestBody
     try {
       body = (req as any)._parsedBody || await req.json()
@@ -447,7 +420,6 @@ Deno.serve(async (req) => {
 
     const { classId, projectId, keywordIds } = body
 
-    // Validate required fields
     if (!classId && !projectId) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: classId or projectId' }),
@@ -455,7 +427,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Validate UUID formats
     if (classId && !isValidUUID(classId)) {
       return new Response(
         JSON.stringify({ error: 'Invalid classId format' }),
@@ -477,10 +448,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    const serpApiUserId = Deno.env.get('XMLRIVER_USER_ID')
-    const serpApiKey = Deno.env.get('XMLRIVER_API_KEY')
-
-    if (!serpApiUserId || !serpApiKey) {
+    const rapidApiKey = Deno.env.get('RAPIDAPI_KEY')
+    if (!rapidApiKey) {
       return new Response(
         JSON.stringify({ error: 'SERP API credentials not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -504,13 +473,6 @@ Deno.serve(async (req) => {
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
-
-      // Validate top_results
-      if (!isValidTopResults(cls.top_results)) {
-        console.log(`[WARN] Invalid top_results ${cls.top_results}, clamping to valid range`)
-        cls.top_results = Math.max(10, Math.min(100, cls.top_results))
-      }
-
       classesToProcess = [cls]
     } else if (projectId) {
       const { data: classes, error: classesError } = await supabase
@@ -520,23 +482,16 @@ Deno.serve(async (req) => {
         .eq('user_id', userId)
 
       if (classesError) {
-        console.error('[ERROR] Failed to fetch classes')
         return new Response(
           JSON.stringify({ error: 'Failed to fetch classes' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
-
-      // Validate and clamp top_results for all classes
-      classesToProcess = (classes || []).map(cls => ({
-        ...cls,
-        top_results: Math.max(10, Math.min(100, cls.top_results))
-      }))
+      classesToProcess = classes || []
     }
 
-    // Calculate total credits needed
+    // Calculate total credits needed: 1 credit per keyword
     let totalKeywordsCount = 0
-    let totalCreditsNeeded = 0
 
     for (const cls of classesToProcess) {
       let keywordsQuery = supabase
@@ -550,12 +505,10 @@ Deno.serve(async (req) => {
       }
 
       const { count } = await keywordsQuery
-      const keywordCount = count || 0
-      const creditsPerKeyword = Math.ceil(cls.top_results / 10)
-
-      totalKeywordsCount += keywordCount
-      totalCreditsNeeded += keywordCount * creditsPerKeyword
+      totalKeywordsCount += count || 0
     }
+
+    const totalCreditsNeeded = totalKeywordsCount // 1 credit per keyword
 
     // Check user credits
     const { data: userCredits } = await supabase
@@ -568,11 +521,10 @@ Deno.serve(async (req) => {
     const currentTotalUsed = userCredits?.total_used || 0
 
     if (currentBalance < totalCreditsNeeded) {
-      console.log(`[WARN] Insufficient credits: need ${totalCreditsNeeded}, have ${currentBalance}`)
       return new Response(
         JSON.stringify({
           error: 'insufficient_credits',
-          message: `Không đủ credit. Cần ${totalCreditsNeeded} credits, bạn có ${currentBalance} credits.`,
+          message: `Insufficient credits. Need ${totalCreditsNeeded}, have ${currentBalance}.`,
           credits_needed: totalCreditsNeeded,
           credits_available: currentBalance,
           keywords_count: totalKeywordsCount
@@ -594,14 +546,13 @@ Deno.serve(async (req) => {
       }, { onConflict: 'user_id' })
 
     if (deductError) {
-      console.error('[ERROR] Failed to deduct credits')
       return new Response(
         JSON.stringify({ error: 'Failed to deduct credits' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Upsert daily usage summary (gom nhóm theo ngày thay vì tạo nhiều records)
+    // Upsert daily usage summary
     const { error: upsertError } = await supabase.rpc('upsert_daily_usage', {
       p_user_id: userId,
       p_keywords_count: totalKeywordsCount,
@@ -610,8 +561,7 @@ Deno.serve(async (req) => {
     })
 
     if (upsertError) {
-      console.error('[WARN] Failed to upsert daily usage summary:', upsertError)
-      // Fallback: insert vào credit_transactions như cũ (tương thích ngược)
+      console.error('[WARN] Failed to upsert daily usage:', upsertError)
       await supabase.from('credit_transactions').insert({
         user_id: userId,
         amount: -totalCreditsNeeded,
@@ -621,14 +571,16 @@ Deno.serve(async (req) => {
       })
     }
 
-    console.log(`[INFO] Deducted ${totalCreditsNeeded} credits from user, new balance: ${newBalance}`)
-    console.log(`[INFO] Processing ${classesToProcess.length} class(es) with ${CONCURRENT_LIMIT} concurrent threads`)
+    console.log(`[INFO] Deducted ${totalCreditsNeeded} credits, new balance: ${newBalance}`)
 
     let totalProcessed = 0
     let totalFound = 0
     let totalNotFound = 0
 
     for (const cls of classesToProcess) {
+      // Resolve country code from country_id
+      const countryCode = COUNTRY_ID_TO_CODE[cls.country_id] || 'US'
+
       // Fetch keywords for this class
       let keywordsQuery = supabase
         .from('project_keywords')
@@ -648,42 +600,36 @@ Deno.serve(async (req) => {
       }
 
       const competitorDomains = (cls.competitor_domains as string[]) || []
-
       console.log(`[INFO] Class ${cls.name}: Processing ${keywords?.length || 0} keywords`)
 
-      // Process keywords in batches with concurrent limit
+      // Process each keyword (sequential due to 1 req/s rate limit)
       const processKeyword = async (kw: any): Promise<{ found: boolean; processed: boolean }> => {
         try {
           console.log(`[INFO] Checking keyword: "${kw.keyword}"`)
 
-          // Fetch SERP results
-          const results = await fetchSerpResults(
+          const results = await fetchAllSerpResults(
             kw.keyword,
-            cls.country_id,
+            countryCode,
             cls.language_code,
             cls.device,
-            cls.top_results,
-            cls.location_id,
-            serpApiUserId,
-            serpApiKey
+            rapidApiKey
           )
 
           // Find user domain ranking
           const { position: userPosition, foundUrl } = findTargetRanking(results, cls.domain)
 
-          // Find competitor rankings with full data
+          // Find competitor rankings
           const existingCompRankings = (kw.competitor_rankings as Record<string, any>) || {}
           const competitorRankings: Record<string, {
-            position: number | null;
-            url: string | null;
-            first_position: number | null;
-            best_position: number | null;
-            previous_position: number | null;
+            position: number | null
+            url: string | null
+            first_position: number | null
+            best_position: number | null
+            previous_position: number | null
           }> = {}
 
           for (const compDomain of competitorDomains) {
             const { position: compPosition, foundUrl: compUrl } = findTargetRanking(results, compDomain)
-
             const existingData = existingCompRankings[compDomain]
             const existingPos = typeof existingData === 'object' ? existingData?.position : existingData
             const existingFirst = typeof existingData === 'object' ? existingData?.first_position : null
@@ -707,7 +653,7 @@ Deno.serve(async (req) => {
             ? (kw.best_position !== null ? Math.min(kw.best_position, userPosition) : userPosition)
             : kw.best_position
 
-          const { error: updateError } = await supabase
+          await supabase
             .from('project_keywords')
             .update({
               ranking_position: userPosition,
@@ -721,12 +667,8 @@ Deno.serve(async (req) => {
             })
             .eq('id', kw.id)
 
-          if (updateError) {
-            console.error(`[ERROR] Failed to update keyword ${kw.id}`)
-          }
-
           // Insert history record
-          const { error: historyError } = await supabase
+          await supabase
             .from('keyword_ranking_history')
             .insert({
               keyword_id: kw.id,
@@ -737,28 +679,22 @@ Deno.serve(async (req) => {
               checked_at: new Date().toISOString()
             })
 
-          if (historyError) {
-            console.error(`[ERROR] Failed to insert history for keyword ${kw.id}`)
-          }
-
           return { processed: true, found: userPosition !== null }
         } catch (err) {
-          console.error(`[ERROR] Failed to check keyword "${kw.keyword}"`)
+          const errMsg = err instanceof Error ? err.message : 'Unknown error'
+          console.error(`[ERROR] Failed to check keyword "${kw.keyword}": ${errMsg}`)
           return { processed: false, found: false }
         }
       }
 
-      // Process keywords with concurrent limit
-      const results = await processBatch(keywords || [], processKeyword, CONCURRENT_LIMIT)
+      // Process keywords sequentially (rate-limited API)
+      const results = await processKeywordsSequentially(keywords || [], processKeyword)
 
       for (const result of results) {
         if (result?.processed) {
           totalProcessed++
-          if (result.found) {
-            totalFound++
-          } else {
-            totalNotFound++
-          }
+          if (result.found) totalFound++
+          else totalNotFound++
         }
       }
 
@@ -769,7 +705,7 @@ Deno.serve(async (req) => {
         .eq('id', cls.id)
     }
 
-    console.log(`[INFO] Completed: ${totalProcessed} keywords processed, ${totalFound} found, ${totalNotFound} not found`)
+    console.log(`[INFO] Completed: ${totalProcessed} processed, ${totalFound} found, ${totalNotFound} not found`)
 
     return new Response(
       JSON.stringify({
