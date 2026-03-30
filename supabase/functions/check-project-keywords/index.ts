@@ -123,10 +123,18 @@ async function fetchSerpPage(
         throw new Error('Invalid JSON response')
       }
 
-      // Check for API error field (invalid country/language)
+      // Check for API error field
       if (json.error) {
-        // These are non-retryable API errors
-        throw new ApiError(json.error)
+        const errorMsg = String(json.error)
+        // Only non-retryable if it's a known validation error
+        const isValidationError = errorMsg.includes('Invalid country') || 
+          errorMsg.includes('Invalid language') ||
+          errorMsg.includes('Use ISO')
+        if (isValidationError) {
+          throw new ApiError(errorMsg)
+        }
+        // Server-side API errors (e.g. "parseHTMLtoJSON is not a function") are retryable
+        throw new Error(`API error: ${errorMsg}`)
       }
 
       // Valid response must have results array
