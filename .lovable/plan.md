@@ -1,259 +1,89 @@
 
 
-## Kế hoạch Thêm Cơ chế Chống Spam Refresh và Xác nhận Hành động Quan trọng
+# Đại trùng tu: Chuyển từ XMLRiver sang RapidAPI Google Search
 
-### Phân tích Hiện trạng
-
-**1. Nút Refresh Rankings:**
-- **ClassDetail.tsx (dòng 250):** Nút "Refresh Rankings" chỉ disable khi `addRankingJob.isPending` (chỉ trong thời gian ngắn khi gọi API)
-- **ClassRow.tsx (dòng 117):** Tương tự, chỉ disable khi `isChecking`
-- **ProjectRow.tsx (dòng 143):** Tương tự pattern
-
-**Vấn đề:** User có thể spam click liên tục vì nút chỉ bị disable trong ~1-2 giây. Nếu class đang có job running, user vẫn có thể tạo thêm job mới.
-
-**2. Xác nhận Xóa:**
-- **ClassRow.tsx (dòng 138-157):** Đã có AlertDialog xác nhận xóa Class
-- **ProjectRow.tsx (dòng 169-188):** Đã có AlertDialog xác nhận xóa Project
-- **KeywordsTable.tsx:** Xóa keyword KHÔNG có dialog xác nhận - xóa trực tiếp!
-- **ProjectsTable.tsx (dòng 246-251):** Xóa project (multi-select) KHÔNG có xác nhận!
+## Tổng quan
+Thay thế core SERP API từ XMLRiver sang RapidAPI `google-search116`, đơn giản hóa credit (1 credit/keyword), bỏ trường `top_results` khỏi UI.
 
 ---
 
-### Giải pháp Đề xuất
+## Response Validation & Retry Logic
 
-#### 1. Chống Spam Refresh: Kiểm tra Task đang chạy
-
-Sử dụng `TaskProgressContext` để kiểm tra class có đang trong hàng đợi không trước khi cho phép refresh.
-
-**Logic:**
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  User click "Refresh Rankings"                               │
-│       ↓                                                      │
-│  Check: tasks.find(t => t.classId === classId &&            │
-│         (t.status === 'pending' || t.status === 'processing'))│
-│       ↓                                                      │
-│  ├── Có task đang chạy → Disable button + Toast "Already     │
-│  │                       running"                            │
-│  │                                                           │
-│  └── Không có task → Cho phép refresh bình thường           │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Files cần sửa:**
-| File | Thay đổi |
-|------|----------|
-| `src/pages/ClassDetail.tsx` | Thêm logic kiểm tra task đang chạy cho nút Refresh |
-| `src/components/projects/ClassRow.tsx` | Thêm logic tương tự cho menu Refresh |
-| `src/components/projects/ProjectRow.tsx` | Thêm logic cho nút "Refresh All Classes" |
-
-**Chi tiết ClassDetail.tsx:**
-```typescript
-// Import thêm
-import { useTaskProgress } from "@/contexts/TaskProgressContext";
-
-// Trong component
-const { tasks } = useTaskProgress();
-
-// Check if class has running task
-const isClassRunning = tasks.some(
-  (t) => t.classId === classId && 
-         (t.status === "pending" || t.status === "processing")
-);
-
-// Disable button khi đang running
-<Button 
-  onClick={handleRefresh} 
-  disabled={addRankingJob.isPending || isViewingHistory || isClassRunning}
->
-  <RefreshCw className={`mr-2 h-4 w-4 ${isClassRunning ? "animate-spin" : ""}`} />
-  {isClassRunning ? "Checking..." : "Refresh Rankings"}
-</Button>
-```
-
----
-
-#### 2. Dialog Xác nhận cho Xóa Keyword
-
-Tạo component `ConfirmDeleteDialog` có thể tái sử dụng, hiển thị số lượng items sẽ bị xóa.
-
-**Component mới: `src/components/projects/ConfirmDeleteDialog.tsx`**
-
-```typescript
-interface ConfirmDeleteDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  itemCount?: number;
-  itemType?: string; // "keyword", "project", "class"
-  onConfirm: () => void;
-  isLoading?: boolean;
+**Valid response structure** (kể cả khi không có kết quả):
+```json
+{
+  "search_term": "...",
+  "knowledge_panel": { ... },
+  "results": [],
+  "related_keywords": { ... }
 }
 ```
 
-**Files cần sửa:**
+**Validation rule:**
+- Response PHẢI có field `results` (array) → valid response, xử lý bình thường (kể cả `results: []`)
+- Response KHÔNG có field `results` hoặc không parse được JSON → coi là lỗi → **retry**
+- Response có field `error` → lỗi API (invalid country/language) → không retry, throw error
+- HTTP status !== 200 → retry
 
-| File | Thay đổi |
-|------|----------|
-| `src/components/projects/ConfirmDeleteDialog.tsx` | Tạo mới component |
-| `src/components/projects/KeywordsTable.tsx` | Thêm dialog xác nhận trước khi xóa keywords |
-| `src/components/projects/ProjectsTable.tsx` | Thêm dialog xác nhận trước khi xóa projects (multi-select) |
-| `src/components/ui/data-table-toolbar.tsx` | Truyền callback để hiển thị dialog thay vì xóa trực tiếp |
+**Retry strategy:**
+- Max 3 attempts per page request
+- Delay: 1s → 2s → 4s (exponential backoff)
+- Nếu hết retry vẫn fail → throw error cho keyword đó, tiếp tục keyword tiếp theo
 
----
-
-### Chi tiết Implementation
-
-#### A. Component ConfirmDeleteDialog
-
-```typescript
-// src/components/projects/ConfirmDeleteDialog.tsx
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-
-interface ConfirmDeleteDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  itemCount?: number;
-  onConfirm: () => void;
-  isLoading?: boolean;
-}
-
-export function ConfirmDeleteDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  itemCount,
-  onConfirm,
-  isLoading,
-}: ConfirmDeleteDialogProps) {
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {description}
-            {itemCount && itemCount > 1 && (
-              <span className="block mt-2 font-medium text-foreground">
-                {itemCount} items will be deleted.
-              </span>
-            )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            disabled={isLoading}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            {isLoading ? "Deleting..." : "Delete"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-```
+**Stop conditions cho pagination loop:**
+1. `results` array rỗng (`[]`) → dừng, không call page tiếp
+2. Không có field `next_page` → dừng
+3. Đã đến page 10 → dừng
 
 ---
 
-#### B. Sửa KeywordsTable.tsx
+## Các thay đổi chính
 
-```typescript
-// Thêm state cho dialog
-const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
-const [isDeleting, setIsDeleting] = useState(false);
+### 1. Secret: Thêm `RAPIDAPI_KEY`
 
-// Handler mới - mở dialog thay vì xóa trực tiếp
-const handleDeleteClick = (ids: string[]) => {
-  setPendingDeleteIds(ids);
-  setDeleteDialogOpen(true);
-};
+### 2. Rewrite `check-project-keywords/index.ts`
+- Xóa toàn bộ XMLRiver logic (XML parsing, SERP_API_ERRORS mapping)
+- Mới: `fetchSerpPage(keyword, countryCode, langCode, page)` với retry 3 lần
+- Validate response: check `results` field exists
+- Pagination loop 1→10 với 1s delay, stop khi `results` rỗng hoặc không có `next_page`
+- Mobile canonical: check page 1 trước, nếu có diff thì check tiếp các page sau
+- Country mapping: `country_id` → ISO code (VN, US...)
+- Credit: flat 1 credit/keyword
 
-// Confirm handler
-const handleConfirmDelete = async () => {
-  if (!onDeleteKeywords) return;
-  setIsDeleting(true);
-  try {
-    await onDeleteKeywords(pendingDeleteIds);
-    setRowSelection({});
-  } finally {
-    setIsDeleting(false);
-    setDeleteDialogOpen(false);
-    setPendingDeleteIds([]);
-  }
-};
+### 3. Update `add-ranking-job/index.ts`
+- Credit calc → `totalKeywords * 1`
 
-// Trong toolbar - thay đổi callback
-<DataTableToolbar
-  ...
-  onDeleteSelected={onDeleteKeywords ? () => handleDeleteClick(selectedIds) : undefined}
-/>
+### 4. Update `process-ranking-queue/index.ts`
+- Credit calc → `keywordCount * 1`
 
-// Thêm dialog
-<ConfirmDeleteDialog
-  open={deleteDialogOpen}
-  onOpenChange={setDeleteDialogOpen}
-  title="Delete Keywords"
-  description="Are you sure you want to delete the selected keywords? This will also delete all ranking history associated with them. This action cannot be undone."
-  itemCount={pendingDeleteIds.length}
-  onConfirm={handleConfirmDelete}
-  isLoading={isDeleting}
-/>
-```
+### 5. Update `src/lib/pricing.ts`
+- `calculateCreditsNeeded(count)` → `count * 1`
+
+### 6. UI: Remove `topResults` field
+- `AddClassDialog.tsx`, `AddProjectDialog.tsx`, `ClassSettingsDialog.tsx`
+- Thêm info: "Rankings checked in Top 100 by default"
+- Location giữ nguyên UI, không gửi đi API
+
+### 7. Update `useProjects.ts`
+- Bỏ `topResults` từ mutations, hardcode 100
+
+### 8. Update i18n (`en.ts`, `vi.ts`)
+
+### 9. Deploy edge functions
 
 ---
 
-#### C. Sửa ProjectsTable.tsx
+## Files to modify
 
-Tương tự pattern như KeywordsTable.
-
----
-
-#### D. Sửa ClassDetail.tsx, ClassRow.tsx, ProjectRow.tsx
-
-Thêm logic kiểm tra task đang chạy từ `TaskProgressContext`.
-
----
-
-### Tổng kết Files cần thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/projects/ConfirmDeleteDialog.tsx` | **Tạo mới** - Reusable confirm dialog |
-| `src/pages/ClassDetail.tsx` | Thêm kiểm tra `isClassRunning` để disable nút Refresh |
-| `src/components/projects/ClassRow.tsx` | Thêm kiểm tra task running + import TaskProgressContext |
-| `src/components/projects/ProjectRow.tsx` | Thêm kiểm tra any class running + import TaskProgressContext |
-| `src/components/projects/KeywordsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa keywords |
-| `src/components/projects/ProjectsTable.tsx` | Thêm ConfirmDeleteDialog trước khi xóa projects |
-
----
-
-### Kết quả mong đợi
-
-**Chống Spam Refresh:**
-- Nút "Refresh Rankings" bị disable và hiển thị "Checking..." khi class đã có task trong queue
-- Icon RefreshCw quay liên tục để báo hiệu đang xử lý
-- User không thể tạo thêm job mới cho cùng một class
-
-**Xác nhận Xóa:**
-- Xóa keyword(s): Hiện dialog "Delete X keywords? This action cannot be undone."
-- Xóa project(s) từ multi-select: Hiện dialog tương tự
-- Dialog hiển thị số lượng items sẽ bị xóa
-- Button "Delete" chuyển thành "Deleting..." khi đang xử lý
+| File | Change |
+|------|--------|
+| `supabase/functions/check-project-keywords/index.ts` | Full rewrite — RapidAPI + retry + canonical |
+| `supabase/functions/add-ranking-job/index.ts` | Credit = 1/kw |
+| `supabase/functions/process-ranking-queue/index.ts` | Credit = 1/kw |
+| `src/lib/pricing.ts` | Simplify |
+| `src/components/projects/AddClassDialog.tsx` | Remove topResults |
+| `src/components/projects/AddProjectDialog.tsx` | Remove topResults |
+| `src/components/projects/ClassSettingsDialog.tsx` | Remove topResults |
+| `src/hooks/useProjects.ts` | Remove topResults |
+| `src/i18n/en.ts` & `vi.ts` | Update keys |
 
