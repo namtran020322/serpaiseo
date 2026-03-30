@@ -8,59 +8,45 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        // Only verify server-side on meaningful events, skip TOKEN_REFRESHED to reduce API calls
-        if (event === 'TOKEN_REFRESHED') {
-          if (session) {
-            setSession(session);
-            setUser(session.user);
-          }
-          return;
-        }
+    let mounted = true;
 
-        if (session) {
-          // Verify user still exists on server (handles deleted users)
-          const { data: { user: serverUser }, error } = await supabase.auth.getUser();
-          if (error || !serverUser) {
-            await supabase.auth.signOut();
-            setSession(null);
-            setUser(null);
-            setLoading(false);
-            return;
-          }
-          setSession(session);
-          setUser(serverUser);
-        } else {
-          setSession(null);
-          setUser(null);
-        }
-        setLoading(false);
+    const done = (s: Session | null, u: User | null) => {
+      if (!mounted) return;
+      setSession(s);
+      setUser(u);
+      setLoading(false);
+    };
+
+    // Safety timeout - never spin forever
+    const timer = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 10000);
+
+    // Listen for auth changes - use session.user directly, no async getUser
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        done(session ?? null, session?.user ?? null);
       }
     );
 
-    // Then check for existing session
+    // Initial session check - verify user exists on server once
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         const { data: { user: serverUser }, error } = await supabase.auth.getUser();
         if (error || !serverUser) {
           await supabase.auth.signOut();
-          setSession(null);
-          setUser(null);
-          setLoading(false);
+          done(null, null);
           return;
         }
-        setSession(session);
-        setUser(serverUser);
+        done(session, serverUser);
       } else {
-        setSession(null);
-        setUser(null);
+        done(null, null);
       }
-      setLoading(false);
     });
 
     return () => {
+      mounted = false;
+      clearTimeout(timer);
       subscription.unsubscribe();
     };
   }, []);

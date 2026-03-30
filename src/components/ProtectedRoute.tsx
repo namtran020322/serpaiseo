@@ -1,6 +1,7 @@
+import { useState, useEffect } from "react";
 import { Navigate, useLocation, Link } from "react-router-dom";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { Loader2, Mail } from "lucide-react";
+import { Loader2, Mail, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -13,8 +14,29 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading, signOut } = useAuthContext();
   const location = useLocation();
   const { t } = useLanguage();
+  const [timedOut, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setTimedOut(true), 10000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   if (loading) {
+    if (timedOut) {
+      return (
+        <div className="min-h-screen flex items-center justify-center flex-col gap-4">
+          <p className="text-muted-foreground">{t("common.loadingTimeout") || "Loading took too long."}</p>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            {t("common.reload") || "Reload"}
+          </Button>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -26,7 +48,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Check if email is confirmed
   if (!user.email_confirmed_at) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 px-4">
