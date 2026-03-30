@@ -49,24 +49,36 @@ export default function Login() {
 
     setIsLoading(true);
 
-    const verified = await verifyTurnstile(turnstileToken);
-    if (!verified) {
-      toast({ variant: "destructive", title: t("login.failed"), description: t("captcha.failed") });
-      setTurnstileToken(null);
+    try {
+      const verified = await Promise.race([
+        verifyTurnstile(turnstileToken),
+        new Promise<boolean>((_, reject) => setTimeout(() => reject(new Error("Captcha verification timeout")), 15000)),
+      ]);
+
+      if (!verified) {
+        toast({ variant: "destructive", title: t("login.failed"), description: t("captcha.failed") });
+        setTurnstileToken(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const result = await Promise.race([
+        signIn(email, password),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Login timeout. Please try again.")), 15000)),
+      ]);
+
+      if (result.error) {
+        toast({ variant: "destructive", title: t("login.failed"), description: result.error.message });
+      } else {
+        toast({ title: t("login.success"), description: t("login.welcomeBack") });
+        navigate("/dashboard");
+      }
+    } catch (err: any) {
+      console.error("Login error:", err);
+      toast({ variant: "destructive", title: t("login.failed"), description: err.message || "An unexpected error occurred" });
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    const { error } = await signIn(email, password);
-
-    if (error) {
-      toast({ variant: "destructive", title: t("login.failed"), description: error.message });
-    } else {
-      toast({ title: t("login.success"), description: t("login.welcomeBack") });
-      navigate("/dashboard");
-    }
-
-    setIsLoading(false);
   };
 
   return (
