@@ -438,6 +438,8 @@ export type Database = {
           keyword_ids: string[] | null
           priority: number
           processed_keywords: number | null
+          report_at: string | null
+          report_sent: boolean | null
           started_at: string | null
           status: string | null
           total_keywords: number | null
@@ -453,6 +455,8 @@ export type Database = {
           keyword_ids?: string[] | null
           priority?: number
           processed_keywords?: number | null
+          report_at?: string | null
+          report_sent?: boolean | null
           started_at?: string | null
           status?: string | null
           total_keywords?: number | null
@@ -468,6 +472,8 @@ export type Database = {
           keyword_ids?: string[] | null
           priority?: number
           processed_keywords?: number | null
+          report_at?: string | null
+          report_sent?: boolean | null
           started_at?: string | null
           status?: string | null
           total_keywords?: number | null
@@ -587,6 +593,8 @@ export type Database = {
           keyword_ids: string[] | null
           priority: number
           processed_keywords: number | null
+          report_at: string | null
+          report_sent: boolean | null
           started_at: string | null
           status: string | null
           total_keywords: number | null
