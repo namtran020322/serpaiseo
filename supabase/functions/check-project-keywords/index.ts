@@ -264,6 +264,19 @@ async function fetchCanonicalUrl(pageUrl: string): Promise<string | null> {
   }
 }
 
+// Normalize URL for canonical comparison (strip protocol, www, trailing slash)
+function normalizeUrlForComparison(url: string): string {
+  try {
+    return url
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\/+$/, '')
+      .toLowerCase()
+  } catch {
+    return url.toLowerCase()
+  }
+}
+
 // Smart mobile canonical check
 async function applyMobileCanonical(results: SerpResult[]): Promise<void> {
   // Check page 1 results (first 10) for canonical differences
@@ -278,7 +291,7 @@ async function applyMobileCanonical(results: SerpResult[]): Promise<void> {
     const batch = page1Results.slice(i, i + CONCURRENT_CANONICAL)
     const promises = batch.map(async (result) => {
       const canonical = await fetchCanonicalUrl(result.url)
-      if (canonical && canonical !== result.url) {
+      if (canonical && normalizeUrlForComparison(canonical) !== normalizeUrlForComparison(result.url)) {
         canonicalMap.set(result.position, canonical)
         hasCanonicalDiff = true
       }
@@ -301,7 +314,7 @@ async function applyMobileCanonical(results: SerpResult[]): Promise<void> {
       const batch = remainingResults.slice(i, i + CONCURRENT_CANONICAL)
       const promises = batch.map(async (result) => {
         const canonical = await fetchCanonicalUrl(result.url)
-        if (canonical && canonical !== result.url) {
+        if (canonical && normalizeUrlForComparison(canonical) !== normalizeUrlForComparison(result.url)) {
           result.url = canonical
         }
       })
@@ -346,15 +359,19 @@ function findTargetRanking(results: SerpResult[], targetUrl: string): { position
   return { position: null, foundUrl: null }
 }
 
-// Process keywords sequentially (1 req/s rate limit means no parallel processing)
+// Process keywords sequentially with 1s delay between keywords (rate limit compliance)
 async function processKeywordsSequentially<T>(
   items: T[],
   processor: (item: T) => Promise<any>
 ): Promise<any[]> {
   const results: any[] = []
-  for (const item of items) {
+  for (let i = 0; i < items.length; i++) {
+    // Add 1s delay between keywords (not before the first one)
+    if (i > 0) {
+      await delay(1000)
+    }
     try {
-      const result = await processor(item)
+      const result = await processor(items[i])
       results.push(result)
     } catch (err) {
       console.error(`[ERROR] Keyword processing failed`)
