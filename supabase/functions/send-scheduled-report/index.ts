@@ -183,6 +183,11 @@ async function sendReport(
       },
     })
 
+    if (invokeError) {
+      console.error(`[ERROR] Failed to send report email for job ${job.id}:`, invokeError)
+      return false
+    }
+
     await markReportSent(supabase, job.id)
     console.log(`[INFO] Report sent for job ${job.id} to ${userEmail}`)
     return true
