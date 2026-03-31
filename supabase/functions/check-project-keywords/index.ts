@@ -359,15 +359,19 @@ function findTargetRanking(results: SerpResult[], targetUrl: string): { position
   return { position: null, foundUrl: null }
 }
 
-// Process keywords sequentially (1 req/s rate limit means no parallel processing)
+// Process keywords sequentially with 1s delay between keywords (rate limit compliance)
 async function processKeywordsSequentially<T>(
   items: T[],
   processor: (item: T) => Promise<any>
 ): Promise<any[]> {
   const results: any[] = []
-  for (const item of items) {
+  for (let i = 0; i < items.length; i++) {
+    // Add 1s delay between keywords (not before the first one)
+    if (i > 0) {
+      await delay(1000)
+    }
     try {
-      const result = await processor(item)
+      const result = await processor(items[i])
       results.push(result)
     } catch (err) {
       console.error(`[ERROR] Keyword processing failed`)

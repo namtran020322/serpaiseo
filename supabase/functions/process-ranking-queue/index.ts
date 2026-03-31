@@ -271,19 +271,26 @@ Deno.serve(async (req) => {
 })
 
 /**
- * Non-blocking self-invoke to continue processing.
- * Fire-and-forget fetch BEFORE returning response — no setTimeout needed.
+ * Sequential self-invoke: await the next invocation to ensure
+ * only 1 worker runs at a time (global rate limit compliance).
  * The claim_next_queue_job() RPC handles round-robin scheduling.
  */
-function selfInvoke(supabaseUrl: string, supabaseServiceKey: string, continuation: number, _delayMs = 100) {
-  // Fire-and-forget: fetch starts immediately, we don't await it
-  // Deno will keep the connection alive long enough for the request to be sent
-  fetch(`${supabaseUrl}/functions/v1/process-ranking-queue`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${supabaseServiceKey}`,
-    },
-    body: JSON.stringify({ continuation: continuation + 1 }),
-  }).catch(err => console.error('[ERROR] Self-invoke failed:', err))
+async function selfInvoke(supabaseUrl: string, supabaseServiceKey: string, continuation: number, delayMs = 1000) {
+  // Delay before next invocation to respect rate limits
+  if (delayMs > 0) {
+    await new Promise(resolve => setTimeout(resolve, delayMs))
+  }
+  
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/process-ranking-queue`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({ continuation: continuation + 1 }),
+    })
+  } catch (err) {
+    console.error('[ERROR] Self-invoke failed:', err)
+  }
 }
