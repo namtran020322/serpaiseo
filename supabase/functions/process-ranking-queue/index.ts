@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 // Process max 10 keywords per invocation to stay within timeout
-const BATCH_SIZE = 10
+const BATCH_SIZE = 5
 
 // Safety limit to prevent infinite self-invoke loops
 const MAX_CONTINUATIONS = 100
