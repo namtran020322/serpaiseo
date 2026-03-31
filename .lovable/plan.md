@@ -1,48 +1,74 @@
 
 
-# Fix: Eliminate Edge Function Timeout — 1 Keyword Per Invocation
+# Plan: Concurrent Staggered SERP Requests (1 req/s Pipeline)
 
-## Vấn đề gốc
+## Vấn đề hiện tại
 
-`process-ranking-queue` gọi `check-project-keywords` với batch 5 keywords và **chờ đồng bộ** (await). Mỗi keyword có thể scan tối đa 10 pages (mỗi page 1s delay + fetch time + canonical fetch). Với 5 keywords × ~40s/keyword = ~200s → **vượt giới hạn 150s** của Deno Edge Function → function bị kill giữa chừng → job kẹt ở `processing` → UI hiển thị "đang chạy" mãi.
+Hiện tại hệ thống xử lý **tuần tự**: gửi request → **đợi response** (2-5s) → delay 1s → gửi request tiếp. Thực tế throughput chỉ ~0.2-0.3 req/s thay vì 1 req/s theo rate limit cho phép.
 
-`reset_stale_queue_jobs` chỉ chạy sau 10 phút, nên user phải chờ rất lâu.
+Self-invoke giữa các keyword cũng không hoạt động đáng tin cậy trong Deno Edge Functions.
 
-## Giải pháp: 1 keyword per invocation
+## Giải pháp: Request Pipeline trong check-project-keywords
 
-Thay vì gọi `check-project-keywords` với batch 5 keywords, `process-ranking-queue` sẽ:
-1. Claim job → gửi **1 keyword duy nhất** tới `check-project-keywords`
-2. Cập nhật progress (+1)
-3. Self-invoke để xử lý keyword tiếp theo
+Thay vì đợi response rồi mới gửi request tiếp, tạo một **global request scheduler** fire đúng 1 request mỗi giây, xử lý response khi nào nó về.
 
-Thời gian tối đa per invocation: ~50s (1 keyword × 10 pages × ~5s/page) — an toàn trong giới hạn 150s.
+```text
+Timeline (current - sequential):
+t=0  [KW1-P1 send]----[wait 3s]----[KW1-P1 done] [1s delay] [KW1-P2 send]...
+Throughput: ~0.25 req/s
+
+Timeline (new - pipelined):  
+t=0  [KW1-P1 send]
+t=1  [KW1-P2 send]  ← KW1-P1 response chưa về cũng không sao
+t=2  [KW1-P3 send]
+t=3  [KW2-P1 send]  ← KW1 xong ở page 3 (no next_page)
+t=4  [KW2-P2 send]
+...
+Throughput: 1 req/s
+```
+
+### Cách hoạt động
+
+1. **Request Queue**: Một mảng chứa các pending request tasks `{ keyword, page, resolve }`
+2. **Scheduler loop**: Mỗi 1 giây, lấy task tiếp theo từ queue và fire request (không await response)
+3. **Dynamic page discovery**: Khi response page N về → nếu có `next_page` → push page N+1 vào queue. Nếu không → keyword đó xong.
+4. **Completion**: Khi tất cả keyword đã xong (không còn pending requests và không còn in-flight requests) → save kết quả vào DB
+
+### Capacity per invocation
+
+- 150s timeout, buffer 20s → **~130 requests** per invocation
+- 10 keywords × 10 pages = 100 requests → hoàn thành trong ~100s
+- Nếu nhiều hơn 130 requests → dừng lại, cập nhật progress, pg_cron sẽ pick up tiếp
 
 ## Thay đổi cụ thể
 
-### Step 1: `process-ranking-queue/index.ts`
-- Đổi `BATCH_SIZE = 5` → `BATCH_SIZE = 1`
-- Gửi chỉ 1 keyword ID tới `check-project-keywords`
-- Giữ nguyên logic self-invoke sequential
+### Step 1: `check-project-keywords/index.ts`
+- Thay `fetchAllSerpResults()` (sequential per keyword) bằng `PipelinedSerpFetcher` class
+- Pipeline nhận danh sách keywords, fire 1 request/s, tự động enqueue next page khi có `next_page`
+- Trả về `Map<keywordId, SerpResult[]>` khi tất cả xong hoặc hết budget (130 requests)
+- Giữ nguyên logic canonical check sau khi có kết quả
 
-### Step 2: Giảm stale timeout
-- Trong `reset_stale_queue_jobs()`: giảm interval từ `10 minutes` → `3 minutes` (vì 1 keyword không nên mất quá 2 phút)
-- Trong `claim_next_queue_job()`: giảm interval từ `2 minutes` → `3 minutes` (đồng bộ)
+### Step 2: `process-ranking-queue/index.ts`
+- Tăng `BATCH_SIZE` lên **10** (vì pipeline xử lý nhanh hơn nhiều)
+- **Bỏ self-invoke** hoàn toàn — dựa vào pg_cron mỗi phút
+- Đơn giản hóa: claim job → gửi batch → cập nhật progress → return
 
-### Step 3: Fix UI — xóa job kẹt hiện tại
-- Reset job `50d277b1` bị stuck về `pending` hoặc xóa nó
-- UI tự động cập nhật qua Realtime subscription
+### Step 3: pg_cron
+- Giữ nguyên cron mỗi phút gọi `process-ranking-queue`
+- Với 10 keywords/batch × 1 req/s, mỗi batch mất ~100s → cron 1 phút là đủ overlap
+
+## Ví dụ throughput
+
+| Keywords | Pages avg | Total requests | Thời gian | Fits 150s? |
+|----------|-----------|---------------|-----------|------------|
+| 5        | 5         | 25            | ~25s      | Yes |
+| 10       | 10        | 100           | ~100s     | Yes |
+| 10       | 5         | 50            | ~50s      | Yes |
 
 ## Files thay đổi
 
 | File | Change |
 |------|--------|
-| `supabase/functions/process-ranking-queue/index.ts` | `BATCH_SIZE = 1` |
-| Migration SQL | Update `reset_stale_queue_jobs()` interval to 3 min |
-| Migration SQL | Update `claim_next_queue_job()` stale interval to 3 min |
-
-## Tại sao giải pháp này triệt để
-
-- 1 keyword/invocation → max ~50s → **không bao giờ timeout**
-- Nếu 1 invocation bị crash, chỉ mất 1 keyword, stale reset sau 3 phút tự khôi phục
-- Không cần thay đổi `check-project-keywords` — nó vẫn nhận mảng keyword IDs, chỉ là mảng có 1 phần tử
+| `supabase/functions/check-project-keywords/index.ts` | Replace sequential processing with pipelined 1 req/s scheduler |
+| `supabase/functions/process-ranking-queue/index.ts` | BATCH_SIZE=10, remove self-invoke, rely on pg_cron |
 
