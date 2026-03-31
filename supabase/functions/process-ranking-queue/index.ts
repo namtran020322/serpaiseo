@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
         .eq('id', job.id)
 
       // Self-invoke to pick up the next job (other users may have credits)
-      await selfInvoke(supabaseUrl, supabaseServiceKey, continuation)
+      selfInvoke(supabaseUrl, supabaseServiceKey, continuation)
 
       return new Response(
         JSON.stringify({ error: 'Insufficient credits' }),
