@@ -249,7 +249,7 @@ Deno.serve(async (req) => {
     }
 
     // Self-invoke to continue (next batch of same job or next job via round-robin)
-    selfInvoke(supabaseUrl, supabaseServiceKey, continuation)
+    await selfInvoke(supabaseUrl, supabaseServiceKey, continuation)
 
     return new Response(
       JSON.stringify({
