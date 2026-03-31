@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
         .eq('id', job.id)
       // Self-invoke with longer delay (5s) to retry and process other pending jobs
       // The claim function will pick a different job first (round-robin by updated_at)
-      await selfInvoke(supabaseUrl, supabaseServiceKey, continuation, 5000)
+      selfInvoke(supabaseUrl, supabaseServiceKey, continuation, 5000)
       return new Response(
         JSON.stringify({ error: 'Check failed, will retry' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
