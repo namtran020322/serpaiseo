@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
 
     await supabase.from('ranking_check_queue').update({
       processed_keywords: newProcessed,
-      status: isComplete ? 'completed' : 'processing',
+      status: isComplete ? 'completed' : 'pending',
       completed_at: isComplete ? new Date().toISOString() : null,
       updated_at: new Date().toISOString()
     }).eq('id', job.id)
