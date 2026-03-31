@@ -436,6 +436,7 @@ export type Database = {
           error_message: string | null
           id: string
           keyword_ids: string[] | null
+          priority: number
           processed_keywords: number | null
           started_at: string | null
           status: string | null
@@ -450,6 +451,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           keyword_ids?: string[] | null
+          priority?: number
           processed_keywords?: number | null
           started_at?: string | null
           status?: string | null
@@ -464,6 +466,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           keyword_ids?: string[] | null
+          priority?: number
           processed_keywords?: number | null
           started_at?: string | null
           status?: string | null
@@ -582,6 +585,7 @@ export type Database = {
           error_message: string | null
           id: string
           keyword_ids: string[] | null
+          priority: number
           processed_keywords: number | null
           started_at: string | null
           status: string | null
