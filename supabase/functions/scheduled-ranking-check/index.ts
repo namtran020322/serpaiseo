@@ -10,6 +10,27 @@ function calculateCreditsNeeded(keywordCount: number): number {
   return keywordCount
 }
 
+// Estimate minutes needed to process keywords
+// Pipeline throughput: ~10 keywords/minute, +30% buffer
+function estimateMinutes(totalKeywords: number): number {
+  const raw = Math.ceil(totalKeywords * 6 / 60 * 1.3)
+  return Math.max(raw, 5) // minimum 5 minutes
+}
+
+// Parse schedule_time (e.g. "08:00", "10:30") into minutes since midnight
+function parseTimeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number)
+  return h * 60 + (m || 0)
+}
+
+// Get current minutes since midnight in a given timezone
+function getCurrentMinutes(timezone: string): number {
+  const now = new Date()
+  const timeStr = now.toLocaleString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false })
+  const [h, m] = timeStr.split(':').map(Number)
+  return h * 60 + (m || 0)
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -20,17 +41,9 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Get current time in Vietnam timezone
     const now = new Date()
-    const vietnamTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }))
-    const currentHour = vietnamTime.getHours().toString().padStart(2, '0')
-    const currentTime = `${currentHour}:00`
-    const currentDay = vietnamTime.getDay() // 0 = Sunday, 1 = Monday
-    const currentDate = vietnamTime.getDate()
 
-    console.log(`[INFO] Scheduled check running at ${currentTime} Vietnam time`)
-
-    // Find classes that need to be checked with their keyword count
+    // Get ALL classes with schedules and their keyword counts
     const { data: classes, error: classesError } = await supabase
       .from('project_classes')
       .select(`
@@ -38,8 +51,10 @@ Deno.serve(async (req) => {
         user_id, 
         schedule, 
         schedule_time, 
+        schedule_timezone,
         last_checked_at,
         top_results,
+        project_id,
         project_keywords(count)
       `)
       .not('schedule', 'is', null)
@@ -53,53 +68,88 @@ Deno.serve(async (req) => {
       )
     }
 
+    if (!classes || classes.length === 0) {
+      return new Response(
+        JSON.stringify({ message: 'No scheduled classes found', totalClasses: 0 }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Group classes by schedule_time + timezone to estimate total workload per time slot
+    const timeGroups = new Map<string, { classes: any[], totalKeywords: number }>()
+    
+    for (const cls of classes) {
+      const scheduleTime = cls.schedule_time || '08:00'
+      const timezone = cls.schedule_timezone || 'Asia/Ho_Chi_Minh'
+      const key = `${scheduleTime}|${timezone}`
+      
+      if (!timeGroups.has(key)) {
+        timeGroups.set(key, { classes: [], totalKeywords: 0 })
+      }
+      const group = timeGroups.get(key)!
+      const keywordCount = cls.project_keywords?.[0]?.count || 0
+      group.classes.push({ ...cls, keywordCount })
+      group.totalKeywords += keywordCount
+    }
+
     const classesToCheck: any[] = []
 
-    for (const cls of classes || []) {
-      const scheduleTime = cls.schedule_time || '08:00'
+    for (const [key, group] of timeGroups) {
+      const [scheduleTime, timezone] = key.split('|')
+      const scheduleMinutes = parseTimeToMinutes(scheduleTime)
+      const currentMinutes = getCurrentMinutes(timezone)
+      const startBefore = estimateMinutes(group.totalKeywords)
+
+      // Calculate the window: [scheduleMinutes - startBefore, scheduleMinutes]
+      const windowStart = scheduleMinutes - startBefore
       
-      // Check if it's the right time
-      if (scheduleTime !== currentTime) continue
+      // Check if current time falls within the pre-check window OR past schedule time (fallback)
+      const inPreCheckWindow = currentMinutes >= windowStart && currentMinutes < scheduleMinutes
+      const isPastSchedule = currentMinutes >= scheduleMinutes && currentMinutes < scheduleMinutes + 15 // 15min grace
 
-      const lastChecked = cls.last_checked_at ? new Date(cls.last_checked_at) : null
-      const hoursSinceLastCheck = lastChecked 
-        ? (now.getTime() - lastChecked.getTime()) / (1000 * 60 * 60) 
-        : Infinity
+      if (!inPreCheckWindow && !isPastSchedule) continue
 
-      let shouldCheck = false
+      console.log(`[INFO] Time slot ${scheduleTime} (${timezone}): ${group.totalKeywords} keywords, start ${startBefore}min before, current=${currentMinutes}min, schedule=${scheduleMinutes}min`)
 
-      switch (cls.schedule) {
-        case 'daily':
-          shouldCheck = hoursSinceLastCheck >= 23 // At least 23 hours since last check
-          break
-        case 'weekly':
-          shouldCheck = hoursSinceLastCheck >= 167 && currentDay === 1 // Monday, 7 days
-          break
-        case 'monthly':
-          shouldCheck = hoursSinceLastCheck >= 719 && currentDate === 1 // 1st of month, 30 days
-          break
-      }
+      for (const cls of group.classes) {
+        // Check schedule frequency (daily/weekly/monthly)
+        const lastChecked = cls.last_checked_at ? new Date(cls.last_checked_at) : null
+        const hoursSinceLastCheck = lastChecked 
+          ? (now.getTime() - lastChecked.getTime()) / (1000 * 60 * 60) 
+          : Infinity
 
-      if (shouldCheck) {
-        classesToCheck.push(cls)
+        // Get current day/date in the class's timezone
+        const vietnamTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
+        const currentDay = vietnamTime.getDay()
+        const currentDate = vietnamTime.getDate()
+
+        let shouldCheck = false
+        switch (cls.schedule) {
+          case 'daily':
+            shouldCheck = hoursSinceLastCheck >= 20 // buffer for pre-check
+            break
+          case 'weekly':
+            shouldCheck = hoursSinceLastCheck >= 164 && currentDay === 1
+            break
+          case 'monthly':
+            shouldCheck = hoursSinceLastCheck >= 716 && currentDate === 1
+            break
+        }
+
+        if (shouldCheck && cls.keywordCount > 0) {
+          classesToCheck.push({ ...cls, scheduleTime, timezone })
+        }
       }
     }
 
     console.log(`[INFO] Found ${classesToCheck.length} classes to check`)
 
-    // Process each class — insert into queue instead of calling check-project-keywords directly
+    // Process each class — insert into queue
     const results: { classId: string; success: boolean; skipped?: boolean; reason?: string; jobId?: string }[] = []
 
     for (const cls of classesToCheck) {
       try {
-        const keywordCount = cls.project_keywords?.[0]?.count || 0
-        if (keywordCount === 0) {
-          console.log(`[INFO] Skipping class ${cls.id} - no keywords`)
-          results.push({ classId: cls.id, success: true, skipped: true, reason: 'no_keywords' })
-          continue
-        }
-
-        // Check user's credit balance (pre-filter before creating queue job)
+        // Check user's credit balance
         const { data: userCredits, error: creditsError } = await supabase
           .from('user_credits')
           .select('balance')
@@ -112,12 +162,11 @@ Deno.serve(async (req) => {
           continue
         }
 
-        const creditsNeeded = calculateCreditsNeeded(keywordCount)
+        const creditsNeeded = calculateCreditsNeeded(cls.keywordCount)
         const currentBalance = userCredits?.balance || 0
 
         if (currentBalance < creditsNeeded) {
           console.log(`[INFO] Skipping class ${cls.id} - insufficient credits (need ${creditsNeeded}, have ${currentBalance})`)
-          // Still update last_checked_at to prevent repeated attempts
           await supabase
             .from('project_classes')
             .update({ last_checked_at: now.toISOString() })
@@ -126,7 +175,7 @@ Deno.serve(async (req) => {
           continue
         }
 
-        // Check for existing pending/processing job (prevent duplicates)
+        // Check for existing pending/processing job
         const { data: existingJob } = await supabase
           .from('ranking_check_queue')
           .select('id, status')
@@ -140,16 +189,26 @@ Deno.serve(async (req) => {
           continue
         }
 
-        // Insert job into queue (service role bypasses RLS)
+        // Calculate report_at: the exact schedule_time in the class's timezone for today
+        const todayStr = new Date(now.toLocaleString('en-US', { timeZone: cls.timezone }))
+          .toISOString().split('T')[0]
+        const reportAtLocal = `${todayStr}T${cls.scheduleTime}:00`
+        // Convert to UTC by creating date in timezone context
+        const reportAtDate = new Date(new Date(reportAtLocal).toLocaleString('en-US', { timeZone: 'UTC' }))
+        // Simpler approach: use the timezone offset
+        const reportAtUtc = getUtcFromTimezone(cls.scheduleTime, cls.timezone, now)
+
+        // Insert job into queue with report_at
         const { data: job, error: insertError } = await supabase
           .from('ranking_check_queue')
           .insert({
             class_id: cls.id,
             user_id: cls.user_id,
             keyword_ids: [],
-            total_keywords: keywordCount,
+            total_keywords: cls.keywordCount,
             processed_keywords: 0,
             status: 'pending',
+            report_at: reportAtUtc.toISOString(),
           })
           .select('id')
           .single()
@@ -160,7 +219,7 @@ Deno.serve(async (req) => {
           continue
         }
 
-        console.log(`[INFO] Created queue job ${job.id} for class ${cls.id}`)
+        console.log(`[INFO] Created queue job ${job.id} for class ${cls.id} (report_at: ${reportAtUtc.toISOString()})`)
         results.push({ classId: cls.id, success: true, jobId: job.id })
       } catch (err) {
         console.error(`[ERROR] Failed to process class ${cls.id}:`, err)
@@ -168,7 +227,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Trigger process-ranking-queue once — auto-continuation handles the rest
+    // Trigger process-ranking-queue
     const jobsCreated = results.filter(r => r.success && r.jobId).length
     if (jobsCreated > 0) {
       console.log(`[INFO] Triggering queue processing for ${jobsCreated} new jobs`)
@@ -195,7 +254,6 @@ Deno.serve(async (req) => {
         successful,
         skipped,
         failed,
-        currentTime,
         details: results
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -209,3 +267,25 @@ Deno.serve(async (req) => {
     )
   }
 })
+
+// Convert a local time (HH:MM) in a timezone to a UTC Date for today
+function getUtcFromTimezone(timeStr: string, timezone: string, referenceDate: Date): Date {
+  const [hours, minutes] = timeStr.split(':').map(Number)
+  
+  // Get today's date in the target timezone
+  const localDateStr = referenceDate.toLocaleDateString('en-CA', { timeZone: timezone }) // YYYY-MM-DD format
+  
+  // Create a date string and parse it
+  const dateTimeStr = `${localDateStr}T${String(hours).padStart(2, '0')}:${String(minutes || 0).padStart(2, '0')}:00`
+  
+  // Get the timezone offset by comparing local and UTC representations
+  const tempDate = new Date(dateTimeStr + 'Z') // treat as UTC first
+  const localStr = tempDate.toLocaleString('en-US', { timeZone: timezone })
+  const localParsed = new Date(localStr)
+  const utcParsed = new Date(tempDate)
+  const offsetMs = localParsed.getTime() - utcParsed.getTime()
+  
+  // The actual UTC time = local time - offset
+  const targetLocal = new Date(`${dateTimeStr}Z`)
+  return new Date(targetLocal.getTime() - offsetMs)
+}
