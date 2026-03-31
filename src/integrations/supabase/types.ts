@@ -200,6 +200,93 @@ export type Database = {
         }
         Relationships: []
       }
+      email_send_log: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          message_id: string | null
+          metadata: Json | null
+          recipient_email: string
+          status: string
+          template_name: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          recipient_email: string
+          status: string
+          template_name: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          recipient_email?: string
+          status?: string
+          template_name?: string
+        }
+        Relationships: []
+      }
+      email_send_state: {
+        Row: {
+          auth_email_ttl_minutes: number
+          batch_size: number
+          id: number
+          retry_after_until: string | null
+          send_delay_ms: number
+          transactional_email_ttl_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          auth_email_ttl_minutes?: number
+          batch_size?: number
+          id?: number
+          retry_after_until?: string | null
+          send_delay_ms?: number
+          transactional_email_ttl_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          auth_email_ttl_minutes?: number
+          batch_size?: number
+          id?: number
+          retry_after_until?: string | null
+          send_delay_ms?: number
+          transactional_email_ttl_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_unsubscribe_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       keyword_ranking_history: {
         Row: {
           checked_at: string
@@ -490,6 +577,30 @@ export type Database = {
           },
         ]
       }
+      suppressed_emails: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          metadata: Json | null
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          metadata?: Json | null
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          metadata?: Json | null
+          reason?: string
+        }
+        Relationships: []
+      }
       trial_credits: {
         Row: {
           created_at: string
@@ -615,6 +726,10 @@ export type Database = {
       }
       cleanup_old_usage_transactions: { Args: never; Returns: number }
       cleanup_pending_orders: { Args: never; Returns: number }
+      delete_email: {
+        Args: { message_id: number; queue_name: string }
+        Returns: boolean
+      }
       delete_email_message: { Args: { msg_id: number }; Returns: boolean }
       dequeue_email: {
         Args: { batch_size?: number }
@@ -626,7 +741,9 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      enqueue_email: { Args: { payload: Json }; Returns: number }
+      enqueue_email:
+        | { Args: { payload: Json }; Returns: number }
+        | { Args: { payload: Json; queue_name: string }; Returns: number }
       get_class_ranking_stats: { Args: { p_class_id: string }; Returns: Json }
       get_projects_paginated: {
         Args: {
@@ -644,6 +761,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      move_to_dlq: {
+        Args: {
+          dlq_name: string
+          message_id: number
+          payload: Json
+          source_queue: string
+        }
+        Returns: number
+      }
       process_payment_webhook: {
         Args: {
           p_order_invoice_number: string
@@ -651,6 +777,14 @@ export type Database = {
           p_sepay_transaction_id: string
         }
         Returns: Json
+      }
+      read_email_batch: {
+        Args: { batch_size: number; queue_name: string; vt: number }
+        Returns: {
+          message: Json
+          msg_id: number
+          read_ct: number
+        }[]
       }
       reset_stale_queue_jobs: { Args: never; Returns: number }
       upsert_daily_usage: {

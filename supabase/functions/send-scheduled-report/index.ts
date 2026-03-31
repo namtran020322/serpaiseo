@@ -173,27 +173,18 @@ async function sendReport(
       templateData.errorMessage = job.error_message || 'Check failed due to an unexpected error'
     }
 
-    // Enqueue email via send-transactional-email
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
-    const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseServiceKey}`,
-      },
-      body: JSON.stringify({
+    // Enqueue email via supabase client (service role handles auth)
+    const { error: invokeError } = await supabase.functions.invoke('send-transactional-email', {
+      body: {
         templateName: 'ranking-report',
         recipientEmail: userEmail,
         idempotencyKey: `ranking-report-${job.id}`,
         templateData,
-      }),
+      },
     })
 
-    if (!emailResponse.ok) {
-      const errText = await emailResponse.text()
-      console.error(`[ERROR] Failed to send report email for job ${job.id}:`, errText)
+    if (invokeError) {
+      console.error(`[ERROR] Failed to send report email for job ${job.id}:`, invokeError)
       return false
     }
 
