@@ -18,7 +18,7 @@ project_id = "hzcrlucfyxqxsadbvazi"
   [functions.create-sepay-order]
     verify_jwt = false
   [functions.process-email-queue]
-    verify_jwt = false
+    verify_jwt = true
   [functions.process-ranking-queue]
     verify_jwt = false
   [functions.scheduled-ranking-check]
