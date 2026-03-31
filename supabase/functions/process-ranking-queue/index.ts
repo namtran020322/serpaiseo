@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
       console.log(`[INFO] Job ${job.id} completed`)
 
       // Self-invoke to pick up the next pending job (if any)
-      await selfInvoke(supabaseUrl, supabaseServiceKey, continuation)
+      selfInvoke(supabaseUrl, supabaseServiceKey, continuation)
 
       return new Response(
         JSON.stringify({ message: 'Job completed', job_id: job.id }),
