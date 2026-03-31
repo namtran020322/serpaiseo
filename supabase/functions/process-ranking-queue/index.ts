@@ -271,26 +271,23 @@ Deno.serve(async (req) => {
 })
 
 /**
- * Sequential self-invoke: await the next invocation to ensure
- * only 1 worker runs at a time (global rate limit compliance).
- * The claim_next_queue_job() RPC handles round-robin scheduling.
+ * Fire-and-forget self-invoke: triggers the next invocation without waiting.
+ * Rate limit compliance is ensured by:
+ * 1. claim_next_queue_job() — atomic, only 1 job processed at a time
+ * 2. check-project-keywords — 1s delay between API pages
+ * 3. BATCH_SIZE=1 — each invocation handles exactly 1 keyword
  */
-async function selfInvoke(supabaseUrl: string, supabaseServiceKey: string, continuation: number, delayMs = 1000) {
-  // Delay before next invocation to respect rate limits
-  if (delayMs > 0) {
-    await new Promise(resolve => setTimeout(resolve, delayMs))
-  }
-  
-  try {
-    await fetch(`${supabaseUrl}/functions/v1/process-ranking-queue`, {
+function selfInvoke(supabaseUrl: string, supabaseServiceKey: string, continuation: number, delayMs = 1000) {
+  setTimeout(() => {
+    fetch(`${supabaseUrl}/functions/v1/process-ranking-queue`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${supabaseServiceKey}`,
       },
       body: JSON.stringify({ continuation: continuation + 1 }),
+    }).catch(err => {
+      console.error('[ERROR] Self-invoke failed:', err)
     })
-  } catch (err) {
-    console.error('[ERROR] Self-invoke failed:', err)
-  }
+  }, delayMs)
 }
