@@ -271,23 +271,29 @@ Deno.serve(async (req) => {
 })
 
 /**
- * Fire-and-forget self-invoke: triggers the next invocation without waiting.
- * Rate limit compliance is ensured by:
- * 1. claim_next_queue_job() — atomic, only 1 job processed at a time
- * 2. check-project-keywords — 1s delay between API pages
- * 3. BATCH_SIZE=1 — each invocation handles exactly 1 keyword
+ * Self-invoke with short timeout: ensures the request reaches the server
+ * without waiting for the full response (which would create infinite chain).
+ * The server processes the request regardless of client-side abort.
  */
-function selfInvoke(supabaseUrl: string, supabaseServiceKey: string, continuation: number, delayMs = 1000) {
-  setTimeout(() => {
-    fetch(`${supabaseUrl}/functions/v1/process-ranking-queue`, {
+async function selfInvoke(supabaseUrl: string, supabaseServiceKey: string, continuation: number, delayMs = 1000) {
+  // Delay before next invocation to respect rate limits
+  if (delayMs > 0) {
+    await new Promise(resolve => setTimeout(resolve, delayMs))
+  }
+  
+  try {
+    // 5s timeout — enough for the request to reach the server
+    // The server will continue processing even if we abort
+    await fetch(`${supabaseUrl}/functions/v1/process-ranking-queue`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${supabaseServiceKey}`,
       },
       body: JSON.stringify({ continuation: continuation + 1 }),
-    }).catch(err => {
-      console.error('[ERROR] Self-invoke failed:', err)
+      signal: AbortSignal.timeout(5000),
     })
-  }, delayMs)
+  } catch {
+    // Timeout/abort is expected — the request was already received by the server
+  }
 }
