@@ -72,16 +72,20 @@ const COUNTRY_ID_TO_CODE: Record<string, string> = {
   '2144': 'LK', '2104': 'MM', '2116': 'KH', '2418': 'LA', '2496': 'MN',
 }
 
-// Language code mapping (lang param like "vi" → hl param)
-// The RapidAPI uses hl parameter directly with ISO 639-1 codes
 function getLanguageHl(languageCode: string): string {
-  // languageCode from our DB is already ISO 639-1 (e.g., "vi", "en", "ja")
   return languageCode
 }
 
-// Delay helper
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// Custom error class for non-retryable API errors
+class ApiError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ApiError'
+  }
 }
 
 // Fetch a single SERP page with retry logic
@@ -123,28 +127,23 @@ async function fetchSerpPage(
         throw new Error('Invalid JSON response')
       }
 
-      // Check for API error field
       if (json.error) {
         const errorMsg = String(json.error)
-        // Only non-retryable if it's a known validation error
         const isValidationError = errorMsg.includes('Invalid country') || 
           errorMsg.includes('Invalid language') ||
           errorMsg.includes('Use ISO')
         if (isValidationError) {
           throw new ApiError(errorMsg)
         }
-        // Server-side API errors (e.g. "parseHTMLtoJSON is not a function") are retryable
         throw new Error(`API error: ${errorMsg}`)
       }
 
-      // Valid response must have results array
       if (!Array.isArray(json.results)) {
         throw new Error('Invalid response format - missing results')
       }
 
-      // Parse results
-      const results: SerpResult[] = json.results.map((item: any, idx: number) => ({
-        position: 0, // Will be assigned later with global position
+      const results: SerpResult[] = json.results.map((item: any) => ({
+        position: 0, // Will be assigned later
         title: item.title || '',
         url: item.url || '',
         description: item.description || '',
@@ -154,76 +153,14 @@ async function fetchSerpPage(
 
       return { results, hasNextPage }
     } catch (err) {
-      if (err instanceof ApiError) {
-        // Non-retryable API errors
-        throw err
-      }
-
-      if (attempt === MAX_RETRIES) {
-        throw err
-      }
-
-      // Exponential backoff: 1s, 2s, 4s
+      if (err instanceof ApiError) throw err
+      if (attempt === MAX_RETRIES) throw err
       const backoffMs = Math.pow(2, attempt - 1) * 1000
       console.log(`[WARN] Page ${page} attempt ${attempt} failed, retrying in ${backoffMs}ms...`)
       await delay(backoffMs)
     }
   }
-
   throw new Error('Request failed after retries')
-}
-
-// Custom error class for non-retryable API errors
-class ApiError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'ApiError'
-  }
-}
-
-// Fetch all SERP results for a keyword (up to 10 pages = ~100 results)
-async function fetchAllSerpResults(
-  keyword: string,
-  countryCode: string,
-  languageCode: string,
-  device: string,
-  rapidApiKey: string
-): Promise<SerpResult[]> {
-  const MAX_PAGES = 10
-  const allResults: SerpResult[] = []
-
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    // Rate limit: 1 request per second (skip delay for first page)
-    if (page > 1) {
-      await delay(1000)
-    }
-
-    const { results, hasNextPage } = await fetchSerpPage(
-      keyword, countryCode, languageCode, page, rapidApiKey
-    )
-
-    // Stop if no results on this page
-    if (results.length === 0) {
-      break
-    }
-
-    // Assign global positions
-    for (const result of results) {
-      result.position = allResults.length + 1
-      allResults.push(result)
-    }
-
-    // Stop conditions
-    if (!hasNextPage) break
-    if (allResults.length >= 100) break
-  }
-
-  // For mobile device: check canonical URLs (smart check)
-  if (device === 'mobile' && allResults.length > 0) {
-    await applyMobileCanonical(allResults)
-  }
-
-  return allResults.slice(0, 100)
 }
 
 // Fetch canonical URL from a page
@@ -231,47 +168,28 @@ async function fetchCanonicalUrl(pageUrl: string): Promise<string | null> {
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000)
-
     const response = await fetch(pageUrl, {
       signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' },
       redirect: 'follow',
     })
-
     clearTimeout(timeoutId)
-
     if (!response.ok) return null
-
     const html = await response.text()
-    // Only read first 50KB to find canonical
     const head = html.substring(0, 50000)
     const canonicalMatch = head.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)
-    if (canonicalMatch) {
-      return canonicalMatch[1]
-    }
-
-    // Also check alternate pattern
+    if (canonicalMatch) return canonicalMatch[1]
     const altMatch = head.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i)
-    if (altMatch) {
-      return altMatch[1]
-    }
-
+    if (altMatch) return altMatch[1]
     return null
   } catch {
     return null
   }
 }
 
-// Normalize URL for canonical comparison (strip protocol, www, trailing slash)
 function normalizeUrlForComparison(url: string): string {
   try {
-    return url
-      .replace(/^https?:\/\//, '')
-      .replace(/^www\./, '')
-      .replace(/\/+$/, '')
-      .toLowerCase()
+    return url.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '').toLowerCase()
   } catch {
     return url.toLowerCase()
   }
@@ -279,14 +197,11 @@ function normalizeUrlForComparison(url: string): string {
 
 // Smart mobile canonical check
 async function applyMobileCanonical(results: SerpResult[]): Promise<void> {
-  // Check page 1 results (first 10) for canonical differences
   const page1Results = results.slice(0, Math.min(10, results.length))
   const CONCURRENT_CANONICAL = 5
-
   let hasCanonicalDiff = false
   const canonicalMap = new Map<number, string>()
 
-  // Batch fetch canonicals for page 1
   for (let i = 0; i < page1Results.length; i += CONCURRENT_CANONICAL) {
     const batch = page1Results.slice(i, i + CONCURRENT_CANONICAL)
     const promises = batch.map(async (result) => {
@@ -299,15 +214,11 @@ async function applyMobileCanonical(results: SerpResult[]): Promise<void> {
     await Promise.allSettled(promises)
   }
 
-  // Apply page 1 canonicals
   for (const [position, canonical] of canonicalMap) {
     const result = results.find(r => r.position === position)
-    if (result) {
-      result.url = canonical
-    }
+    if (result) result.url = canonical
   }
 
-  // If page 1 had differences, check remaining pages too
   if (hasCanonicalDiff && results.length > 10) {
     const remainingResults = results.slice(10)
     for (let i = 0; i < remainingResults.length; i += CONCURRENT_CANONICAL) {
@@ -323,62 +234,162 @@ async function applyMobileCanonical(results: SerpResult[]): Promise<void> {
   }
 }
 
-// Normalize URL/domain for comparison
 function normalizeForComparison(input: string): string {
   try {
     const urlString = input.startsWith('http') ? input : `https://${input}`
     const parsed = new URL(urlString)
     return parsed.hostname.replace(/^www\./, '').toLowerCase()
   } catch {
-    return input
-      .toLowerCase()
-      .replace(/^https?:\/\//, '')
-      .replace(/^www\./, '')
-      .split('/')[0]
+    return input.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]
   }
 }
 
-// Find ranking position of target URL/domain in results
 function findTargetRanking(results: SerpResult[], targetUrl: string): { position: number | null, foundUrl: string | null } {
-  if (!targetUrl || targetUrl.trim() === '') {
-    return { position: null, foundUrl: null }
-  }
-
+  if (!targetUrl || targetUrl.trim() === '') return { position: null, foundUrl: null }
   const targetDomain = normalizeForComparison(targetUrl)
-
   for (const result of results) {
     const resultDomain = normalizeForComparison(result.url)
-
-    if (resultDomain === targetDomain ||
-      resultDomain.includes(targetDomain) ||
-      targetDomain.includes(resultDomain)) {
+    if (resultDomain === targetDomain || resultDomain.includes(targetDomain) || targetDomain.includes(resultDomain)) {
       return { position: result.position, foundUrl: result.url }
     }
   }
-
   return { position: null, foundUrl: null }
 }
 
-// Process keywords sequentially with 1s delay between keywords (rate limit compliance)
-async function processKeywordsSequentially<T>(
-  items: T[],
-  processor: (item: T) => Promise<any>
-): Promise<any[]> {
-  const results: any[] = []
-  for (let i = 0; i < items.length; i++) {
-    // Add 1s delay between keywords (not before the first one)
-    if (i > 0) {
+// ============================================================
+// Pipelined SERP Fetcher — 1 request per second, concurrent
+// ============================================================
+
+interface PipelineTask {
+  keywordId: string
+  keyword: string
+  page: number
+}
+
+interface KeywordState {
+  keyword: string
+  keywordId: string
+  results: SerpResult[]
+  done: boolean
+  error: string | null
+}
+
+/**
+ * Processes multiple keywords with a strict 1 req/s rate limit using a pipeline.
+ * Instead of awaiting each response before sending the next request,
+ * we fire one request every second and process responses asynchronously.
+ */
+async function pipelinedFetchAll(
+  keywords: { id: string; keyword: string }[],
+  countryCode: string,
+  languageCode: string,
+  device: string,
+  rapidApiKey: string,
+  maxRequests = 130 // Budget per invocation (150s timeout - 20s buffer)
+): Promise<Map<string, { results: SerpResult[]; error: string | null }>> {
+  const states = new Map<string, KeywordState>()
+  for (const kw of keywords) {
+    states.set(kw.id, {
+      keyword: kw.keyword,
+      keywordId: kw.id,
+      results: [],
+      done: false,
+      error: null,
+    })
+  }
+
+  // Initial queue: page 1 for all keywords
+  const queue: PipelineTask[] = keywords.map(kw => ({
+    keywordId: kw.id,
+    keyword: kw.keyword,
+    page: 1,
+  }))
+
+  let requestsSent = 0
+  let inFlight = 0
+  const inflightPromises: Promise<void>[] = []
+
+  // Process the queue: fire 1 request per second
+  while ((queue.length > 0 || inFlight > 0) && requestsSent < maxRequests) {
+    if (queue.length > 0) {
+      const task = queue.shift()!
+      const state = states.get(task.keywordId)!
+
+      // Skip if keyword already done (e.g., error on earlier page)
+      if (state.done) {
+        continue // Don't count, don't delay
+      }
+
+      requestsSent++
+      inFlight++
+
+      // Fire request (don't await — process response when it comes back)
+      const promise = (async () => {
+        try {
+          const { results, hasNextPage } = await fetchSerpPage(
+            task.keyword, countryCode, languageCode, task.page, rapidApiKey
+          )
+
+          if (results.length === 0) {
+            state.done = true
+            return
+          }
+
+          // Assign global positions for this keyword
+          for (const result of results) {
+            result.position = state.results.length + 1
+            state.results.push(result)
+          }
+
+          // Enqueue next page if available and under 100 results
+          if (hasNextPage && state.results.length < 100 && task.page < 10) {
+            queue.push({
+              keywordId: task.keywordId,
+              keyword: task.keyword,
+              page: task.page + 1,
+            })
+          } else {
+            state.done = true
+          }
+        } catch (err) {
+          state.error = err instanceof Error ? err.message : 'Unknown error'
+          state.done = true
+        } finally {
+          inFlight--
+        }
+      })()
+
+      inflightPromises.push(promise)
+
+      // Wait 1 second before firing next request (rate limit)
       await delay(1000)
-    }
-    try {
-      const result = await processor(items[i])
-      results.push(result)
-    } catch (err) {
-      console.error(`[ERROR] Keyword processing failed`)
-      results.push(null)
+    } else {
+      // Queue empty but still have in-flight requests that may enqueue more pages
+      await delay(500)
     }
   }
-  return results
+
+  // Wait for all in-flight requests to complete
+  await Promise.allSettled(inflightPromises)
+
+  // Apply mobile canonical if needed
+  if (device === 'mobile') {
+    for (const [, state] of states) {
+      if (state.results.length > 0 && !state.error) {
+        await applyMobileCanonical(state.results)
+      }
+    }
+  }
+
+  // Trim to 100 results per keyword
+  const output = new Map<string, { results: SerpResult[]; error: string | null }>()
+  for (const [id, state] of states) {
+    output.set(id, {
+      results: state.results.slice(0, 100),
+      error: state.error,
+    })
+  }
+  return output
 }
 
 Deno.serve(async (req) => {
@@ -407,7 +418,6 @@ Deno.serve(async (req) => {
 
     let userId: string
 
-    // Check if internal call (service role) or user JWT
     if (token === supabaseServiceKey) {
       const body = await req.json() as RequestBody
       if (!body.userId || !isValidUUID(body.userId)) {
@@ -432,7 +442,6 @@ Deno.serve(async (req) => {
       userId = claimsData.user.id
     }
 
-    // Parse request body
     let body: RequestBody
     try {
       body = (req as any)._parsedBody || await req.json()
@@ -451,21 +460,18 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-
     if (classId && !isValidUUID(classId)) {
       return new Response(
         JSON.stringify({ error: 'Invalid classId format' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-
     if (projectId && !isValidUUID(projectId)) {
       return new Response(
         JSON.stringify({ error: 'Invalid projectId format' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-
     if (keywordIds !== undefined && !isValidUUIDArray(keywordIds)) {
       return new Response(
         JSON.stringify({ error: 'Invalid keywordIds format or too many keywords (max 1000)' }),
@@ -481,17 +487,11 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Fetch class(es) to process
+    // Fetch class(es)
     let classesToProcess: any[] = []
-
     if (classId) {
       const { data: cls, error: clsError } = await supabase
-        .from('project_classes')
-        .select('*')
-        .eq('id', classId)
-        .eq('user_id', userId)
-        .single()
-
+        .from('project_classes').select('*').eq('id', classId).eq('user_id', userId).single()
       if (clsError || !cls) {
         return new Response(
           JSON.stringify({ error: 'Class not found' }),
@@ -501,11 +501,7 @@ Deno.serve(async (req) => {
       classesToProcess = [cls]
     } else if (projectId) {
       const { data: classes, error: classesError } = await supabase
-        .from('project_classes')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('user_id', userId)
-
+        .from('project_classes').select('*').eq('project_id', projectId).eq('user_id', userId)
       if (classesError) {
         return new Response(
           JSON.stringify({ error: 'Failed to fetch classes' }),
@@ -515,33 +511,21 @@ Deno.serve(async (req) => {
       classesToProcess = classes || []
     }
 
-    // Calculate total credits needed: 1 credit per keyword
+    // Calculate total credits needed
     let totalKeywordsCount = 0
-
     for (const cls of classesToProcess) {
       let keywordsQuery = supabase
-        .from('project_keywords')
-        .select('id', { count: 'exact' })
-        .eq('class_id', cls.id)
-        .eq('user_id', userId)
-
-      if (keywordIds && keywordIds.length > 0) {
-        keywordsQuery = keywordsQuery.in('id', keywordIds)
-      }
-
+        .from('project_keywords').select('id', { count: 'exact' }).eq('class_id', cls.id).eq('user_id', userId)
+      if (keywordIds && keywordIds.length > 0) keywordsQuery = keywordsQuery.in('id', keywordIds)
       const { count } = await keywordsQuery
       totalKeywordsCount += count || 0
     }
 
-    const totalCreditsNeeded = totalKeywordsCount // 1 credit per keyword
+    const totalCreditsNeeded = totalKeywordsCount
 
     // Check user credits
     const { data: userCredits } = await supabase
-      .from('user_credits')
-      .select('balance, total_used')
-      .eq('user_id', userId)
-      .single()
-
+      .from('user_credits').select('balance, total_used').eq('user_id', userId).single()
     const currentBalance = userCredits?.balance || 0
     const currentTotalUsed = userCredits?.total_used || 0
 
@@ -558,18 +542,12 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Deduct credits before processing
+    // Deduct credits
     const newBalance = currentBalance - totalCreditsNeeded
     const newTotalUsed = currentTotalUsed + totalCreditsNeeded
-
     const { error: deductError } = await supabase
       .from('user_credits')
-      .upsert({
-        user_id: userId,
-        balance: newBalance,
-        total_used: newTotalUsed,
-      }, { onConflict: 'user_id' })
-
+      .upsert({ user_id: userId, balance: newBalance, total_used: newTotalUsed }, { onConflict: 'user_id' })
     if (deductError) {
       return new Response(
         JSON.stringify({ error: 'Failed to deduct credits' }),
@@ -577,22 +555,16 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Upsert daily usage summary
+    // Daily usage
     const { error: upsertError } = await supabase.rpc('upsert_daily_usage', {
-      p_user_id: userId,
-      p_keywords_count: totalKeywordsCount,
-      p_credits_used: totalCreditsNeeded,
-      p_balance_after: newBalance,
+      p_user_id: userId, p_keywords_count: totalKeywordsCount,
+      p_credits_used: totalCreditsNeeded, p_balance_after: newBalance,
     })
-
     if (upsertError) {
       console.error('[WARN] Failed to upsert daily usage:', upsertError)
       await supabase.from('credit_transactions').insert({
-        user_id: userId,
-        amount: -totalCreditsNeeded,
-        type: 'usage',
-        description: `Check ${totalKeywordsCount} keywords`,
-        balance_after: newBalance,
+        user_id: userId, amount: -totalCreditsNeeded, type: 'usage',
+        description: `Check ${totalKeywordsCount} keywords`, balance_after: newBalance,
       })
     }
 
@@ -603,142 +575,100 @@ Deno.serve(async (req) => {
     let totalNotFound = 0
 
     for (const cls of classesToProcess) {
-      // Resolve country code from country_id
       const countryCode = COUNTRY_ID_TO_CODE[cls.country_id] || 'US'
 
-      // Fetch keywords for this class
+      // Fetch keywords
       let keywordsQuery = supabase
-        .from('project_keywords')
-        .select('*')
-        .eq('class_id', cls.id)
-        .eq('user_id', userId)
-
-      if (keywordIds && keywordIds.length > 0) {
-        keywordsQuery = keywordsQuery.in('id', keywordIds)
-      }
-
+        .from('project_keywords').select('*').eq('class_id', cls.id).eq('user_id', userId)
+      if (keywordIds && keywordIds.length > 0) keywordsQuery = keywordsQuery.in('id', keywordIds)
       const { data: keywords, error: kwError } = await keywordsQuery
-
-      if (kwError) {
+      if (kwError || !keywords || keywords.length === 0) {
         console.error(`[ERROR] Failed to fetch keywords for class ${cls.id}`)
         continue
       }
 
       const competitorDomains = (cls.competitor_domains as string[]) || []
-      console.log(`[INFO] Class ${cls.name}: Processing ${keywords?.length || 0} keywords`)
+      console.log(`[INFO] Class ${cls.name}: Processing ${keywords.length} keywords via pipeline`)
 
-      // Process each keyword (sequential due to 1 req/s rate limit)
-      const processKeyword = async (kw: any): Promise<{ found: boolean; processed: boolean }> => {
-        try {
-          console.log(`[INFO] Checking keyword: "${kw.keyword}"`)
+      // ===== PIPELINE: Fetch all keywords concurrently at 1 req/s =====
+      const pipelineResults = await pipelinedFetchAll(
+        keywords.map(kw => ({ id: kw.id, keyword: kw.keyword })),
+        countryCode,
+        cls.language_code,
+        cls.device,
+        rapidApiKey
+      )
 
-          const results = await fetchAllSerpResults(
-            kw.keyword,
-            countryCode,
-            cls.language_code,
-            cls.device,
-            rapidApiKey
-          )
+      // Process results and save to DB
+      for (const kw of keywords) {
+        const kwResult = pipelineResults.get(kw.id)
+        if (!kwResult || kwResult.error) {
+          console.error(`[ERROR] Keyword "${kw.keyword}": ${kwResult?.error || 'no result'}`)
+          continue
+        }
 
-          // Find user domain ranking
-          const { position: userPosition, foundUrl } = findTargetRanking(results, cls.domain)
+        const results = kwResult.results
 
-          // Find competitor rankings
-          const existingCompRankings = (kw.competitor_rankings as Record<string, any>) || {}
-          const competitorRankings: Record<string, {
-            position: number | null
-            url: string | null
-            first_position: number | null
-            best_position: number | null
-            previous_position: number | null
-          }> = {}
+        // Find user domain ranking
+        const { position: userPosition, foundUrl } = findTargetRanking(results, cls.domain)
 
-          for (const compDomain of competitorDomains) {
-            const { position: compPosition, foundUrl: compUrl } = findTargetRanking(results, compDomain)
-            const existingData = existingCompRankings[compDomain]
-            const existingPos = typeof existingData === 'object' ? existingData?.position : existingData
-            const existingFirst = typeof existingData === 'object' ? existingData?.first_position : null
-            const existingBest = typeof existingData === 'object' ? existingData?.best_position : null
+        // Find competitor rankings
+        const existingCompRankings = (kw.competitor_rankings as Record<string, any>) || {}
+        const competitorRankings: Record<string, {
+          position: number | null; url: string | null
+          first_position: number | null; best_position: number | null; previous_position: number | null
+        }> = {}
 
-            competitorRankings[compDomain] = {
-              position: compPosition,
-              url: compUrl,
-              first_position: existingFirst ?? compPosition,
-              best_position: compPosition !== null
-                ? (existingBest !== null ? Math.min(existingBest, compPosition) : compPosition)
-                : existingBest,
-              previous_position: existingPos ?? null
-            }
+        for (const compDomain of competitorDomains) {
+          const { position: compPosition, foundUrl: compUrl } = findTargetRanking(results, compDomain)
+          const existingData = existingCompRankings[compDomain]
+          const existingPos = typeof existingData === 'object' ? existingData?.position : existingData
+          const existingFirst = typeof existingData === 'object' ? existingData?.first_position : null
+          const existingBest = typeof existingData === 'object' ? existingData?.best_position : null
+
+          competitorRankings[compDomain] = {
+            position: compPosition, url: compUrl,
+            first_position: existingFirst ?? compPosition,
+            best_position: compPosition !== null
+              ? (existingBest !== null ? Math.min(existingBest, compPosition) : compPosition)
+              : existingBest,
+            previous_position: existingPos ?? null
           }
-
-          // Update keyword record
-          const previousPosition = kw.ranking_position
-          const firstPosition = kw.first_position ?? userPosition
-          const bestPosition = userPosition !== null
-            ? (kw.best_position !== null ? Math.min(kw.best_position, userPosition) : userPosition)
-            : kw.best_position
-
-          await supabase
-            .from('project_keywords')
-            .update({
-              ranking_position: userPosition,
-              first_position: firstPosition,
-              best_position: bestPosition,
-              previous_position: previousPosition,
-              found_url: foundUrl,
-              competitor_rankings: competitorRankings,
-              serp_results: results,
-              last_checked_at: new Date().toISOString()
-            })
-            .eq('id', kw.id)
-
-          // Insert history record
-          await supabase
-            .from('keyword_ranking_history')
-            .insert({
-              keyword_id: kw.id,
-              user_id: userId,
-              ranking_position: userPosition,
-              found_url: foundUrl,
-              competitor_rankings: competitorRankings,
-              checked_at: new Date().toISOString()
-            })
-
-          return { processed: true, found: userPosition !== null }
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : 'Unknown error'
-          console.error(`[ERROR] Failed to check keyword "${kw.keyword}": ${errMsg}`)
-          return { processed: false, found: false }
         }
-      }
 
-      // Process keywords sequentially (rate-limited API)
-      const results = await processKeywordsSequentially(keywords || [], processKeyword)
+        const previousPosition = kw.ranking_position
+        const firstPosition = kw.first_position ?? userPosition
+        const bestPosition = userPosition !== null
+          ? (kw.best_position !== null ? Math.min(kw.best_position, userPosition) : userPosition)
+          : kw.best_position
 
-      for (const result of results) {
-        if (result?.processed) {
-          totalProcessed++
-          if (result.found) totalFound++
-          else totalNotFound++
-        }
+        await supabase.from('project_keywords').update({
+          ranking_position: userPosition, first_position: firstPosition,
+          best_position: bestPosition, previous_position: previousPosition,
+          found_url: foundUrl, competitor_rankings: competitorRankings,
+          serp_results: results, last_checked_at: new Date().toISOString()
+        }).eq('id', kw.id)
+
+        await supabase.from('keyword_ranking_history').insert({
+          keyword_id: kw.id, user_id: userId, ranking_position: userPosition,
+          found_url: foundUrl, competitor_rankings: competitorRankings,
+          checked_at: new Date().toISOString()
+        })
+
+        totalProcessed++
+        if (userPosition !== null) totalFound++
+        else totalNotFound++
       }
 
       // Update class last_checked_at
-      await supabase
-        .from('project_classes')
-        .update({ last_checked_at: new Date().toISOString() })
-        .eq('id', cls.id)
+      await supabase.from('project_classes')
+        .update({ last_checked_at: new Date().toISOString() }).eq('id', cls.id)
     }
 
     console.log(`[INFO] Completed: ${totalProcessed} processed, ${totalFound} found, ${totalNotFound} not found`)
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        processed: totalProcessed,
-        found: totalFound,
-        notFound: totalNotFound
-      }),
+      JSON.stringify({ success: true, processed: totalProcessed, found: totalFound, notFound: totalNotFound }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
