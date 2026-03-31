@@ -1,42 +1,81 @@
 
 
-# Fix Rate Limit & Mobile Canonical
+# Plan: Weighted Fair Queue + E2E Verification
 
-## Vấn đề 1: Rate limit 1 req/s chưa đảm bảo
+## Part 1: Weighted Fair Queue (WFQ)
 
-**Hiện trạng:** Delay 1s chỉ áp dụng giữa các **page** của cùng 1 keyword. Giữa các **keyword** không có delay. Khi keyword A kết thúc (ví dụ page 7), keyword B bắt đầu ngay lập tức — vi phạm rate limit.
+### Concept
+Paid users get processed 3x more often than free/trial users. Instead of pure round-robin, a **weight counter** tracks how many turns each tier has used. The system picks the job whose tier has the most "remaining turns."
 
-Ngoài ra, `process-ranking-queue` self-invoke ngay lập tức (fire-and-forget), có thể tạo ra nhiều invocation song song, mỗi cái gọi `check-project-keywords` → nhiều API call đồng thời.
+### Implementation
 
-**Fix:**
-- Thêm `await delay(1000)` trước mỗi keyword (trừ keyword đầu tiên trong batch) trong `processKeywordsSequentially`
-- Trong `process-ranking-queue`: **không** self-invoke ngay mà đợi `check-project-keywords` trả về xong rồi mới self-invoke. Vì `check-project-keywords` đã xử lý tuần tự bên trong, nên chỉ cần đảm bảo không có 2 invocation song song gọi API cùng lúc. Cơ chế `claim_next_queue_job` với `FOR UPDATE SKIP LOCKED` đã đảm bảo không có 2 worker claim cùng 1 job, nhưng 2 worker CÓ THỂ claim 2 job khác nhau và gọi API song song → vi phạm global rate limit.
-- **Giải pháp gốc**: Giảm BATCH_SIZE từ 10 xuống **1** keyword per invocation trong `process-ranking-queue`, và thêm delay 1s trong self-invoke. Như vậy mỗi lần chỉ có 1 keyword được xử lý, đảm bảo global 1 req/s.
+**Step 1: Add `priority` column to `ranking_check_queue`**
 
-**Tuy nhiên**, nếu BATCH_SIZE = 1 thì mỗi keyword cần 1-10 API calls (1-10 pages), mỗi call cách nhau 1s. Self-invoke cần đợi xong keyword hiện tại rồi mới tiếp. Cách tốt nhất:
-- Giữ BATCH_SIZE = 10 nhưng `check-project-keywords` đã có delay 1s giữa pages
-- Thêm delay 1s giữa keywords trong `check-project-keywords`  
-- Đảm bảo chỉ có **1 worker** chạy tại 1 thời điểm bằng cách self-invoke tuần tự (await xong rồi mới invoke tiếp, không fire-and-forget)
+Migration adds:
+```sql
+ALTER TABLE ranking_check_queue ADD COLUMN priority integer NOT NULL DEFAULT 0;
+```
+- `0` = free/trial user
+- `1` = paid user (has at least 1 paid billing_orders)
 
-## Vấn đề 2: Mobile canonical không hoạt động đúng
+**Step 2: Update `add-ranking-job` to set priority**
 
-**Hiện trạng:** Logic `applyMobileCanonical` so sánh `canonical !== result.url` bằng string exact match. Vấn đề:
-- URL có trailing slash vs không: `https://example.com/page` vs `https://example.com/page/`
-- `www` vs non-www: `https://www.example.com` vs `https://example.com`
-- HTTP vs HTTPS
-- Các redirect chain khiến canonical URL format khác original
+When inserting a new job, check if user has any `billing_orders` with `status = 'paid'`:
+- If yes → `priority = 1`
+- If no → `priority = 0`
 
-Kết quả: page 1 check thấy "không có sự khác biệt" (vì so sánh quá strict) → bỏ qua các page còn lại → miss canonical URLs.
+**Step 3: Update `claim_next_queue_job()` SQL function**
 
-**Fix:**
-- Normalize cả `canonical` và `result.url` trước khi so sánh: bỏ protocol, bỏ www, bỏ trailing slash, lowercase
-- Chỉ khi normalized URLs khác nhau thì mới coi là "có sự khác biệt"
-- Khi apply canonical, vẫn dùng canonical URL gốc (không normalize) để lưu vào DB
+Use weighted selection logic:
+```sql
+-- Count pending/processing jobs by priority
+-- If paid_count * 1 >= free_count * 3, pick free next (anti-starvation)
+-- Otherwise pick paid first
+ORDER BY
+  CASE 
+    WHEN priority = 1 THEN 0  -- paid first by default
+    ELSE 1
+  END,
+  updated_at ASC
+```
 
-## Files thay đổi
+More precisely, implement a **weighted round-robin** counter:
+- Paid jobs: weight 3 (get picked 3x as often)
+- Free jobs: weight 1
+- Track via a simple heuristic: among pending jobs, sort by `(times_processed / weight) ASC, updated_at ASC` where `times_processed` = `processed_keywords / BATCH_SIZE`
+
+Simpler approach (recommended): Just sort by `priority DESC, updated_at ASC`. This gives paid users priority but still processes free users when no paid jobs are waiting. Combined with the existing `updated_at` round-robin, paid users get picked first but free users are never starved because their `updated_at` keeps advancing.
+
+**Anti-starvation guarantee**: A free user's job will eventually be picked because:
+1. Paid jobs' `updated_at` advances each batch → they rotate to the back
+2. Free jobs with oldest `updated_at` float to top when no paid jobs are older
+
+### Files
 
 | File | Change |
 |------|--------|
-| `supabase/functions/check-project-keywords/index.ts` | Add 1s delay between keywords; fix canonical URL comparison with normalization |
-| `supabase/functions/process-ranking-queue/index.ts` | Change self-invoke from fire-and-forget to sequential (await response trước khi invoke tiếp) |
+| Migration SQL | Add `priority` column to `ranking_check_queue` |
+| `supabase/functions/add-ranking-job/index.ts` | Set priority based on billing history |
+| Migration SQL | Update `claim_next_queue_job()` to sort `priority DESC, updated_at ASC` |
+
+---
+
+## Part 2: E2E Verification Plan
+
+Test round-robin + rate limit + canonical with 2 different classes.
+
+### Test Steps
+
+1. **Query existing data**: Check current queue state and recent jobs
+2. **Invoke `process-ranking-queue`** and monitor edge function logs
+3. **Verify in DB**:
+   - Keywords have `ranking_position`, `found_url`, `serp_results` populated
+   - `last_checked_at` updated on classes
+   - Credits deducted correctly
+   - Queue jobs marked `completed`
+4. **Verify rate limit**: Check edge function logs for timestamps between API calls (should be ≥1s apart)
+5. **Verify round-robin**: If 2 jobs exist simultaneously, logs should show alternating job IDs between batches
+
+### Execution
+Will use `supabase--edge_function_logs` and `supabase--read_query` tools to inspect real data and logs after triggering a check.
 
