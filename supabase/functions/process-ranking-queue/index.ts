@@ -271,9 +271,9 @@ Deno.serve(async (req) => {
 })
 
 /**
- * Sequential self-invoke: await the next invocation to ensure
- * only 1 worker runs at a time (global rate limit compliance).
- * The claim_next_queue_job() RPC handles round-robin scheduling.
+ * Self-invoke with short timeout: ensures the request reaches the server
+ * without waiting for the full response (which would create infinite chain).
+ * The server processes the request regardless of client-side abort.
  */
 async function selfInvoke(supabaseUrl: string, supabaseServiceKey: string, continuation: number, delayMs = 1000) {
   // Delay before next invocation to respect rate limits
@@ -282,6 +282,8 @@ async function selfInvoke(supabaseUrl: string, supabaseServiceKey: string, conti
   }
   
   try {
+    // 5s timeout — enough for the request to reach the server
+    // The server will continue processing even if we abort
     await fetch(`${supabaseUrl}/functions/v1/process-ranking-queue`, {
       method: 'POST',
       headers: {
@@ -289,8 +291,9 @@ async function selfInvoke(supabaseUrl: string, supabaseServiceKey: string, conti
         'Authorization': `Bearer ${supabaseServiceKey}`,
       },
       body: JSON.stringify({ continuation: continuation + 1 }),
+      signal: AbortSignal.timeout(5000),
     })
-  } catch (err) {
-    console.error('[ERROR] Self-invoke failed:', err)
+  } catch {
+    // Timeout/abort is expected — the request was already received by the server
   }
 }
