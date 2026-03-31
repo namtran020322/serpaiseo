@@ -142,6 +142,17 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Determine priority: paid users (have at least 1 paid order) get priority 1
+    let priority = 0
+    const { count: paidOrderCount } = await supabase
+      .from('billing_orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'paid')
+    if (paidOrderCount && paidOrderCount > 0) {
+      priority = 1
+    }
+
     // Create job in queue
     const { data: job, error: insertError } = await supabase
       .from('ranking_check_queue')
@@ -152,6 +163,7 @@ Deno.serve(async (req) => {
         total_keywords: totalKeywords,
         processed_keywords: 0,
         status: 'pending',
+        priority,
       })
       .select()
       .single()
